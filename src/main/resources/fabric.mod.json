@@ -18,6 +18,9 @@
 			"mois.economy.client.EconomyClient"
 		]
 	},
+	"mixins": [
+		"economy.mixins.json"
+	],
 	"depends": {
 		"fabricloader": ">=0.19.3",
 		"minecraft": "~26.3-",
