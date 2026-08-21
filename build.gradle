@@ -29,6 +29,13 @@ dependencies {
 
 	// Fabric API. This is technically optional, but you probably want it anyway.
 	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+	// SQLite JDBC driver for the economy storage; bundled into the mod jar.
+	// slf4j-api is excluded from the bundle because Minecraft/Fabric Loader already provide it.
+	implementation "org.xerial:sqlite-jdbc:${project.sqlite_jdbc_version}"
+	include("org.xerial:sqlite-jdbc:${project.sqlite_jdbc_version}") {
+		exclude group: "org.slf4j", module: "slf4j-api"
+	}
 }
 
 processResources {
