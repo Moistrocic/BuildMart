@@ -74,3 +74,10 @@
 - 独立服务端首次运行缺少 `server.properties` 会记一条 `Failed to load properties from file: server.properties` 的 ERROR，随后自动生成文件并正常继续启动，不算失败。
 - Loom 的 `Class path entries reference missing files: build\resources\client` 警告在客户端资源为空时属无害告警。
 - 成功判定以模组初始化标记为准，而不是“日志停止输出”或“窗口停留在主菜单”。
+
+### 4.5 开发环境服务端配置
+
+- 独立服务端的 `server.properties` 必须关闭正版验证：`online-mode=false`。
+- 同时必须关闭白名单与安全档案强制校验：`white-list=false`、`enforce-secure-profile=false`（26.3 的 `white-list` 默认值为 true；离线开发端没有正版会话与安全档案，任一项开启都会导致开发端无法进入服务器）。
+- 验证用临时服务器（如 `run-verify` 独立运行目录）同样需要先写入上述三项，再启动服务器与客户端连接验证。
+- 管理员权限验证需要预先准备 `world/ops.json`（26.3 格式：`{"uuid","name","level","bypassesPlayerLimit"}`，`level` 为整数 3=ADMINS）。
