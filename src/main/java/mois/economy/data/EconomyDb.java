@@ -99,17 +99,30 @@ public final class EconomyDb {
 			ensureAccount(a, "自检A");
 			ensureAccount(b, "自检B");
 			long amount = 123456789L; // 1234567.89 元，验证整数分精度
-			credit(a, amount);
+			credit(a, "自检A", amount);
 			if (getBalance(a) != amount) {
 				throw new IllegalStateException("余额写入/读取不一致");
 			}
-			if (!transfer(a, b, 99999L)) {
+			// 入账一个不存在的账户：应自动建行并使用传入的名字（修复 add 无效与未知玩家）。
+			UUID c = UUID.randomUUID();
+			credit(c, "自检C", 500L);
+			if (getBalance(c) != 500L) {
+				throw new IllegalStateException("新账户入账失败");
+			}
+			if (!topAccounts(100, 0).stream().anyMatch(e -> e.uuid().equals(c) && e.name().equals("自检C"))) {
+				throw new IllegalStateException("新账户名字未正确存储");
+			}
+			deleteAccount(c);
+			if (!transfer(a, b, "自检B", 99999L)) {
 				throw new IllegalStateException("充足余额转账被拒绝");
 			}
 			if (getBalance(a) != amount - 99999L || getBalance(b) != 99999L) {
 				throw new IllegalStateException("转账后余额不一致");
 			}
-			if (transfer(b, a, 99999L + 1)) {
+			if (!topAccounts(100, 0).stream().anyMatch(e -> e.uuid().equals(b) && e.name().equals("自检B"))) {
+				throw new IllegalStateException("转账目标名字被覆盖");
+			}
+			if (transfer(b, a, "自检A", 99999L + 1)) {
 				throw new IllegalStateException("余额不足的转账未被拦截");
 			}
 			setBalance(a, "自检A", 1000L);
@@ -167,12 +180,13 @@ public final class EconomyDb {
 		}
 	}
 
-	/** 入账（无来源），例如服务器资产初始资金。 */
-	public static synchronized void credit(UUID uuid, long amount) {
+	/** 入账（无来源），例如服务器资产初始资金；账户不存在时按给定名字创建。 */
+	public static synchronized void credit(UUID uuid, String name, long amount) {
 		requireOpen();
 		if (amount < 0) {
 			throw new IllegalArgumentException("入账金额不能为负");
 		}
+		ensureAccount(uuid, name);
 		try (PreparedStatement ps = connection.prepareStatement("""
 				UPDATE economy_accounts SET balance = balance + ? WHERE uuid = ?
 				""")) {
@@ -267,8 +281,8 @@ public final class EconomyDb {
 		}
 	}
 
-	/** 单笔转账；余额不足时返回 false 且不做任何修改。 */
-	public static synchronized boolean transfer(UUID from, UUID to, long amount) {
+	/** 单笔转账；目标账户不存在时按 toName 创建。余额不足时返回 false 且不做任何修改。 */
+	public static synchronized boolean transfer(UUID from, UUID to, String toName, long amount) {
 		requireOpen();
 		if (amount < 0) {
 			throw new IllegalArgumentException("转账金额不能为负");
@@ -276,7 +290,7 @@ public final class EconomyDb {
 		if (from.equals(to)) {
 			return true; // 转给自己视为无操作
 		}
-		return transferMany(from, List.of(to), List.of("未知玩家"), amount);
+		return transferMany(from, List.of(to), List.of(toName != null ? toName : "未知玩家"), amount);
 	}
 
 	/**
