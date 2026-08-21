@@ -89,6 +89,13 @@ public final class EconomyCommands {
 				.executes(ctx -> showHelp(ctx.getSource(), 1))
 				.then(Commands.argument("page", IntegerArgumentType.integer(1))
 						.executes(ctx -> showHelp(ctx.getSource(), IntegerArgumentType.getInteger(ctx, "page")))));
+
+		dispatcher.register(Commands.literal("announcement")
+				.requires(Commands.hasPermission(Commands.LEVEL_ADMINS))
+				.then(Commands.argument("content", StringArgumentType.greedyString())
+						.executes(EconomyCommands::setAnnouncement))
+				.then(Commands.literal("clear")
+						.executes(EconomyCommands::clearAnnouncement)));
 	}
 
 	// ---------- /bal ----------
@@ -241,6 +248,31 @@ public final class EconomyCommands {
 			message.append(HELP_LINES[i]).append("\n");
 		}
 		source.sendSuccess(() -> message, false);
+		return 1;
+	}
+
+	// ---------- /announcement ----------
+
+	private static int setAnnouncement(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+		String content = StringArgumentType.getString(ctx, "content");
+		try {
+			EconomyDb.setAnnouncement(content);
+		} catch (EconomyDb.DatabaseException e) {
+			Economy.LOGGER.error("announcement 数据库错误", e);
+			throw DB_ERROR.create();
+		}
+		ctx.getSource().sendSuccess(() -> text("公告已设置", ChatFormatting.GREEN), false);
+		return 1;
+	}
+
+	private static int clearAnnouncement(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+		try {
+			EconomyDb.setAnnouncement(null);
+		} catch (EconomyDb.DatabaseException e) {
+			Economy.LOGGER.error("announcement 数据库错误", e);
+			throw DB_ERROR.create();
+		}
+		ctx.getSource().sendSuccess(() -> text("公告已清除", ChatFormatting.GREEN), false);
 		return 1;
 	}
 

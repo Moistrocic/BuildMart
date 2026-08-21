@@ -5,7 +5,10 @@ import mois.economy.data.EconomyDb;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 
 import net.minecraft.world.level.storage.LevelResource;
@@ -36,9 +39,22 @@ public class Economy implements ModInitializer {
 		});
 		ServerLifecycleEvents.SERVER_STOPPING.register(server -> EconomyDb.close());
 
+		// 玩家进入服务器时发送红色公告。
+		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
+			try {
+				String announcement = EconomyDb.getAnnouncement();
+				if (announcement != null && !announcement.isEmpty()) {
+					handler.getPlayer().sendSystemMessage(
+							Component.literal(announcement).withStyle(ChatFormatting.RED), false);
+				}
+			} catch (EconomyDb.DatabaseException e) {
+				LOGGER.error("读取公告失败", e);
+			}
+		});
+
 		CommandRegistrationCallback.EVENT.register((dispatcher, buildContext, selection) -> {
 			EconomyCommands.register(dispatcher);
-			LOGGER.info("命令注册完成（bal/pbal/pay/baltop/balhelp）");
+			LOGGER.info("命令注册完成（bal/pbal/pay/baltop/balhelp/announcement）");
 		});
 
 		LOGGER.info("Hello Fabric world!");
