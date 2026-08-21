@@ -15,6 +15,8 @@ public final class Money {
 			new SimpleCommandExceptionType(Component.literal("金额无效：请输入数字"));
 	private static final SimpleCommandExceptionType NOT_POSITIVE =
 			new SimpleCommandExceptionType(Component.literal("金额必须大于 0"));
+	private static final SimpleCommandExceptionType NOT_NEGATIVE =
+			new SimpleCommandExceptionType(Component.literal("金额不能为负"));
 	private static final SimpleCommandExceptionType TOO_MANY_DECIMALS =
 			new SimpleCommandExceptionType(Component.literal("金额最多只能有两位小数"));
 	private static final SimpleCommandExceptionType TOO_LARGE =
@@ -29,14 +31,23 @@ public final class Money {
 	 * 负数、零、超过两位小数、无法解析或超出 long 范围时抛出命令异常。
 	 */
 	public static long parseCents(String input) throws CommandSyntaxException {
+		return parse(input, false);
+	}
+
+	/** 与 {@link #parseCents} 相同，但允许 0（用于 /eco set 清零）。 */
+	public static long parseCentsAllowZero(String input) throws CommandSyntaxException {
+		return parse(input, true);
+	}
+
+	private static long parse(String input, boolean allowZero) throws CommandSyntaxException {
 		BigDecimal value;
 		try {
 			value = new BigDecimal(input.trim());
 		} catch (NumberFormatException e) {
 			throw INVALID_AMOUNT.create();
 		}
-		if (value.signum() <= 0) {
-			throw NOT_POSITIVE.create();
+		if (allowZero ? value.signum() < 0 : value.signum() <= 0) {
+			throw (allowZero ? NOT_NEGATIVE : NOT_POSITIVE).create();
 		}
 		if (value.scale() > 2) {
 			throw TOO_MANY_DECIMALS.create();

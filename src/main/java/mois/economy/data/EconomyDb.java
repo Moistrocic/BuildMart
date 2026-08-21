@@ -112,6 +112,19 @@ public final class EconomyDb {
 			if (transfer(b, a, 99999L + 1)) {
 				throw new IllegalStateException("余额不足的转账未被拦截");
 			}
+			setBalance(a, "自检A", 1000L);
+			if (getBalance(a) != 1000L) {
+				throw new IllegalStateException("设置余额不一致");
+			}
+			if (!deduct(a, 300L)) {
+				throw new IllegalStateException("充足余额的扣款被拒绝");
+			}
+			if (getBalance(a) != 700L) {
+				throw new IllegalStateException("扣款后余额不一致");
+			}
+			if (deduct(a, 701L)) {
+				throw new IllegalStateException("余额不足的扣款未被拦截");
+			}
 		} finally {
 			deleteAccount(a);
 			deleteAccount(b);
@@ -168,6 +181,89 @@ public final class EconomyDb {
 			ps.executeUpdate();
 		} catch (SQLException e) {
 			throw new DatabaseException("入账失败", e);
+		}
+	}
+
+	/** 单笔扣款；余额不足时返回 false 且不做任何修改。 */
+	public static synchronized boolean deduct(UUID uuid, long amount) {
+		requireOpen();
+		if (amount < 0) {
+			throw new IllegalArgumentException("扣款金额不能为负");
+		}
+		try {
+			return deductRow(uuid, amount);
+		} catch (SQLException e) {
+			throw new DatabaseException("扣款失败", e);
+		}
+	}
+
+	/** 向多个账户各扣 amount，原子执行：任一余额不足则整体不做修改。 */
+	public static synchronized boolean deductMany(List<UUID> targets, long amount) {
+		requireOpen();
+		if (amount < 0) {
+			throw new IllegalArgumentException("扣款金额不能为负");
+		}
+		if (targets.isEmpty()) {
+			return true;
+		}
+		boolean oldAutoCommit;
+		try {
+			oldAutoCommit = connection.getAutoCommit();
+			connection.setAutoCommit(false);
+		} catch (SQLException e) {
+			throw new DatabaseException("开启事务失败", e);
+		}
+		try {
+			for (UUID uuid : targets) {
+				if (!deductRow(uuid, amount)) {
+					connection.rollback();
+					return false;
+				}
+			}
+			connection.commit();
+			return true;
+		} catch (SQLException e) {
+			try {
+				connection.rollback();
+			} catch (SQLException ignored) {
+				// 回滚失败时交由上层异常处理。
+			}
+			throw new DatabaseException("批量扣款失败", e);
+		} finally {
+			try {
+				connection.setAutoCommit(oldAutoCommit);
+			} catch (SQLException e) {
+				throw new DatabaseException("恢复自动提交失败", e);
+			}
+		}
+	}
+
+	private static boolean deductRow(UUID uuid, long amount) throws SQLException {
+		try (PreparedStatement ps = connection.prepareStatement("""
+				UPDATE economy_accounts SET balance = balance - ? WHERE uuid = ? AND balance >= ?
+				""")) {
+			ps.setLong(1, amount);
+			ps.setString(2, uuid.toString());
+			ps.setLong(3, amount);
+			return ps.executeUpdate() == 1;
+		}
+	}
+
+	/** 把账户余额直接设置为指定值（非负）；账户不存在时先创建。 */
+	public static synchronized void setBalance(UUID uuid, String name, long balance) {
+		requireOpen();
+		if (balance < 0) {
+			throw new IllegalArgumentException("余额不能为负");
+		}
+		ensureAccount(uuid, name);
+		try (PreparedStatement ps = connection.prepareStatement("""
+				UPDATE economy_accounts SET balance = ? WHERE uuid = ?
+				""")) {
+			ps.setLong(1, balance);
+			ps.setString(2, uuid.toString());
+			ps.executeUpdate();
+		} catch (SQLException e) {
+			throw new DatabaseException("设置余额失败", e);
 		}
 	}
 
