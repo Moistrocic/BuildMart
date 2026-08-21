@@ -13,7 +13,9 @@ public final class AdminUtil {
 	}
 
 	public static boolean isAdmin(ServerPlayer player) {
-		MinecraftServer server = player.createCommandSourceStack().getServer();
+		// 注意：不能使用 createCommandSourceStack() 取服务器——它会调用 getDisplayName()，
+		// 与 PlayerMixin 的注入形成无限递归。level().getServer() 无此依赖。
+		MinecraftServer server = player.level().getServer();
 		if (server == null) {
 			return false;
 		}

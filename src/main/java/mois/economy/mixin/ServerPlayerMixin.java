@@ -10,8 +10,9 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
- * 管理员在玩家列表（Tab）中红色显示。Tab 名单由 getTabListDisplayName 决定，
- * 未单独设置名单时回退到 getDisplayName（已由 EntityMixin 染红）。
+ * 管理员在玩家列表（Tab）中红色显示。26.3 中 getTabListDisplayName 是返回 null 的空实现，
+ * 但 PLAYER_INFO 包构建（ClientboundPlayerInfoUpdatePacket.Entry）仍会调用它作为 Tab 显示名，
+ * 因此在这里为管理员返回红色名字即可；未设置时回退到 getDisplayName（已由 PlayerMixin 染红）。
  */
 @Mixin(ServerPlayer.class)
 public abstract class ServerPlayerMixin {
