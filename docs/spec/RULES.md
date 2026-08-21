@@ -49,13 +49,18 @@
 
 - 用后台任务启动 `gradlew runClient`（或 `runServer`），立即返回，不阻塞当前会话。
 - 同时启动一个后台日志监视器；监视器必须先于游戏记录日志基线时间戳（即监视器先启动，或至少在游戏写入日志前记录基线）。
+- 监视器启动时同时记录 `run/crash-reports/` 目录的已有文件清单（或该目录的 LastWriteTime），用于后续识别“新增崩溃报告”。
 
 ### 4.2 判定规则
 
 - 监视器启动前记录 `run/logs/latest.log` 的 LastWriteTime 作为基线；只有日志 mtime 超过基线后才检查其内容，防止把上一次运行的旧日志误判为本次成功。
 - 每 5 秒轮询一次。
 - 成功判定：日志中出现本模组的初始化标记（当前为 `Hello Fabric world!`；后续模组应维护自己的唯一初始化标记）。
-- 失败判定：出现致命标记（如 `Mixin apply for mod economy failed`、`Failed to start the minecraft server`、崩溃报告文件生成）；普通 `ERROR` 行可能来自良性事件（见 4.4），不能单独作为失败依据。
+- 失败判定：出现致命标记（如 `Mixin apply for mod economy failed`、`Failed to start the minecraft server`）；普通 `ERROR` 行可能来自良性事件（见 4.4），不能单独作为失败依据。
+- 崩溃判定（最高优先级，一经命中立即停止轮询并汇报，禁止继续等到超时）：
+  - 日志出现崩溃签名：`Game crashed!`、`Crash report saved`、`StackOverflowError`、`Unexpected error`（配合堆栈）等；
+  - 或 `run/crash-reports/` 目录出现基线之后的新增崩溃报告文件（对照启动前记录的文件清单，旧报告不算）。
+  - 命中后读取崩溃报告文件与日志尾部定位原因，向用户汇报后再结束监视。
 - 超时判定：超过 5 分钟仍未出现任何标记，视为启动失败，需检查启动任务输出与日志排查原因。
 
 ### 4.3 确认与清理
