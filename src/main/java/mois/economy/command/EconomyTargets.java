@@ -3,7 +3,6 @@ package mois.economy.command;
 import com.mojang.brigadier.StringReader;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
-import mois.economy.data.EconomyDb;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.arguments.GameProfileArgument;
 import net.minecraft.commands.arguments.selector.EntitySelector;
@@ -23,12 +22,10 @@ import java.util.UUID;
  * <p>
  * 出于规则书 3.1 的纯净端兼容要求，目标使用原版 StringArgumentType.word() 承载、
  * 在此处手动解析：禁止注册自定义 ArgumentType（会进入同步注册表导致纯净端被踢）。
- * 支持玩家名（含离线玩家）、不带选项的原版选择器（@a/@p/@r/@s）、以及特殊目标
- * "@server"（服务器资产账户）；选择器解析复用原版 {@link EntitySelectorParser}。
+ * 支持玩家名（含离线玩家）与不带选项的原版选择器（@a/@p/@r/@s）；
+ * 选择器解析复用原版 {@link EntitySelectorParser}。服务器资产操作使用独立的 /peco 指令。
  */
 public final class EconomyTargets {
-	public static final String SERVER_TARGET = "@server";
-
 	private static final SimpleCommandExceptionType INVALID_SELECTOR =
 			new SimpleCommandExceptionType(Component.literal("无效的目标"));
 
@@ -38,10 +35,7 @@ public final class EconomyTargets {
 	/** 解析目标字符串（word 参数）为目标列表，按 UUID 去重。 */
 	public static List<ResolvedTarget> resolve(String input, CommandSourceStack source) throws CommandSyntaxException {
 		Map<UUID, ResolvedTarget> result = new LinkedHashMap<>();
-		if (SERVER_TARGET.equals(input)) {
-			result.put(EconomyDb.SERVER_ACCOUNT_UUID,
-					new ResolvedTarget(EconomyDb.SERVER_ACCOUNT_UUID, EconomyDb.SERVER_ACCOUNT_NAME, null));
-		} else if (input.startsWith("@")) {
+		if (input.startsWith("@")) {
 			StringReader reader = new StringReader(input);
 			EntitySelector selector = new EntitySelectorParser(reader, true).parse();
 			if (reader.canRead()) {
@@ -61,11 +55,9 @@ public final class EconomyTargets {
 		return new ArrayList<>(result.values());
 	}
 
-	/** 补全建议：在线玩家名 + 特殊目标。 */
+	/** 补全建议：在线玩家名。 */
 	public static List<String> suggestions(CommandSourceStack source) {
-		List<String> options = new ArrayList<>(source.getOnlinePlayerNames());
-		options.add(SERVER_TARGET);
-		return options;
+		return new ArrayList<>(source.getOnlinePlayerNames());
 	}
 
 	/** 解析后的单个资金目标。onlinePlayer 非空表示目标当前在线，可发送即时通知。 */

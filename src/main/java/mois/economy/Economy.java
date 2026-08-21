@@ -42,6 +42,9 @@ public class Economy implements ModInitializer {
 		// 玩家进入服务器时发送红色公告。
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
 			try {
+				// 同步玩家名字到数据库：首次进入自动建行，并修复历史上被覆盖为“未知玩家”的名字。
+				EconomyDb.ensureAccount(handler.getPlayer().getUUID(),
+						handler.getPlayer().getGameProfile().name());
 				String announcement = EconomyDb.getAnnouncement();
 				if (announcement != null && !announcement.isEmpty()) {
 					handler.getPlayer().sendSystemMessage(
@@ -54,7 +57,7 @@ public class Economy implements ModInitializer {
 
 		CommandRegistrationCallback.EVENT.register((dispatcher, buildContext, selection) -> {
 			EconomyCommands.register(dispatcher);
-			LOGGER.info("命令注册完成（bal/pbal/pay/baltop/balhelp/announcement/eco）");
+			LOGGER.info("命令注册完成（bal/pbal/pay/baltop/balhelp/announcement/eco/peco）");
 		});
 
 		LOGGER.info("Hello Fabric world!");

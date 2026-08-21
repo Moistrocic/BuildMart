@@ -120,6 +120,19 @@ public final class EconomyCommands {
 										EconomyTargets.suggestions(ctx.getSource()), builder))
 								.then(Commands.argument("amount", StringArgumentType.word())
 										.executes(EconomyCommands::ecoSet)))));
+
+		// 服务器资产专用管理员指令：/peco set|add|remove 金额。
+		dispatcher.register(Commands.literal("peco")
+				.requires(Commands.hasPermission(Commands.LEVEL_ADMINS))
+				.then(Commands.literal("add")
+						.then(Commands.argument("amount", StringArgumentType.word())
+								.executes(EconomyCommands::pecoAdd)))
+				.then(Commands.literal("remove")
+						.then(Commands.argument("amount", StringArgumentType.word())
+								.executes(EconomyCommands::pecoRemove)))
+				.then(Commands.literal("set")
+						.then(Commands.argument("amount", StringArgumentType.word())
+								.executes(EconomyCommands::pecoSet))));
 	}
 
 	// ---------- /bal ----------
@@ -157,7 +170,8 @@ public final class EconomyCommands {
 		CommandSourceStack source = ctx.getSource();
 		ServerPlayer player = requirePlayer(source);
 		long amount = parseAmount(ctx);
-		boolean ok = transferOrThrow(EconomyDb.SERVER_ACCOUNT_UUID, player.getUUID(), amount, "pbal take");
+		boolean ok = transferOrThrow(EconomyDb.SERVER_ACCOUNT_UUID, player.getUUID(),
+				player.getGameProfile().name(), amount, "pbal take");
 		if (!ok) {
 			throw SERVER_INSUFFICIENT.create();
 		}
@@ -173,7 +187,8 @@ public final class EconomyCommands {
 		CommandSourceStack source = ctx.getSource();
 		ServerPlayer player = requirePlayer(source);
 		long amount = parseAmount(ctx);
-		boolean ok = transferOrThrow(player.getUUID(), EconomyDb.SERVER_ACCOUNT_UUID, amount, "pbal save");
+		boolean ok = transferOrThrow(player.getUUID(), EconomyDb.SERVER_ACCOUNT_UUID,
+				EconomyDb.SERVER_ACCOUNT_NAME, amount, "pbal save");
 		if (!ok) {
 			throw PAYER_INSUFFICIENT.create();
 		}
@@ -287,7 +302,7 @@ public final class EconomyCommands {
 		}
 		try {
 			for (EconomyTargets.ResolvedTarget target : targets) {
-				EconomyDb.credit(target.uuid(), amount);
+				EconomyDb.credit(target.uuid(), target.displayName(), amount);
 			}
 		} catch (EconomyDb.DatabaseException e) {
 			Economy.LOGGER.error("eco add 数据库错误", e);
@@ -384,6 +399,64 @@ public final class EconomyCommands {
 		}
 	}
 
+	// ---------- /peco ----------
+
+	/** /peco add 金额 —— 给服务器资产增加资金。 */
+	private static int pecoAdd(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+		CommandSourceStack source = ctx.getSource();
+		long amount = parseAmount(ctx);
+		try {
+			EconomyDb.credit(EconomyDb.SERVER_ACCOUNT_UUID, EconomyDb.SERVER_ACCOUNT_NAME, amount);
+		} catch (EconomyDb.DatabaseException e) {
+			Economy.LOGGER.error("peco add 数据库错误", e);
+			throw DB_ERROR.create();
+		}
+		long balance = readBalance(EconomyDb.SERVER_ACCOUNT_UUID);
+		source.sendSuccess(() -> text("已向服务器资产增加 ", ChatFormatting.GREEN)
+				.append(Money.format(amount)).append(" 元，当前：")
+				.append(Money.format(balance)).append(" 元"), false);
+		return 1;
+	}
+
+	/** /peco remove 金额 —— 从服务器资产扣除资金。 */
+	private static int pecoRemove(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+		CommandSourceStack source = ctx.getSource();
+		long amount = parseAmount(ctx);
+		long balance = readBalance(EconomyDb.SERVER_ACCOUNT_UUID);
+		if (balance < amount) {
+			throw new SimpleCommandExceptionType(Component.literal(
+					"服务器资产不足，当前资金：" + Money.format(balance) + " 元")).create();
+		}
+		try {
+			if (!EconomyDb.deductMany(List.of(EconomyDb.SERVER_ACCOUNT_UUID), amount)) {
+				throw DB_ERROR.create();
+			}
+		} catch (EconomyDb.DatabaseException e) {
+			Economy.LOGGER.error("peco remove 数据库错误", e);
+			throw DB_ERROR.create();
+		}
+		long balanceAfter = readBalance(EconomyDb.SERVER_ACCOUNT_UUID);
+		source.sendSuccess(() -> text("已从服务器资产扣除 ", ChatFormatting.GREEN)
+				.append(Money.format(amount)).append(" 元，当前：")
+				.append(Money.format(balanceAfter)).append(" 元"), false);
+		return 1;
+	}
+
+	/** /peco set 金额 —— 把服务器资产设置为指定值（允许 0）。 */
+	private static int pecoSet(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+		CommandSourceStack source = ctx.getSource();
+		long amount = Money.parseCentsAllowZero(StringArgumentType.getString(ctx, "amount"));
+		try {
+			EconomyDb.setBalance(EconomyDb.SERVER_ACCOUNT_UUID, EconomyDb.SERVER_ACCOUNT_NAME, amount);
+		} catch (EconomyDb.DatabaseException e) {
+			Economy.LOGGER.error("peco set 数据库错误", e);
+			throw DB_ERROR.create();
+		}
+		source.sendSuccess(() -> text("已将服务器资产设置为 ", ChatFormatting.GREEN)
+				.append(Money.format(amount)).append(" 元"), false);
+		return 1;
+	}
+
 	// ---------- /announcement ----------
 
 	private static int setAnnouncement(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
@@ -455,9 +528,10 @@ public final class EconomyCommands {
 		}
 	}
 
-	private static boolean transferOrThrow(UUID from, UUID to, long amount, String op) throws CommandSyntaxException {
+	private static boolean transferOrThrow(UUID from, UUID to, String toName, long amount, String op)
+			throws CommandSyntaxException {
 		try {
-			return EconomyDb.transfer(from, to, amount);
+			return EconomyDb.transfer(from, to, toName, amount);
 		} catch (EconomyDb.DatabaseException e) {
 			Economy.LOGGER.error(op + " 数据库错误", e);
 			throw DB_ERROR.create();
