@@ -12,6 +12,7 @@ import mois.economy.data.EconomyDb;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
+import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.commands.arguments.GameProfileArgument;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
@@ -98,18 +99,25 @@ public final class EconomyCommands {
 						.executes(EconomyCommands::clearAnnouncement)));
 
 		// 管理员资金指令：给系统注入/回收资金，目标支持玩家名、选择器与 @server（服务器资产账户）。
+		// 目标用原版 word 参数承载并手动解析（见 EconomyTargets），保证纯净端兼容。
 		dispatcher.register(Commands.literal("eco")
 				.requires(Commands.hasPermission(Commands.LEVEL_ADMINS))
 				.then(Commands.literal("add")
-						.then(Commands.argument("target", EconomyTargetArgumentType.target())
+						.then(Commands.argument("target", StringArgumentType.word())
+								.suggests((ctx, builder) -> SharedSuggestionProvider.suggest(
+										EconomyTargets.suggestions(ctx.getSource()), builder))
 								.then(Commands.argument("amount", StringArgumentType.word())
 										.executes(EconomyCommands::ecoAdd))))
 				.then(Commands.literal("remove")
-						.then(Commands.argument("target", EconomyTargetArgumentType.target())
+						.then(Commands.argument("target", StringArgumentType.word())
+								.suggests((ctx, builder) -> SharedSuggestionProvider.suggest(
+										EconomyTargets.suggestions(ctx.getSource()), builder))
 								.then(Commands.argument("amount", StringArgumentType.word())
 										.executes(EconomyCommands::ecoRemove))))
 				.then(Commands.literal("set")
-						.then(Commands.argument("target", EconomyTargetArgumentType.target())
+						.then(Commands.argument("target", StringArgumentType.word())
+								.suggests((ctx, builder) -> SharedSuggestionProvider.suggest(
+										EconomyTargets.suggestions(ctx.getSource()), builder))
 								.then(Commands.argument("amount", StringArgumentType.word())
 										.executes(EconomyCommands::ecoSet)))));
 	}
@@ -273,12 +281,12 @@ public final class EconomyCommands {
 	private static int ecoAdd(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
 		CommandSourceStack source = ctx.getSource();
 		long amount = parseAmount(ctx);
-		List<EconomyTargetArgumentType.ResolvedTarget> targets = EconomyTargetArgumentType.resolve(ctx);
+		List<EconomyTargets.ResolvedTarget> targets = EconomyTargets.resolve(StringArgumentType.getString(ctx, "target"), ctx.getSource());
 		if (amount > Long.MAX_VALUE / Math.max(1, targets.size())) {
 			throw AMOUNT_TOO_LARGE.create();
 		}
 		try {
-			for (EconomyTargetArgumentType.ResolvedTarget target : targets) {
+			for (EconomyTargets.ResolvedTarget target : targets) {
 				EconomyDb.credit(target.uuid(), amount);
 			}
 		} catch (EconomyDb.DatabaseException e) {
@@ -304,16 +312,16 @@ public final class EconomyCommands {
 	private static int ecoRemove(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
 		CommandSourceStack source = ctx.getSource();
 		long amount = parseAmount(ctx);
-		List<EconomyTargetArgumentType.ResolvedTarget> targets = EconomyTargetArgumentType.resolve(ctx);
+		List<EconomyTargets.ResolvedTarget> targets = EconomyTargets.resolve(StringArgumentType.getString(ctx, "target"), ctx.getSource());
 		// 预检每个目标余额，给出具体提示。
-		for (EconomyTargetArgumentType.ResolvedTarget target : targets) {
+		for (EconomyTargets.ResolvedTarget target : targets) {
 			if (readBalance(target.uuid()) < amount) {
 				throw new SimpleCommandExceptionType(Component.literal(
 						target.displayName() + " 的余额不足，当前资金：" + Money.format(readBalance(target.uuid())) + " 元"))
 						.create();
 			}
 		}
-		List<UUID> uuids = targets.stream().map(EconomyTargetArgumentType.ResolvedTarget::uuid).toList();
+		List<UUID> uuids = targets.stream().map(EconomyTargets.ResolvedTarget::uuid).toList();
 		boolean ok;
 		try {
 			ok = EconomyDb.deductMany(uuids, amount);
@@ -343,9 +351,9 @@ public final class EconomyCommands {
 	private static int ecoSet(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
 		CommandSourceStack source = ctx.getSource();
 		long amount = Money.parseCentsAllowZero(StringArgumentType.getString(ctx, "amount"));
-		List<EconomyTargetArgumentType.ResolvedTarget> targets = EconomyTargetArgumentType.resolve(ctx);
+		List<EconomyTargets.ResolvedTarget> targets = EconomyTargets.resolve(StringArgumentType.getString(ctx, "target"), ctx.getSource());
 		try {
-			for (EconomyTargetArgumentType.ResolvedTarget target : targets) {
+			for (EconomyTargets.ResolvedTarget target : targets) {
 				EconomyDb.setBalance(target.uuid(), target.displayName(), amount);
 			}
 		} catch (EconomyDb.DatabaseException e) {
@@ -366,9 +374,9 @@ public final class EconomyCommands {
 		return 1;
 	}
 
-	private static void notifyOnlineTargets(List<EconomyTargetArgumentType.ResolvedTarget> targets,
+	private static void notifyOnlineTargets(List<EconomyTargets.ResolvedTarget> targets,
 			long amount, String prefix, String suffix) {
-		for (EconomyTargetArgumentType.ResolvedTarget target : targets) {
+		for (EconomyTargets.ResolvedTarget target : targets) {
 			if (target.onlinePlayer() != null) {
 				target.onlinePlayer().sendSystemMessage(text(prefix, ChatFormatting.GREEN)
 						.append(Money.format(amount)).append(suffix), false);

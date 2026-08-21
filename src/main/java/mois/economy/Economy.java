@@ -1,11 +1,8 @@
 package mois.economy;
 
 import mois.economy.command.EconomyCommands;
-import mois.economy.command.EconomyTargetArgumentSerializer;
-import mois.economy.command.EconomyTargetArgumentType;
 import mois.economy.data.EconomyDb;
 import net.fabricmc.api.ModInitializer;
-import net.fabricmc.fabric.api.command.v2.ArgumentTypeRegistry;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
@@ -34,12 +31,6 @@ public class Economy implements ModInitializer {
 		// This code runs as soon as Minecraft is in a mod-load-ready state.
 		// However, some things (like resources) may still be uninitialized.
 		// Proceed with mild caution.
-
-		// 注册 /eco 自定义参数类型的序列化器（客户端与服务端均需注册：
-		// 服务端用于发送命令树，客户端用于解析）。未注册时服务端向管理员
-		// 发送完整命令树会抛 IllegalArgumentException 并踢出玩家。
-		ArgumentTypeRegistry.registerArgumentType(
-				id("eco_target"), EconomyTargetArgumentType.class, EconomyTargetArgumentSerializer.INSTANCE);
 
 		// 资金数据库存放在世界存档目录下（独立服务端与单人游戏内置服务器均生效）。
 		ServerLifecycleEvents.SERVER_STARTED.register(server -> {
