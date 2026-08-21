@@ -55,7 +55,7 @@
 - 监视器启动前记录 `run/logs/latest.log` 的 LastWriteTime 作为基线；只有日志 mtime 超过基线后才检查其内容，防止把上一次运行的旧日志误判为本次成功。
 - 每 5 秒轮询一次。
 - 成功判定：日志中出现本模组的初始化标记（当前为 `Hello Fabric world!`；后续模组应维护自己的唯一初始化标记）。
-- 失败判定：日志中出现 `ERROR`/`FATAL` 行（4.4 中的正常现象除外）。
+- 失败判定：出现致命标记（如 `Mixin apply for mod economy failed`、`Failed to start the minecraft server`、崩溃报告文件生成）；普通 `ERROR` 行可能来自良性事件（见 4.4），不能单独作为失败依据。
 - 超时判定：超过 5 分钟仍未出现任何标记，视为启动失败，需检查启动任务输出与日志排查原因。
 
 ### 4.3 确认与清理
@@ -66,5 +66,6 @@
 ### 4.4 正常现象，不算启动失败
 
 - 开发环境（离线账号）下 Realms 认证失败（401、`SignedJWT: FabricMC`）及其堆栈属正常现象。
+- 独立服务端首次运行缺少 `server.properties` 会记一条 `Failed to load properties from file: server.properties` 的 ERROR，随后自动生成文件并正常继续启动，不算失败。
 - Loom 的 `Class path entries reference missing files: build\resources\client` 警告在客户端资源为空时属无害告警。
 - 成功判定以模组初始化标记为准，而不是“日志停止输出”或“窗口停留在主菜单”。
