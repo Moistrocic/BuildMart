@@ -1,7 +1,9 @@
 package mois.economy;
 
+import mois.economy.command.EconomyCommands;
 import mois.economy.data.EconomyDb;
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 
 import net.minecraft.resources.Identifier;
@@ -33,6 +35,11 @@ public class Economy implements ModInitializer {
 			EconomyDb.open(dbPath);
 		});
 		ServerLifecycleEvents.SERVER_STOPPING.register(server -> EconomyDb.close());
+
+		CommandRegistrationCallback.EVENT.register((dispatcher, buildContext, selection) -> {
+			EconomyCommands.register(dispatcher);
+			LOGGER.info("命令注册完成（bal/pbal/pay/baltop/balhelp）");
+		});
 
 		LOGGER.info("Hello Fabric world!");
 	}
