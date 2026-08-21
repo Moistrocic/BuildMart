@@ -3,7 +3,8 @@
 	"package": "mois.economy.mixin",
 	"compatibilityLevel": "JAVA_21",
 	"mixins": [
-		"ServerPlayerMixin"
+		"ServerPlayerMixin",
+		"EntityMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
