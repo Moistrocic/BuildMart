@@ -54,7 +54,7 @@ public class Economy implements ModInitializer {
 
 		CommandRegistrationCallback.EVENT.register((dispatcher, buildContext, selection) -> {
 			EconomyCommands.register(dispatcher);
-			LOGGER.info("命令注册完成（bal/pbal/pay/baltop/balhelp/announcement）");
+			LOGGER.info("命令注册完成（bal/pbal/pay/baltop/balhelp/announcement/eco）");
 		});
 
 		LOGGER.info("Hello Fabric world!");

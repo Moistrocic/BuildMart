@@ -96,6 +96,22 @@ public final class EconomyCommands {
 						.executes(EconomyCommands::setAnnouncement))
 				.then(Commands.literal("clear")
 						.executes(EconomyCommands::clearAnnouncement)));
+
+		// 管理员资金指令：给系统注入/回收资金，目标支持玩家名、选择器与 @server（服务器资产账户）。
+		dispatcher.register(Commands.literal("eco")
+				.requires(Commands.hasPermission(Commands.LEVEL_ADMINS))
+				.then(Commands.literal("add")
+						.then(Commands.argument("target", EconomyTargetArgumentType.target())
+								.then(Commands.argument("amount", StringArgumentType.word())
+										.executes(EconomyCommands::ecoAdd))))
+				.then(Commands.literal("remove")
+						.then(Commands.argument("target", EconomyTargetArgumentType.target())
+								.then(Commands.argument("amount", StringArgumentType.word())
+										.executes(EconomyCommands::ecoRemove))))
+				.then(Commands.literal("set")
+						.then(Commands.argument("target", EconomyTargetArgumentType.target())
+								.then(Commands.argument("amount", StringArgumentType.word())
+										.executes(EconomyCommands::ecoSet)))));
 	}
 
 	// ---------- /bal ----------
@@ -249,6 +265,115 @@ public final class EconomyCommands {
 		}
 		source.sendSuccess(() -> message, false);
 		return 1;
+	}
+
+	// ---------- /eco ----------
+
+	/** /eco add 目标 金额 —— 为目标增加资金。 */
+	private static int ecoAdd(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+		CommandSourceStack source = ctx.getSource();
+		long amount = parseAmount(ctx);
+		List<EconomyTargetArgumentType.ResolvedTarget> targets = EconomyTargetArgumentType.resolve(ctx);
+		if (amount > Long.MAX_VALUE / Math.max(1, targets.size())) {
+			throw AMOUNT_TOO_LARGE.create();
+		}
+		try {
+			for (EconomyTargetArgumentType.ResolvedTarget target : targets) {
+				EconomyDb.credit(target.uuid(), amount);
+			}
+		} catch (EconomyDb.DatabaseException e) {
+			Economy.LOGGER.error("eco add 数据库错误", e);
+			throw DB_ERROR.create();
+		}
+		MutableComponent summary;
+		if (targets.size() == 1) {
+			summary = text("已向 ", ChatFormatting.GREEN)
+					.append(targets.get(0).displayName()).append(" 增加 ")
+					.append(Money.format(amount)).append(" 元，当前资金：")
+					.append(Money.format(readBalance(targets.get(0).uuid()))).append(" 元");
+		} else {
+			summary = text("已向 " + targets.size() + " 个目标各增加 ", ChatFormatting.GREEN)
+					.append(Money.format(amount)).append(" 元");
+		}
+		source.sendSuccess(() -> summary, false);
+		notifyOnlineTargets(targets, amount, "你收到来自管理员的 ", " 元");
+		return 1;
+	}
+
+	/** /eco remove 目标 金额 —— 从目标扣除资金（余额不足时整体拒绝）。 */
+	private static int ecoRemove(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+		CommandSourceStack source = ctx.getSource();
+		long amount = parseAmount(ctx);
+		List<EconomyTargetArgumentType.ResolvedTarget> targets = EconomyTargetArgumentType.resolve(ctx);
+		// 预检每个目标余额，给出具体提示。
+		for (EconomyTargetArgumentType.ResolvedTarget target : targets) {
+			if (readBalance(target.uuid()) < amount) {
+				throw new SimpleCommandExceptionType(Component.literal(
+						target.displayName() + " 的余额不足，当前资金：" + Money.format(readBalance(target.uuid())) + " 元"))
+						.create();
+			}
+		}
+		List<UUID> uuids = targets.stream().map(EconomyTargetArgumentType.ResolvedTarget::uuid).toList();
+		boolean ok;
+		try {
+			ok = EconomyDb.deductMany(uuids, amount);
+		} catch (EconomyDb.DatabaseException e) {
+			Economy.LOGGER.error("eco remove 数据库错误", e);
+			throw DB_ERROR.create();
+		}
+		if (!ok) {
+			throw DB_ERROR.create();
+		}
+		MutableComponent summary;
+		if (targets.size() == 1) {
+			summary = text("已从 ", ChatFormatting.GREEN)
+					.append(targets.get(0).displayName()).append(" 扣除 ")
+					.append(Money.format(amount)).append(" 元，当前资金：")
+					.append(Money.format(readBalance(targets.get(0).uuid()))).append(" 元");
+		} else {
+			summary = text("已从 " + targets.size() + " 个目标各扣除 ", ChatFormatting.GREEN)
+					.append(Money.format(amount)).append(" 元");
+		}
+		source.sendSuccess(() -> summary, false);
+		notifyOnlineTargets(targets, amount, "你的资金被管理员扣除了 ", " 元");
+		return 1;
+	}
+
+	/** /eco set 目标 金额 —— 把目标资金设置为指定值（允许 0）。 */
+	private static int ecoSet(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+		CommandSourceStack source = ctx.getSource();
+		long amount = Money.parseCentsAllowZero(StringArgumentType.getString(ctx, "amount"));
+		List<EconomyTargetArgumentType.ResolvedTarget> targets = EconomyTargetArgumentType.resolve(ctx);
+		try {
+			for (EconomyTargetArgumentType.ResolvedTarget target : targets) {
+				EconomyDb.setBalance(target.uuid(), target.displayName(), amount);
+			}
+		} catch (EconomyDb.DatabaseException e) {
+			Economy.LOGGER.error("eco set 数据库错误", e);
+			throw DB_ERROR.create();
+		}
+		MutableComponent summary;
+		if (targets.size() == 1) {
+			summary = text("已将 ", ChatFormatting.GREEN)
+					.append(targets.get(0).displayName()).append(" 的资金设置为 ")
+					.append(Money.format(amount)).append(" 元");
+		} else {
+			summary = text("已将 " + targets.size() + " 个目标的资金设置为 ", ChatFormatting.GREEN)
+					.append(Money.format(amount)).append(" 元");
+		}
+		source.sendSuccess(() -> summary, false);
+		notifyOnlineTargets(targets, amount, "你的资金被管理员设置为 ", " 元");
+		return 1;
+	}
+
+	private static void notifyOnlineTargets(List<EconomyTargetArgumentType.ResolvedTarget> targets,
+			long amount, String prefix, String suffix) {
+		for (EconomyTargetArgumentType.ResolvedTarget target : targets) {
+			if (target.onlinePlayer() != null) {
+				target.onlinePlayer().sendSystemMessage(text(prefix, ChatFormatting.GREEN)
+						.append(Money.format(amount)).append(suffix), false);
+			}
+		}
 	}
 
 	// ---------- /announcement ----------
