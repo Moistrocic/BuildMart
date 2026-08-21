@@ -14,12 +14,6 @@ repositories {
 loom {
 	splitEnvironmentSourceSets()
 
-	runConfigs {
-		client {
-			programArgs "--username", "Moistrocic"
-		}
-	}
-
 	mods {
 		"economy" {
 			sourceSet sourceSets.main
