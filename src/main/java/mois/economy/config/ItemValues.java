@@ -135,6 +135,21 @@ public final class ItemValues {
 		return true;
 	}
 
+	/**
+	 * 单个物品的完整价值（不含数量倍乘，含附魔与容器内容物）；
+	 * 用于展示“单价”——与数量无关，保证同种物品不同数量时
+	 * lore 完全一致，可以正常堆叠。不可交易返回 {@link #UNTRADEABLE}。
+	 */
+	public static long unitPrice(ItemStack stack) {
+		if (stack == null || stack.isEmpty()) {
+			return 0;
+		}
+		if (!isTradable(stack)) {
+			return UNTRADEABLE;
+		}
+		return pricePerItem(stack, MAX_CONTAINER_DEPTH);
+	}
+
 	/** 物品类型是否可交易（配置价不是 -1）。 */
 	public static boolean isTradable(net.minecraft.world.item.Item item) {
 		return get(item) >= 0;

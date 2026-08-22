@@ -25,7 +25,7 @@ import java.util.List;
  * 只会原样渲染服务端注入的 lore。
  */
 public final class PriceLore {
-	private static final String MARKER = "价值：";
+	private static final String MARKER = "单价：";
 
 	/** 由配置控制的功能总开关（EconomyConfig.itemPricesInLore）。 */
 	public static volatile boolean enabled = false;
@@ -89,15 +89,17 @@ public final class PriceLore {
 	}
 
 	private static Component priceLine(ItemStack stack) {
-		long price = ItemValues.price(stack);
-		if (price == ItemValues.UNTRADEABLE) {
+		long unitPrice = ItemValues.unitPrice(stack);
+		if (unitPrice == ItemValues.UNTRADEABLE) {
 			// 不可交易物品显示红色标记而非价格
 			return Component.literal("不可交易")
 					.withStyle(ChatFormatting.RED)
 					.withStyle(style -> style.withItalic(false));
 		}
+		// 显示“单价”而非整组总价：与数量无关，同种物品不同数量的 lore 完全一致，
+		// 否则游戏会因组件不同拒绝堆叠（3 个与 5 个绿宝石无法合并）
 		return Component.literal(MARKER)
-				.append(Money.format(price))
+				.append(Money.format(unitPrice))
 				.append(" 元")
 				.withStyle(ChatFormatting.GOLD)
 				.withStyle(style -> style.withItalic(false));
