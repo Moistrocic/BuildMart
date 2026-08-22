@@ -4,7 +4,8 @@
 	"compatibilityLevel": "JAVA_21",
 	"mixins": [
 		"ServerPlayerMixin",
-		"PlayerMixin"
+		"PlayerMixin",
+		"ItemStackMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

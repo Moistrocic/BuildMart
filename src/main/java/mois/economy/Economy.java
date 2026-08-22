@@ -1,6 +1,7 @@
 package mois.economy;
 
 import mois.economy.command.EconomyCommands;
+import mois.economy.config.EconomyConfig;
 import mois.economy.config.ItemValues;
 import mois.economy.data.EconomyDb;
 import mois.economy.net.PriceListPayload;
@@ -43,8 +44,13 @@ public class Economy implements ModInitializer {
 		PayloadTypeRegistry.clientboundPlay().register(PriceListPayload.TYPE, PriceListPayload.CODEC);
 
 		ServerLifecycleEvents.SERVER_STARTED.register(server -> {
-			// 物品价值配置 + 资金数据库 + 商店数据。
+			// 物品价值配置 + 主配置 + 资金数据库 + 商店数据。
 			ItemValues.load(FabricLoader.getInstance().getConfigDir());
+			EconomyConfig.load(FabricLoader.getInstance().getConfigDir());
+			PriceLore.enabled = EconomyConfig.itemPricesInLore();
+			if (PriceLore.enabled) {
+				PriceLore.selfCheck(server.registryAccess());
+			}
 			Path worldDir = server.getWorldPath(LevelResource.ROOT);
 			EconomyDb.open(worldDir.resolve("economy.db"));
 			ShopManager.init(worldDir);
@@ -69,8 +75,9 @@ public class Economy implements ModInitializer {
 			} catch (EconomyDb.DatabaseException e) {
 				LOGGER.error("读取公告失败", e);
 			}
-			// 安装了本模组的客户端会收到价格表用于物品金色提示。
-			if (ServerPlayNetworking.canSend(handler.getPlayer(), PriceListPayload.TYPE)) {
+			// lore 模式开启时价格随物品数据下发（纯净端可见），无需再发送价格同步包；
+			// 关闭时才给安装了本模组的客户端发送价格表用于提示。
+			if (!PriceLore.enabled && ServerPlayNetworking.canSend(handler.getPlayer(), PriceListPayload.TYPE)) {
 				ServerPlayNetworking.send(handler.getPlayer(), new PriceListPayload(ItemValues.toJson()));
 			}
 		});
