@@ -89,16 +89,28 @@ public final class PriceLore {
 	}
 
 	private static Component priceLine(ItemStack stack) {
+		long price = ItemValues.price(stack);
+		if (price == ItemValues.UNTRADEABLE) {
+			// 不可交易物品显示红色标记而非价格
+			return Component.literal("不可交易")
+					.withStyle(ChatFormatting.RED)
+					.withStyle(style -> style.withItalic(false));
+		}
 		return Component.literal(MARKER)
-				.append(Money.format(ItemValues.price(stack)))
+				.append(Money.format(price))
 				.append(" 元")
 				.withStyle(ChatFormatting.GOLD)
 				.withStyle(style -> style.withItalic(false));
 	}
 
 	private static boolean isPriceLine(Component line) {
-		return line.getString().startsWith(MARKER)
-				&& TextColor.fromLegacyFormat(ChatFormatting.GOLD).equals(line.getStyle().getColor());
+		if (line.getString().startsWith(MARKER)
+				&& TextColor.fromLegacyFormat(ChatFormatting.GOLD).equals(line.getStyle().getColor())) {
+			return true;
+		}
+		// “不可交易”标记同样属于本模组的线路数据，回传时需要剥除
+		return "不可交易".equals(line.getString())
+				&& TextColor.fromLegacyFormat(ChatFormatting.RED).equals(line.getStyle().getColor());
 	}
 
 	/** 注入/剥除逻辑自检（服务器启动时调用），含真实网络 codec 往返。 */

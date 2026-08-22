@@ -143,6 +143,11 @@ public final class BalshopCommands {
 		ItemInput input = ItemArgument.getItem(ctx, "item");
 		long cents = ItemValues.get(input.item().value());
 		String id = BuiltInRegistries.ITEM.getKey(input.item().value()).toString();
+		if (cents == ItemValues.UNTRADEABLE) {
+			ctx.getSource().sendSuccess(() -> text(id, ChatFormatting.RED)
+					.append(" 不可购买或出售"), false);
+			return 1;
+		}
 		ctx.getSource().sendSuccess(() -> text(id, ChatFormatting.GREEN)
 				.append(" 的基础价格：").append(Money.format(cents))
 				.append(" 元（实际结算按完整价值 = 基础价 + 附魔 + 容器内容物）"), false);
@@ -154,6 +159,9 @@ public final class BalshopCommands {
 		ServerPlayer player = requirePlayer(source);
 		ItemInput input = ItemArgument.getItem(ctx, "item");
 		int count = IntegerArgumentType.getInteger(ctx, "count");
+		if (!ItemValues.isTradable(input.item().value())) {
+			throw new SimpleCommandExceptionType(Component.literal("该物品不可购买或出售")).create();
+		}
 		ItemStack stack = input.createItemStack(count);
 		long total = ItemValues.price(stack);
 

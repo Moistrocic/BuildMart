@@ -19,11 +19,12 @@ import java.util.Map;
 
 /**
  * 附魔价值配置：config/economy/enchantments.json，键为附魔 ID（如 minecraft:sharpness），
- * 值为该附魔“每一级”的十进制元价格（如 "2.00"），解析为整数分存储。
- * 未配置的附魔默认每级 1.00 元。物品完整价值 = 基础价 + Σ(附魔每级价格 × 等级)。
+ * 值为该附魔“1 级”的十进制元价格（如 "2.00"），解析为整数分存储。
+ * 每升 1 级价格翻倍（1 级 2.00 → 2 级 4.00 → 3 级 8.00……与两本低级附魔书合成
+ * 一本高级附魔书的价值守恒一致）。未配置的附魔默认 1 级 1.00 元。
  */
 public final class EnchantmentValues {
-	public static final long DEFAULT_PER_LEVEL_CENTS = 100L; // 1.00 元/级
+	public static final long DEFAULT_LEVEL_ONE_CENTS = 100L; // 1 级 1.00 元
 
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 	private static final Map<String, Long> VALUES = new HashMap<>();
@@ -31,7 +32,7 @@ public final class EnchantmentValues {
 	private EnchantmentValues() {
 	}
 
-	/** 从 config 目录加载；文件不存在时生成示例默认配置。失败时回退为全默认每级 1.00 元。 */
+	/** 从 config 目录加载；文件不存在时生成示例默认配置。失败时回退为全默认 1 级 1.00 元。 */
 	public static void load(Path configDir) {
 		Path file = configDir.resolve("economy").resolve("enchantments.json");
 		Map<String, Long> parsed = new HashMap<>();
@@ -48,24 +49,24 @@ public final class EnchantmentValues {
 				VALUES.clear();
 				VALUES.putAll(parsed);
 			}
-			Economy.LOGGER.info("附魔价值配置已加载：{}（{} 项，未配置附魔默认每级 {} 元）",
-					file, VALUES.size(), Money.format(DEFAULT_PER_LEVEL_CENTS));
+			Economy.LOGGER.info("附魔价值配置已加载：{}（{} 项，值为 1 级价格，每升 1 级翻倍，未配置附魔默认 1 级 {} 元）",
+					file, VALUES.size(), Money.format(DEFAULT_LEVEL_ONE_CENTS));
 		} catch (Exception e) {
-			Economy.LOGGER.error("附魔价值配置加载失败，全部回退为默认每级 1.00 元", e);
+			Economy.LOGGER.error("附魔价值配置加载失败，全部回退为默认 1 级 1.00 元", e);
 			synchronized (VALUES) {
 				VALUES.clear();
 			}
 		}
 	}
 
-	/** 附魔每级价格（分）；未配置或无法解析 ID 时用默认价。 */
+	/** 附魔 1 级价格（分）；未配置或无法解析 ID 时用默认价。 */
 	public static long get(Holder<Enchantment> holder) {
 		String id = holder.unwrapKey().map(key -> key.identifier().toString()).orElse(null);
 		if (id == null) {
-			return DEFAULT_PER_LEVEL_CENTS;
+			return DEFAULT_LEVEL_ONE_CENTS;
 		}
 		synchronized (VALUES) {
-			return VALUES.getOrDefault(id, DEFAULT_PER_LEVEL_CENTS);
+			return VALUES.getOrDefault(id, DEFAULT_LEVEL_ONE_CENTS);
 		}
 	}
 

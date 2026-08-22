@@ -62,6 +62,13 @@ public abstract class ServerGamePacketListenerImplMixin {
 		InventoryMenu menu = player.inventoryMenu;
 		Slot slot = menu.getSlot(slotNum);
 		ItemStack prev = slot.getItem();
+		// 不可交易物品（基岩/屏障/命令方块等）：禁止拿取与放回
+		if (!ItemValues.isTradable(newStack) || !ItemValues.isTradable(prev)) {
+			slot.setByPlayer(prev);
+			menu.broadcastFullState();
+			sendUntradeable(player);
+			return;
+		}
 		// 以服务端槽位状态为准计算完整价值差（基础价+附魔+容器内容物）：
 		// 价值增加=购买，价值减少=放回退款，等价变化只更新槽位不动资金。
 		long delta = ItemValues.price(newStack) - ItemValues.price(prev);
@@ -147,6 +154,17 @@ public abstract class ServerGamePacketListenerImplMixin {
 		}
 		InventoryMenu menu = player.inventoryMenu;
 		NonNullList<ItemStack> current = menu.getItems();
+		// 不可交易物品（基岩/屏障/命令方块等）：禁止拿取与放回，整体回滚
+		for (int i = 0; i < before.size() && i < current.size(); i++) {
+			if (!ItemValues.isTradable(before.get(i)) || !ItemValues.isTradable(current.get(i))) {
+				for (int j = 0; j < before.size() && j < current.size(); j++) {
+					menu.getSlot(j).setByPlayer(before.get(j).copy());
+				}
+				menu.broadcastFullState();
+				sendUntradeable(player);
+				return;
+			}
+		}
 		// 按槽位完整价值（基础价+附魔+容器内容物）的净变化结算
 		List<SlotDelta> changes = new ArrayList<>();
 		long netDelta = 0;
@@ -242,6 +260,11 @@ public abstract class ServerGamePacketListenerImplMixin {
 				"你的资金不足：购买 " + gainedName(before, after)
 						+ " 需要 " + Money.format(total) + " 元，当前资金 " + Money.format(balanceOrMax(player)) + " 元")
 				.withStyle(ChatFormatting.RED), false);
+	}
+
+	private static void sendUntradeable(ServerPlayer player) {
+		player.sendSystemMessage(Component.literal(
+				"该物品不可购买或出售").withStyle(ChatFormatting.RED), false);
 	}
 
 	private static void sendInsufficientNet(ServerPlayer player, long total) {

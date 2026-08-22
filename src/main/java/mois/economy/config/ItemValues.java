@@ -78,25 +78,66 @@ public final class ItemValues {
 		}
 	}
 
+	/** 不可交易标记：配置价为 -1 的物品不能购买也不能卖出。 */
+	public static final long UNTRADEABLE = -1L;
+
 	/** 容器（潜影盒/收纳袋）内容物递归计价的最大嵌套深度，防止异常数据导致过深递归。 */
 	private static final int MAX_CONTAINER_DEPTH = 8;
 
 	/**
 	 * 物品完整价值（分）=（基础价 + 附魔总价 + 容器内容物价值）× 数量。
-	 * 附魔按“每级价格 × 等级”累计（含附魔书存储附魔）；容器内容物递归计价，
+	 * 附魔按“1 级价格 × 2^(等级-1)”累计（含附魔书存储附魔，与两本低级附魔书
+	 * 合成一本高级附魔书的价值守恒一致）；容器内容物递归计价，
 	 * 每件外层物品都携带相同的内容物，因此内容物按件计入。空物品为 0。
 	 * <p>
 	 * 耐久：有耐久的物品其“基础价”按剩余耐久比例折算（如 100/200 耐久 = 基础价一半），
 	 * 附魔与容器内容物不受影响。
 	 * <p>
 	 * 附魔书：自身基础价记 0，价值完全来自存储附魔——铁砧把附魔书合并到武器/附魔书
-	 * 上时，合并结果的价值恰好等于两件物品价值之和，不发生“少 1 元”。
+	 * 上时，合并结果的价值恰好等于两件物品价值之和。
+	 * <p>
+	 * 不可交易：基础价或任意容器内容物为 -1 时整体返回 {@link #UNTRADEABLE}。
 	 */
 	public static long price(ItemStack stack) {
 		if (stack == null || stack.isEmpty()) {
 			return 0;
 		}
+		if (!isTradable(stack)) {
+			return UNTRADEABLE;
+		}
 		return satMul(pricePerItem(stack, MAX_CONTAINER_DEPTH), stack.getCount());
+	}
+
+	/** 物品（含容器内容物）是否可交易：基础价与内容物均不得为 -1。 */
+	public static boolean isTradable(ItemStack stack) {
+		if (stack == null || stack.isEmpty()) {
+			return true;
+		}
+		if (!isTradable(stack.getItem())) {
+			return false;
+		}
+		ItemContainerContents container = stack.get(DataComponents.CONTAINER);
+		if (container != null) {
+			for (ItemStack inner : container.nonEmptyItemCopyStream().toList()) {
+				if (!isTradable(inner)) {
+					return false;
+				}
+			}
+		}
+		BundleContents bundle = stack.get(DataComponents.BUNDLE_CONTENTS);
+		if (bundle != null) {
+			for (ItemStack inner : bundle.itemCopies().toList()) {
+				if (!isTradable(inner)) {
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+
+	/** 物品类型是否可交易（配置价不是 -1）。 */
+	public static boolean isTradable(net.minecraft.world.item.Item item) {
+		return get(item) >= 0;
 	}
 
 	/** 单件物品的完整价值（不含本层数量），容器内容物递归。 */
@@ -140,9 +181,27 @@ public final class ItemValues {
 
 	private static long addEnchantments(long total, ItemEnchantments enchantments) {
 		for (Object2IntMap.Entry<Holder<Enchantment>> entry : enchantments.entrySet()) {
-			total = satAdd(total, satMul(EnchantmentValues.get(entry.getKey()), entry.getIntValue()));
+			// 1 级价格为基础，每升 1 级翻倍（原版由两本低级附魔书合成一本高级）
+			long levelOne = EnchantmentValues.get(entry.getKey());
+			int level = Math.max(1, entry.getIntValue());
+			total = satAdd(total, satPow2Mul(levelOne, level - 1));
 		}
 		return total;
+	}
+
+	/** base × 2^exp（饱和运算）。 */
+	private static long satPow2Mul(long base, int exp) {
+		if (base <= 0 || exp <= 0) {
+			return base;
+		}
+		long value = base;
+		for (int i = 0; i < exp && i < 62; i++) {
+			if (value > Long.MAX_VALUE / 2) {
+				return Long.MAX_VALUE;
+			}
+			value *= 2;
+		}
+		return value;
 	}
 
 	private static long satAdd(long a, long b) {
@@ -187,9 +246,12 @@ public final class ItemValues {
 		Files.writeString(file, GSON.toJson(root), StandardCharsets.UTF_8);
 	}
 
-	/** 解析非负十进制元字符串为分（最多两位小数），非法值抛异常。 */
+	/** 解析非负十进制元字符串为分（最多两位小数）；"-1"/"-1.00" 返回 {@link #UNTRADEABLE}，其它非法值抛异常。 */
 	private static long parseCents(String input) {
 		BigDecimal value = new BigDecimal(input.trim());
+		if (value.compareTo(BigDecimal.ONE.negate()) == 0) {
+			return UNTRADEABLE;
+		}
 		if (value.signum() < 0) {
 			throw new NumberFormatException("价格不能为负：" + input);
 		}

@@ -137,6 +137,10 @@ public final class ShopManager {
 				if (stack.isEmpty()) {
 					continue;
 				}
+				// 不可交易物品（基岩/屏障等）留在箱子里，不结算也不清除
+				if (!ItemValues.isTradable(stack)) {
+					continue;
+				}
 				total = satAdd(total, ItemValues.price(stack));
 			}
 			container.clearContent();
