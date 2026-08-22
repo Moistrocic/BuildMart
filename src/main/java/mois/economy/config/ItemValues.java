@@ -9,6 +9,8 @@ import mois.economy.Economy;
 import mois.economy.Money;
 import net.minecraft.core.Holder;
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.component.BundleContents;
@@ -21,7 +23,9 @@ import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -169,13 +173,17 @@ public final class ItemValues {
 		return GSON.toJson(root);
 	}
 
+	/** 首次生成配置：写入全部已注册物品，表内物品用初始定价（{@link ItemInitialPrices}），表外物品用默认 1.00 元。 */
 	private static void writeDefaults(Path file) throws IOException {
 		JsonObject root = new JsonObject();
-		// 示例默认价值（正式默认值后续统一讨论），未列出的物品一律 1.00 元。
-		root.addProperty("minecraft:dirt", "0.10");
-		root.addProperty("minecraft:stone", "0.20");
-		root.addProperty("minecraft:cobblestone", "0.20");
-		root.addProperty("minecraft:oak_log", "0.30");
+		List<String> ids = new ArrayList<>();
+		for (Identifier id : BuiltInRegistries.ITEM.keySet()) {
+			ids.add(id.toString());
+		}
+		ids.sort(String::compareTo);
+		for (String id : ids) {
+			root.addProperty(id, ItemInitialPrices.INITIAL.getOrDefault(id, Money.format(DEFAULT_CENTS)));
+		}
 		Files.writeString(file, GSON.toJson(root), StandardCharsets.UTF_8);
 	}
 
