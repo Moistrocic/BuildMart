@@ -39,4 +39,9 @@ hs_err_*.log
 replay_*.log
 *.hprof
 *.jfr
+
+# dev scratch dirs (kept around, not cleaned)
+
 /run-verify/
+/.dsh-tmp/
+/data/
