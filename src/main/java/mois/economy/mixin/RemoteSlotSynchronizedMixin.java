@@ -4,6 +4,7 @@ import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import mois.economy.PriceLore;
 import net.minecraft.network.HashedPatchMap;
+import net.minecraft.network.HashedStack;
 import net.minecraft.world.item.ItemStack;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -23,8 +24,8 @@ import org.spongepowered.asm.mixin.injection.At;
 public abstract class RemoteSlotSynchronizedMixin {
 	@WrapOperation(method = "matches", at = @At(value = "INVOKE",
 			target = "Lnet/minecraft/network/HashedStack;matches(Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/network/HashedPatchMap$HashGenerator;)Z"))
-	private boolean economy$matchesIgnoringPriceLore(ItemStack candidate, HashedPatchMap.HashGenerator generator,
-			Operation<Boolean> original) {
-		return original.call(PriceLore.enabled ? PriceLore.inject(candidate) : candidate, generator);
+	private boolean economy$matchesIgnoringPriceLore(HashedStack hashedStack, ItemStack candidate,
+			HashedPatchMap.HashGenerator generator, Operation<Boolean> original) {
+		return original.call(hashedStack, PriceLore.enabled ? PriceLore.inject(candidate) : candidate, generator);
 	}
 }
