@@ -86,7 +86,7 @@ public class Economy implements ModInitializer {
 			LOGGER.info("命令注册完成（bal/pbal/pay/baltop/balhelp/announcement/eco/peco/balshop）");
 		});
 
-		LOGGER.info("Hello Fabric world!");
+		LOGGER.info("Economy Mod Loaded!");
 	}
 
 	public static Identifier id(String path) {
