@@ -1,5 +1,6 @@
 package mois.economy;
 
+import mois.economy.buymode.BuyModeManager;
 import mois.economy.command.EconomyCommands;
 import mois.economy.config.EconomyConfig;
 import mois.economy.config.ItemValues;
@@ -71,6 +72,8 @@ public class Economy implements ModInitializer {
 				LOGGER.error("读取公告失败", e);
 			}
 		});
+		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) ->
+				BuyModeManager.exit(handler.getPlayer()));
 
 		CommandRegistrationCallback.EVENT.register((dispatcher, buildContext, selection) -> {
 			EconomyCommands.register(dispatcher, buildContext);

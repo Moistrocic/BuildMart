@@ -7,6 +7,7 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
 import mois.economy.Economy;
 import mois.economy.Money;
+import mois.economy.buymode.BuyModeManager;
 import mois.economy.config.ItemValues;
 import mois.economy.data.EconomyDb;
 import mois.economy.shop.Shop;
@@ -76,7 +77,9 @@ public final class BalshopCommands {
 				.then(Commands.literal("buy")
 						.then(Commands.argument("item", ItemArgument.item(buildContext))
 								.then(Commands.argument("count", IntegerArgumentType.integer(1, MAX_BUY_COUNT))
-										.executes(BalshopCommands::buy)))));
+										.executes(BalshopCommands::buy))))
+				.then(Commands.literal("buymode")
+						.executes(BalshopCommands::buyMode)));
 	}
 
 	// ---------- 商店管理 ----------
@@ -179,6 +182,22 @@ public final class BalshopCommands {
 				.append(String.valueOf(count)).append(" 个 ").append(id)
 				.append("，花费 ").append(Money.format(total)).append(" 元，当前资金：")
 				.append(Money.format(balanceAfter)).append(" 元"), false);
+		return 1;
+	}
+
+	// ---------- 便捷购买 ----------
+
+	/** /balshop buymode —— 切换便捷购买：临时授予 instabuild，客户端打开库存时自动进入创造物品栏。 */
+	private static int buyMode(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+		CommandSourceStack source = ctx.getSource();
+		ServerPlayer player = requirePlayer(source);
+		if (BuyModeManager.isActive(player)) {
+			BuyModeManager.exit(player);
+			source.sendSuccess(() -> text("已退出便捷购买", ChatFormatting.GREEN), false);
+		} else {
+			BuyModeManager.enter(player);
+			source.sendSuccess(() -> text("便捷购买已开启：按 E 打开背包即可进入购买界面，关闭界面自动退出", ChatFormatting.GREEN), false);
+		}
 		return 1;
 	}
 
