@@ -127,7 +127,8 @@ public final class ShopManager {
 		}
 	}
 
-	/** 出售：清空箱子（含双箱另一半），物品价值结算给收款人（不通知）。 */
+	/** 出售：清空箱子（含双箱另一半）中可交易的物品，价值结算给收款人（不通知）；
+	 * 不可交易物品（基岩/屏障等，价格 -1）留在箱子里，不结算也不清除。 */
 	private static void sell(ServerLevel level, Shop shop) {
 		long total = 0;
 		List<Container> containers = chestContainers(level, shop.pos());
@@ -137,13 +138,14 @@ public final class ShopManager {
 				if (stack.isEmpty()) {
 					continue;
 				}
-				// 不可交易物品（基岩/屏障等）留在箱子里，不结算也不清除
+				// 不可交易物品留下；已售出的逐格清除（不能整箱 clearContent，
+				// 否则会把留下的物品一起删掉）
 				if (!ItemValues.isTradable(stack)) {
 					continue;
 				}
 				total = satAdd(total, ItemValues.price(stack));
+				container.setItem(i, ItemStack.EMPTY);
 			}
-			container.clearContent();
 		}
 		if (total > 0) {
 			EconomyDb.credit(shop.payee(), shop.payeeName(), total);
