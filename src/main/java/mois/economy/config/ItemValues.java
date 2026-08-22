@@ -10,6 +10,7 @@ import mois.economy.Money;
 import net.minecraft.core.Holder;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.item.component.BundleContents;
 import net.minecraft.world.item.component.ItemContainerContents;
 import net.minecraft.world.item.enchantment.Enchantment;
@@ -80,6 +81,12 @@ public final class ItemValues {
 	 * 物品完整价值（分）=（基础价 + 附魔总价 + 容器内容物价值）× 数量。
 	 * 附魔按“每级价格 × 等级”累计（含附魔书存储附魔）；容器内容物递归计价，
 	 * 每件外层物品都携带相同的内容物，因此内容物按件计入。空物品为 0。
+	 * <p>
+	 * 耐久：有耐久的物品其“基础价”按剩余耐久比例折算（如 100/200 耐久 = 基础价一半），
+	 * 附魔与容器内容物不受影响。
+	 * <p>
+	 * 附魔书：自身基础价记 0，价值完全来自存储附魔——铁砧把附魔书合并到武器/附魔书
+	 * 上时，合并结果的价值恰好等于两件物品价值之和，不发生“少 1 元”。
 	 */
 	public static long price(ItemStack stack) {
 		if (stack == null || stack.isEmpty()) {
@@ -90,7 +97,18 @@ public final class ItemValues {
 
 	/** 单件物品的完整价值（不含本层数量），容器内容物递归。 */
 	private static long pricePerItem(ItemStack stack, int depth) {
-		long total = get(stack.getItem());
+		long total;
+		if (stack.is(Items.ENCHANTED_BOOK)) {
+			total = 0;
+		} else {
+			total = get(stack.getItem());
+			// 基础价按剩余耐久比例折算：100/200 耐久 → 基础价的一半
+			if (stack.isDamageableItem() && stack.getMaxDamage() > 0) {
+				int maxDamage = stack.getMaxDamage();
+				int damage = Math.min(Math.max(stack.getDamageValue(), 0), maxDamage);
+				total = satMul(total, maxDamage - damage) / maxDamage;
+			}
+		}
 		ItemEnchantments ench = stack.get(DataComponents.ENCHANTMENTS);
 		if (ench != null) {
 			total = addEnchantments(total, ench);
