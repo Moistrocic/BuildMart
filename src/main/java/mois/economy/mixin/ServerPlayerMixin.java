@@ -5,6 +5,7 @@ import mois.economy.util.AdminUtil;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.ItemStack;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -33,6 +34,12 @@ public abstract class ServerPlayerMixin {
 
 	@Inject(method = "doCloseContainer", at = @At("HEAD"))
 	private void economy$exitBuyMode(CallbackInfo ci) {
-		BuyModeManager.exit((ServerPlayer) (Object) this);
+		ServerPlayer player = (ServerPlayer) (Object) this;
+		if (BuyModeManager.isActive(player)) {
+			// 光标上的物品在拿起时已退款，关闭界面时直接作废，
+			// 避免原版把它放回背包或掉落实体造成白嫖。
+			player.inventoryMenu.setCarried(ItemStack.EMPTY);
+		}
+		BuyModeManager.exit(player);
 	}
 }

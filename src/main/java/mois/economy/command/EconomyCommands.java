@@ -62,7 +62,8 @@ public final class EconomyCommands {
 			"/balshop setpayee 玩家 - 设置收款人",
 			"/balshop setpayeeserver - 设置服务器账户为收款人",
 			"/balshop getprice 物品 - 查看物品价格",
-			"/balshop buy 物品 数量 - 购买物品"
+			"/balshop buy 物品 数量 - 购买物品",
+			"/balshop buymode - 进入快捷购买模式"
 	};
 
 	private EconomyCommands() {
