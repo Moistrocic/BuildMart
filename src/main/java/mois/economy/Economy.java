@@ -1,11 +1,18 @@
 package mois.economy;
 
 import mois.economy.command.EconomyCommands;
+import mois.economy.config.ItemValues;
 import mois.economy.data.EconomyDb;
+import mois.economy.net.PriceListPayload;
+import mois.economy.shop.ShopManager;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.fabricmc.loader.api.FabricLoader;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
@@ -32,14 +39,23 @@ public class Economy implements ModInitializer {
 		// However, some things (like resources) may still be uninitialized.
 		// Proceed with mild caution.
 
-		// 资金数据库存放在世界存档目录下（独立服务端与单人游戏内置服务器均生效）。
-		ServerLifecycleEvents.SERVER_STARTED.register(server -> {
-			Path dbPath = server.getWorldPath(LevelResource.ROOT).resolve("economy.db");
-			EconomyDb.open(dbPath);
-		});
-		ServerLifecycleEvents.SERVER_STOPPING.register(server -> EconomyDb.close());
+		// 价格同步包（可选：纯净端没有该通道，不受影响）。
+		PayloadTypeRegistry.clientboundPlay().register(PriceListPayload.TYPE, PriceListPayload.CODEC);
 
-		// 玩家进入服务器时发送红色公告。
+		ServerLifecycleEvents.SERVER_STARTED.register(server -> {
+			// 物品价值配置 + 资金数据库 + 商店数据。
+			ItemValues.load(FabricLoader.getInstance().getConfigDir());
+			Path worldDir = server.getWorldPath(LevelResource.ROOT);
+			EconomyDb.open(worldDir.resolve("economy.db"));
+			ShopManager.init(worldDir);
+		});
+		ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
+			ShopManager.save();
+			EconomyDb.close();
+		});
+		ServerTickEvents.END_SERVER_TICK.register(ShopManager::onServerTick);
+
+		// 玩家进入服务器时发送红色公告，并同步名字与物品价格。
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
 			try {
 				// 同步玩家名字到数据库：首次进入自动建行，并修复历史上被覆盖为“未知玩家”的名字。
@@ -53,11 +69,15 @@ public class Economy implements ModInitializer {
 			} catch (EconomyDb.DatabaseException e) {
 				LOGGER.error("读取公告失败", e);
 			}
+			// 安装了本模组的客户端会收到价格表用于物品金色提示。
+			if (ServerPlayNetworking.canSend(handler.getPlayer(), PriceListPayload.TYPE)) {
+				ServerPlayNetworking.send(handler.getPlayer(), new PriceListPayload(ItemValues.toJson()));
+			}
 		});
 
 		CommandRegistrationCallback.EVENT.register((dispatcher, buildContext, selection) -> {
-			EconomyCommands.register(dispatcher);
-			LOGGER.info("命令注册完成（bal/pbal/pay/baltop/balhelp/announcement/eco/peco）");
+			EconomyCommands.register(dispatcher, buildContext);
+			LOGGER.info("命令注册完成（bal/pbal/pay/baltop/balhelp/announcement/eco/peco/balshop）");
 		});
 
 		LOGGER.info("Hello Fabric world!");
