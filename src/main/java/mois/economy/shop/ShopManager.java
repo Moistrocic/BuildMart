@@ -104,6 +104,11 @@ public final class ShopManager {
 			if (level == null || !level.isPositionEntityTicking(shop.pos())) {
 				continue; // 区块未加载：暂不处理，节省资源
 			}
+			// 自愈：箱子本体已不存在（任何未知途径被破坏）时自动移除商店。
+			if (!(level.getBlockState(shop.pos()).getBlock() instanceof net.minecraft.world.level.block.ChestBlock)) {
+				remove(shop, level);
+				continue;
+			}
 			boolean open = isChestOpen(level, shop.pos());
 			if (open) {
 				shop.setWasOpen(true);

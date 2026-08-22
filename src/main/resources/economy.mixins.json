@@ -9,6 +9,7 @@
 		"ServerGamePacketListenerImplMixin",
 		"ServerPlayerGameModeMixin",
 		"ExplosionDamageCalculatorMixin",
+		"ServerExplosionMixin",
 		"LevelMixin"
 	],
 	"injectors": {
