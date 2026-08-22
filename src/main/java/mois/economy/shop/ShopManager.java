@@ -137,7 +137,7 @@ public final class ShopManager {
 				if (stack.isEmpty()) {
 					continue;
 				}
-				total = satAdd(total, satMul(ItemValues.get(stack.getItem()), stack.getCount()));
+				total = satAdd(total, ItemValues.price(stack));
 			}
 			container.clearContent();
 		}

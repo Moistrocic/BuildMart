@@ -87,7 +87,7 @@ public final class PriceLore {
 
 	private static Component priceLine(ItemStack stack) {
 		return Component.literal(MARKER)
-				.append(Money.format(ItemValues.get(stack.getItem())))
+				.append(Money.format(ItemValues.price(stack)))
 				.append(" 元")
 				.withStyle(ChatFormatting.GOLD)
 				.withStyle(style -> style.withItalic(false));

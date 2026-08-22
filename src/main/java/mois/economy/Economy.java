@@ -3,6 +3,7 @@ package mois.economy;
 import mois.economy.buymode.BuyModeManager;
 import mois.economy.command.EconomyCommands;
 import mois.economy.config.EconomyConfig;
+import mois.economy.config.EnchantmentValues;
 import mois.economy.config.ItemValues;
 import mois.economy.data.EconomyDb;
 import mois.economy.shop.ShopManager;
@@ -39,8 +40,9 @@ public class Economy implements ModInitializer {
 		// Proceed with mild caution.
 
 		ServerLifecycleEvents.SERVER_STARTED.register(server -> {
-			// 物品价值配置 + 主配置 + 资金数据库 + 商店数据。
+			// 物品价值配置 + 附魔价值配置 + 主配置 + 资金数据库 + 商店数据。
 			ItemValues.load(FabricLoader.getInstance().getConfigDir());
+			EnchantmentValues.load(FabricLoader.getInstance().getConfigDir());
 			EconomyConfig.load(FabricLoader.getInstance().getConfigDir());
 			PriceLore.enabled = EconomyConfig.itemPricesInLore();
 			PriceLore.configure(server);

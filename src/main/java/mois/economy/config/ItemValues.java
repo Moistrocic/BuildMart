@@ -4,8 +4,16 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import mois.economy.Economy;
 import mois.economy.Money;
+import net.minecraft.core.Holder;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.BundleContents;
+import net.minecraft.world.item.component.ItemContainerContents;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.ItemEnchantments;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -63,6 +71,73 @@ public final class ItemValues {
 		synchronized (VALUES) {
 			return VALUES.getOrDefault(id.toString(), DEFAULT_CENTS);
 		}
+	}
+
+	/** 容器（潜影盒/收纳袋）内容物递归计价的最大嵌套深度，防止异常数据导致过深递归。 */
+	private static final int MAX_CONTAINER_DEPTH = 8;
+
+	/**
+	 * 物品完整价值（分）=（基础价 + 附魔总价 + 容器内容物价值）× 数量。
+	 * 附魔按“每级价格 × 等级”累计（含附魔书存储附魔）；容器内容物递归计价，
+	 * 每件外层物品都携带相同的内容物，因此内容物按件计入。空物品为 0。
+	 */
+	public static long price(ItemStack stack) {
+		if (stack == null || stack.isEmpty()) {
+			return 0;
+		}
+		return satMul(pricePerItem(stack, MAX_CONTAINER_DEPTH), stack.getCount());
+	}
+
+	/** 单件物品的完整价值（不含本层数量），容器内容物递归。 */
+	private static long pricePerItem(ItemStack stack, int depth) {
+		long total = get(stack.getItem());
+		ItemEnchantments ench = stack.get(DataComponents.ENCHANTMENTS);
+		if (ench != null) {
+			total = addEnchantments(total, ench);
+		}
+		ItemEnchantments stored = stack.get(DataComponents.STORED_ENCHANTMENTS);
+		if (stored != null) {
+			total = addEnchantments(total, stored);
+		}
+		if (depth > 0) {
+			ItemContainerContents container = stack.get(DataComponents.CONTAINER);
+			if (container != null) {
+				for (ItemStack inner : container.nonEmptyItemCopyStream().toList()) {
+					total = satAdd(total, satMul(pricePerItem(inner, depth - 1), inner.getCount()));
+				}
+			}
+			BundleContents bundle = stack.get(DataComponents.BUNDLE_CONTENTS);
+			if (bundle != null) {
+				for (ItemStack inner : bundle.itemCopies().toList()) {
+					total = satAdd(total, satMul(pricePerItem(inner, depth - 1), inner.getCount()));
+				}
+			}
+		}
+		return total;
+	}
+
+	private static long addEnchantments(long total, ItemEnchantments enchantments) {
+		for (Object2IntMap.Entry<Holder<Enchantment>> entry : enchantments.entrySet()) {
+			total = satAdd(total, satMul(EnchantmentValues.get(entry.getKey()), entry.getIntValue()));
+		}
+		return total;
+	}
+
+	private static long satAdd(long a, long b) {
+		if (a > Long.MAX_VALUE - b) {
+			return Long.MAX_VALUE;
+		}
+		return a + b;
+	}
+
+	private static long satMul(long a, long b) {
+		if (a == 0 || b == 0) {
+			return 0;
+		}
+		if (a > Long.MAX_VALUE / b) {
+			return Long.MAX_VALUE;
+		}
+		return a * b;
 	}
 
 	/** 把当前配置序列化为 JSON 字符串（用于同步给客户端）。 */

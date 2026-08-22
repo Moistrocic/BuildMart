@@ -144,7 +144,8 @@ public final class BalshopCommands {
 		long cents = ItemValues.get(input.item().value());
 		String id = BuiltInRegistries.ITEM.getKey(input.item().value()).toString();
 		ctx.getSource().sendSuccess(() -> text(id, ChatFormatting.GREEN)
-				.append(" 的价格：").append(Money.format(cents)).append(" 元"), false);
+				.append(" 的基础价格：").append(Money.format(cents))
+				.append(" 元（实际结算按完整价值 = 基础价 + 附魔 + 容器内容物）"), false);
 		return 1;
 	}
 
@@ -153,8 +154,8 @@ public final class BalshopCommands {
 		ServerPlayer player = requirePlayer(source);
 		ItemInput input = ItemArgument.getItem(ctx, "item");
 		int count = IntegerArgumentType.getInteger(ctx, "count");
-		long unit = ItemValues.get(input.item().value());
-		long total = unit > Long.MAX_VALUE / count ? Long.MAX_VALUE : unit * count;
+		ItemStack stack = input.createItemStack(count);
+		long total = ItemValues.price(stack);
 
 		long balance = readBalance(player.getUUID());
 		if (balance < total) {
@@ -170,7 +171,6 @@ public final class BalshopCommands {
 			throw DB_ERROR.create();
 		}
 
-		ItemStack stack = input.createItemStack(count);
 		Inventory inventory = player.getInventory();
 		if (!inventory.add(stack)) {
 			// 背包放不下的部分掉落在玩家脚下
