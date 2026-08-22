@@ -4,14 +4,16 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import mois.economy.PriceLore;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 
 /**
- * 物品进入玩家背包的统一漏斗：捡起掉落物、指令给予、容器点击、
- * 快捷移动等最终都会写入 Inventory.setItem。在此打上价格标签，
+ * 物品进入玩家背包的统一漏斗：捡起掉落物、指令给予走 Inventory.add
+ * （26.3 中它直接写 items 列表、不经过 setItem），容器点击/快捷移动走
+ * Slot.setByPlayer → container.setItem。两条路径都在写入前打上价格标签，
  * 保证物品“获得前”即带标签，与背包内已有物品无缝堆叠。
  * 客户端侧同样生效（单机内置服务器开启标签时），保证本地预测与服务端一致。
  */
@@ -20,5 +22,16 @@ public abstract class InventoryMixin {
 	@Inject(method = "setItem", at = @At("HEAD"))
 	private void economy$tagOnInventorySet(int slot, ItemStack stack, CallbackInfo ci) {
 		PriceLore.tag(stack);
+	}
+
+	@Inject(method = "add", at = @At("HEAD"))
+	private void economy$tagOnInventoryAdd(ItemStack stack, CallbackInfoReturnable<Boolean> cir) {
+		// 捡起/指令给予走 add(ItemStack)，内部以 slot=-1 自选目标槽位：
+		// 合并判定在写入前进行，进栈与所有候选槽位都打标才能无缝合并
+		PriceLore.tag(stack);
+		Inventory inventory = (Inventory) (Object) this;
+		for (int i = 0; i < inventory.getContainerSize(); i++) {
+			PriceLore.tag(inventory.getItem(i));
+		}
 	}
 }
