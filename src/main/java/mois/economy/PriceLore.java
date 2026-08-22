@@ -61,10 +61,13 @@ public final class PriceLore {
 				});
 	}
 
-	static ItemStack inject(ItemStack stack) {
+	/** 注入价格行（幂等：先移除旧价格行再追加，任何路径都不会行堆积）。 */
+	public static ItemStack inject(ItemStack stack) {
 		ItemStack copy = stack.copy();
 		ItemLore lore = copy.getOrDefault(DataComponents.LORE, ItemLore.EMPTY);
-		copy.set(DataComponents.LORE, lore.withLineAdded(priceLine(stack)));
+		List<Component> cleaned = lore.lines().stream().filter(line -> !isPriceLine(line)).toList();
+		ItemLore base = cleaned.isEmpty() ? ItemLore.EMPTY : new ItemLore(cleaned);
+		copy.set(DataComponents.LORE, base.withLineAdded(priceLine(stack)));
 		return copy;
 	}
 

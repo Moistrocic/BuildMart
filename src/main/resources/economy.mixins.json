@@ -6,6 +6,7 @@
 		"ServerPlayerMixin",
 		"PlayerMixin",
 		"ItemStackMixin",
+		"RemoteSlotSynchronizedMixin",
 		"ServerGamePacketListenerImplMixin",
 		"ServerPlayerGameModeMixin",
 		"ExplosionDamageCalculatorMixin",
