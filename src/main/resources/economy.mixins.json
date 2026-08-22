@@ -6,7 +6,10 @@
 		"ServerPlayerMixin",
 		"PlayerMixin",
 		"ItemStackMixin",
-		"ServerGamePacketListenerImplMixin"
+		"ServerGamePacketListenerImplMixin",
+		"ServerPlayerGameModeMixin",
+		"ExplosionDamageCalculatorMixin",
+		"LevelMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

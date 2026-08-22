@@ -211,6 +211,41 @@ public final class ShopManager {
 				+ "\n刷新：" + seconds + " 秒").withStyle(ChatFormatting.GOLD);
 	}
 
+	// ---------- 破坏保护 ----------
+
+	/** pos 自身或双箱另一半是否为商店。 */
+	public static boolean isShopOrHalf(ServerLevel level, BlockPos pos) {
+		return getShopOrHalf(level, pos) != null;
+	}
+
+	/** pos 自身或双箱另一半对应的商店（用于所有权判断），无则返回 null。 */
+	public static Shop getShopOrHalf(ServerLevel level, BlockPos pos) {
+		Shop shop = get(level.dimension(), pos);
+		if (shop != null) {
+			return shop;
+		}
+		for (Direction dir : Direction.Plane.HORIZONTAL) {
+			BlockPos neighbor = pos.relative(dir);
+			if (level.getBlockState(neighbor).is(level.getBlockState(pos).getBlock())) {
+				shop = get(level.dimension(), neighbor);
+				if (shop != null) {
+					return shop;
+				}
+			}
+		}
+		return null;
+	}
+
+	/** pos 恰为商店所在箱时移除商店并返回 true。 */
+	public static boolean removeIfShop(ServerLevel level, BlockPos pos) {
+		Shop shop = get(level.dimension(), pos);
+		if (shop == null) {
+			return false;
+		}
+		remove(shop, level);
+		return true;
+	}
+
 	// ---------- 持久化 ----------
 
 	private static void load() {
