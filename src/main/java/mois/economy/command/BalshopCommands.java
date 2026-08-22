@@ -170,10 +170,10 @@ public final class BalshopCommands {
 			throw PAYER_INSUFFICIENT.create();
 		}
 		try {
+			// 购买：只扣玩家资金，不入服务器资产（服务器资产仅来自商店收款与玩家主动存入）
 			if (!EconomyDb.deduct(player.getUUID(), total)) {
 				throw PAYER_INSUFFICIENT.create();
 			}
-			EconomyDb.credit(EconomyDb.SERVER_ACCOUNT_UUID, EconomyDb.SERVER_ACCOUNT_NAME, total);
 		} catch (EconomyDb.DatabaseException e) {
 			Economy.LOGGER.error("balshop buy 数据库错误", e);
 			throw DB_ERROR.create();

@@ -1,28 +1,36 @@
 package mois.economy;
 
+import java.util.List;
+
 import mois.economy.config.ItemValues;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.component.DataComponents;
-import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.TextColor;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.component.BundleContents;
+import net.minecraft.world.item.component.ItemContainerContents;
 import net.minecraft.world.item.component.ItemLore;
-
-import java.util.List;
+import net.minecraft.world.item.slot.SlotSelector;
 
 /**
- * 线路层价格 lore：物品通过网络序列化发给客户端时临时附上一行金色价格（正体），
- * 客户端（含纯净端）的物品提示会原生渲染该行；物品从客户端发回服务端时剥除，
- * 因此物品数据不会持久残留，卸载模组后零污染。
+ * 价格标签：以真实 lore 组件的形式打在被玩家持有的物品上（进背包/打开容器时），
+ * 显示“单价”——与数量无关，同种物品不同数量的标签完全一致，可以正常堆叠，
+ * 且在物品进入背包“之前”就打上，捡起/指令获取时能与背包内物品无缝合并。
  * <p>
- * 方向判定：独立服务端的所有编解码都应用；单人游戏内置服务器与服务端线程共享
- * JVM 与 codec，因此按“服务端线程”区分方向（服务端线程上的编码=下发注入、
- * 解码=回传剥除；客户端线程一律不动）。纯客户端进程 serverRef 为 null，恒不生效，
- * 只会原样渲染服务端注入的 lore。
+ * 生命周期（价格只需玩家可见，因此严格控制存留范围）：
+ * <ul>
+ * <li>进入玩家背包（捡起/指令/容器点击等，统一经 Inventory.setItem）→ 打标签；</li>
+ * <li>玩家打开的容器界面 → 打开时全部打标签；</li>
+ * <li>丢出/死亡掉落（drop）→ 立刻清除；</li>
+ * <li>关闭容器 → 容器内物品立刻清除（玩家背包部分除外）；</li>
+ * <li>玩家下线 → 背包与当前容器全部清除，存档不留残留。</li>
+ * </ul>
  */
 public final class PriceLore {
 	private static final String MARKER = "单价：";
@@ -30,62 +38,103 @@ public final class PriceLore {
 	/** 由配置控制的功能总开关（EconomyConfig.itemPricesInLore）。 */
 	public static volatile boolean enabled = false;
 
-	private static volatile MinecraftServer serverRef;
-	private static volatile boolean dedicated;
-
 	private PriceLore() {
 	}
 
-	public static void configure(MinecraftServer server) {
-		serverRef = server;
-		dedicated = server.isDedicatedServer();
-	}
-
-	/** 当前编解码是否应注入/剥除：仅服务端侧（独立服任意线程，单机限服务端线程）。 */
-	private static boolean shouldApply() {
-		if (!enabled || serverRef == null) {
-			return false;
+	/** 给物品打上价格标签（幂等；不递归进容器内容物——内容物在容器被打开时另行打标）。 */
+	public static void tag(ItemStack stack) {
+		if (!enabled || stack == null || stack.isEmpty()) {
+			return;
 		}
-		return dedicated || serverRef.isSameThread();
+		Component line = priceLine(stack);
+		ItemLore lore = stack.getOrDefault(DataComponents.LORE, ItemLore.EMPTY);
+		List<Component> kept = lore.lines().stream().filter(existing -> !isPriceLine(existing)).toList();
+		ItemLore base = kept.isEmpty() ? ItemLore.EMPTY : new ItemLore(kept);
+		stack.set(DataComponents.LORE, base.withLineAdded(line));
 	}
 
-	/** 包装物品流编解码器：下发方向注入价格行，回传方向剥除价格行。 */
-	public static StreamCodec<RegistryFriendlyByteBuf, ItemStack> wrap(
-			StreamCodec<RegistryFriendlyByteBuf, ItemStack> original) {
-		return StreamCodec.of(
-				(buf, stack) -> original.encode(buf, shouldApply() && stack != null && !stack.isEmpty()
-						? inject(stack) : stack),
-				buf -> {
-					ItemStack stack = original.decode(buf);
-					return shouldApply() && stack != null && !stack.isEmpty() ? strip(stack) : stack;
-				});
-	}
-
-	/** 注入价格行（幂等：先移除旧价格行再追加，任何路径都不会行堆积）。 */
-	public static ItemStack inject(ItemStack stack) {
-		ItemStack copy = stack.copy();
-		ItemLore lore = copy.getOrDefault(DataComponents.LORE, ItemLore.EMPTY);
-		List<Component> cleaned = lore.lines().stream().filter(line -> !isPriceLine(line)).toList();
-		ItemLore base = cleaned.isEmpty() ? ItemLore.EMPTY : new ItemLore(cleaned);
-		copy.set(DataComponents.LORE, base.withLineAdded(priceLine(stack)));
-		return copy;
-	}
-
-	static ItemStack strip(ItemStack stack) {
+	/** 清除价格标签（递归清除容器内容物中的标签）。 */
+	public static void untag(ItemStack stack) {
+		if (stack == null || stack.isEmpty()) {
+			return;
+		}
 		ItemLore lore = stack.get(DataComponents.LORE);
-		if (lore == null || lore.lines().isEmpty()) {
-			return stack;
+		if (lore != null) {
+			List<Component> kept = lore.lines().stream().filter(line -> !isPriceLine(line)).toList();
+			if (kept.size() != lore.lines().size()) {
+				if (kept.isEmpty()) {
+					stack.remove(DataComponents.LORE);
+				} else {
+					stack.set(DataComponents.LORE, new ItemLore(kept));
+				}
+			}
 		}
-		List<Component> kept = lore.lines().stream().filter(line -> !isPriceLine(line)).toList();
-		if (kept.size() == lore.lines().size()) {
-			return stack;
+		ItemContainerContents container = stack.get(DataComponents.CONTAINER);
+		if (container != null) {
+			ItemContainerContents.Mutable mutable = container.asMutable();
+			mutable.modifySlots(access -> {
+				ItemStack inner = access.get();
+				if (!inner.isEmpty()) {
+					untag(inner);
+					access.set(inner);
+				}
+			}, SlotSelector.ANY_SLOT);
+			stack.set(DataComponents.CONTAINER, mutable.toImmutable());
 		}
-		if (kept.isEmpty()) {
-			stack.remove(DataComponents.LORE);
-		} else {
-			stack.set(DataComponents.LORE, new ItemLore(kept));
+		BundleContents bundle = stack.get(DataComponents.BUNDLE_CONTENTS);
+		if (bundle != null) {
+			BundleContents.Mutable mutable = bundle.asMutable();
+			mutable.modifySlots(access -> {
+				ItemStack inner = access.get();
+				if (!inner.isEmpty()) {
+					untag(inner);
+					access.set(inner);
+				}
+			}, SlotSelector.ANY_SLOT);
+			stack.set(DataComponents.BUNDLE_CONTENTS, mutable.toImmutable());
 		}
-		return stack;
+	}
+
+	/** 打开容器：给界面所有槽位打标签（含玩家背包部分，幂等）。 */
+	public static void tagMenu(AbstractContainerMenu menu) {
+		if (!enabled || menu == null) {
+			return;
+		}
+		for (Slot slot : menu.slots) {
+			tag(slot.getItem());
+		}
+	}
+
+	/** 关闭容器：清除界面中非玩家背包槽位的标签（玩家背包里的物品保留）。 */
+	public static void untagMenu(AbstractContainerMenu menu, Inventory playerInventory) {
+		if (menu == null) {
+			return;
+		}
+		for (Slot slot : menu.slots) {
+			if (slot.container == playerInventory) {
+				continue;
+			}
+			untag(slot.getItem());
+		}
+	}
+
+	/** 玩家下线：清除背包（含盔甲/副手/容器内容物）与光标上的标签。 */
+	public static void untagInventory(ServerPlayer player) {
+		Inventory inventory = player.getInventory();
+		for (int i = 0; i < inventory.getContainerSize(); i++) {
+			untag(inventory.getItem(i));
+		}
+		if (player.containerMenu != null) {
+			untag(player.containerMenu.getCarried());
+		}
+	}
+
+	/** 玩家下线：清除背包 + 当前打开的容器 + 光标。 */
+	public static void untagPlayerAndMenu(ServerPlayer player) {
+		untagInventory(player);
+		if (player.containerMenu != null) {
+			untagMenu(player.containerMenu, player.getInventory());
+		}
 	}
 
 	private static Component priceLine(ItemStack stack) {
@@ -96,7 +145,7 @@ public final class PriceLore {
 					.withStyle(ChatFormatting.RED)
 					.withStyle(style -> style.withItalic(false));
 		}
-		// 显示“单价”而非整组总价：与数量无关，同种物品不同数量的 lore 完全一致，
+		// 显示“单价”而非整组总价：与数量无关，同种物品不同数量的标签完全一致，
 		// 否则游戏会因组件不同拒绝堆叠（3 个与 5 个绿宝石无法合并）
 		return Component.literal(MARKER)
 				.append(Money.format(unitPrice))
@@ -110,39 +159,36 @@ public final class PriceLore {
 				&& TextColor.fromLegacyFormat(ChatFormatting.GOLD).equals(line.getStyle().getColor())) {
 			return true;
 		}
-		// “不可交易”标记同样属于本模组的线路数据，回传时需要剥除
+		// “不可交易”标记同样属于本模组的标签，清除时一并移除
 		return "不可交易".equals(line.getString())
 				&& TextColor.fromLegacyFormat(ChatFormatting.RED).equals(line.getStyle().getColor());
 	}
 
-	/** 注入/剥除逻辑自检（服务器启动时调用），含真实网络 codec 往返。 */
-	public static void selfCheck(net.minecraft.core.RegistryAccess registryAccess) {
-		if (!shouldApply()) {
-			throw new IllegalStateException("价格 lore 未启用，无法自检");
+	/** 打标/清标逻辑自检（服务器启动时调用）。 */
+	public static void selfCheck() {
+		if (!enabled) {
+			throw new IllegalStateException("价格标签未启用，无法自检");
 		}
-		ItemStack injected = inject(new ItemStack(Items.DIRT));
-		ItemLore lore = injected.get(DataComponents.LORE);
-		if (lore == null || lore.lines().stream().noneMatch(PriceLore::isPriceLine)) {
-			throw new IllegalStateException("价格 lore 注入失败");
+		ItemStack stack = new ItemStack(Items.STONE, 3);
+		tag(stack);
+		ItemLore lore = stack.get(DataComponents.LORE);
+		if (lore == null || lore.lines().size() != 1 || !isPriceLine(lore.lines().get(0))) {
+			throw new IllegalStateException("价格标签打标失败");
 		}
-		Component line = lore.lines().stream().filter(PriceLore::isPriceLine).findFirst().orElseThrow();
-		if (Boolean.TRUE.equals(line.getStyle().isItalic())) {
-			throw new IllegalStateException("价格 lore 应为正体");
+		tag(stack); // 幂等性
+		if (stack.get(DataComponents.LORE).lines().size() != 1) {
+			throw new IllegalStateException("价格标签应幂等");
 		}
-		ItemStack custom = new ItemStack(Items.STONE);
+		ItemStack custom = new ItemStack(Items.DIRT);
 		custom.set(DataComponents.LORE, ItemLore.EMPTY.withLineAdded(Component.literal("自定义")));
-		ItemStack stripped = strip(inject(custom));
-		ItemLore after = stripped.get(DataComponents.LORE);
-		if (after == null || after.lines().size() != 1 || !after.lines().get(0).getString().equals("自定义")) {
-			throw new IllegalStateException("价格 lore 剥除失败");
+		tag(custom);
+		if (custom.get(DataComponents.LORE).lines().size() != 2) {
+			throw new IllegalStateException("打标应保留自定义 lore");
 		}
-		// 真实线路往返：模拟客户端把带价格行的物品发回，解码后应无残留。
-		RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(io.netty.buffer.Unpooled.buffer(), registryAccess);
-		ItemStack.OPTIONAL_STREAM_CODEC.encode(buf, injected);
-		ItemStack decoded = ItemStack.OPTIONAL_STREAM_CODEC.decode(buf);
-		ItemLore decodedLore = decoded.get(DataComponents.LORE);
-		if (decodedLore != null && !decodedLore.lines().isEmpty()) {
-			throw new IllegalStateException("线路价格 lore 未剥除");
+		untag(custom);
+		ItemLore after = custom.get(DataComponents.LORE);
+		if (after == null || after.lines().size() != 1 || !after.lines().get(0).getString().equals("自定义")) {
+			throw new IllegalStateException("价格标签清除失败");
 		}
 		Economy.LOGGER.info("价格lore自检通过");
 	}

@@ -45,9 +45,8 @@ public class Economy implements ModInitializer {
 			EnchantmentValues.load(FabricLoader.getInstance().getConfigDir());
 			EconomyConfig.load(FabricLoader.getInstance().getConfigDir());
 			PriceLore.enabled = EconomyConfig.itemPricesInLore();
-			PriceLore.configure(server);
 			if (PriceLore.enabled) {
-				PriceLore.selfCheck(server.registryAccess());
+				PriceLore.selfCheck();
 			}
 			Path worldDir = server.getWorldPath(LevelResource.ROOT);
 			EconomyDb.open(worldDir.resolve("economy.db"));
@@ -74,8 +73,13 @@ public class Economy implements ModInitializer {
 				LOGGER.error("读取公告失败", e);
 			}
 		});
-		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) ->
-				BuyModeManager.exit(handler.getPlayer()));
+		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
+			// 下线：清除背包与打开容器的价格标签，退出便捷购买模式
+			if (handler.getPlayer() != null) {
+				PriceLore.untagPlayerAndMenu(handler.getPlayer());
+			}
+			BuyModeManager.exit(handler.getPlayer());
+		});
 
 		CommandRegistrationCallback.EVENT.register((dispatcher, buildContext, selection) -> {
 			EconomyCommands.register(dispatcher, buildContext);

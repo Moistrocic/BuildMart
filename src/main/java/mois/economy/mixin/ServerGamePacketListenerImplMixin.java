@@ -16,7 +16,6 @@ import mois.economy.data.EconomyDb;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.NonNullList;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.protocol.game.ClientboundContainerSetSlotPacket;
 import net.minecraft.network.protocol.game.ServerboundContainerClickPacket;
 import net.minecraft.network.protocol.game.ServerboundSetCreativeModeSlotPacket;
 import net.minecraft.server.level.ServerPlayer;
@@ -34,8 +33,9 @@ import net.minecraft.world.item.ItemStack;
  * 余额不足时回滚槽位并强制全量同步，杜绝客户端幽灵物品；
  * 2. 普通点击包：26.3 创造界面从面板拿取物品实际走点击包（changedSlots）通道，
  * 在处理前后对比服务端各槽位完整价值做同样的扣款/退款，余额不足时恢复点击前
- * 状态并全量同步；
- * 3. 普通创造模式（非购买模式）下拿取物品后补发一次槽位同步，让价格 lore 立即生效。
+ * 状态并全量同步。
+ * <p>
+ * 购买花费只从玩家账户扣除、不入服务器资产（服务器资产仅来自商店收款与玩家主动存入）。
  */
 @Mixin(ServerGamePacketListenerImpl.class)
 public abstract class ServerGamePacketListenerImplMixin {
@@ -82,30 +82,13 @@ public abstract class ServerGamePacketListenerImplMixin {
 		slot.setByPlayer(newStack);
 		menu.setRemoteSlot(slotNum, newStack);
 		if (delta > 0) {
+			// 购买：只扣玩家资金，不入服务器资产
 			deductQuietly(player, delta);
-			creditServerQuietly(delta);
 			sendBuy(player, prev, newStack, delta);
 		} else if (delta < 0) {
 			creditQuietly(player, -delta);
 			sendRefund(player, prev, newStack, -delta);
 		}
-	}
-
-	@Inject(method = "handleSetCreativeModeSlot", at = @At("RETURN"))
-	private void economy$syncCreativeSlot(ServerboundSetCreativeModeSlotPacket packet, CallbackInfo ci) {
-		ServerPlayer player = ((ServerGamePacketListenerImpl) (Object) this).player;
-		if (player == null || !player.hasInfiniteMaterials()) {
-			return;
-		}
-		short slotNum = packet.slotNum();
-		if (slotNum < 1 || slotNum > 45) {
-			return;
-		}
-		InventoryMenu menu = player.inventoryMenu;
-		// 同步服务端的最终槽位状态（购买模式下被回滚时也能纠正客户端）。
-		ItemStack current = menu.getSlot(slotNum).getItem();
-		player.connection.send(new ClientboundContainerSetSlotPacket(
-				menu.containerId, menu.incrementStateId(), slotNum, current));
 	}
 
 	// ---------- 普通点击包（26.3 创造界面拿取物品的实际通道） ----------
@@ -186,8 +169,8 @@ public abstract class ServerGamePacketListenerImplMixin {
 			return;
 		}
 		if (netDelta > 0) {
+			// 购买：只扣玩家资金，不入服务器资产
 			deductQuietly(player, netDelta);
-			creditServerQuietly(netDelta);
 			if (changes.size() == 1) {
 				SlotDelta change = changes.get(0);
 				sendBuy(player, change.before, change.after, change.delta);
@@ -315,17 +298,6 @@ public abstract class ServerGamePacketListenerImplMixin {
 		}
 		try {
 			EconomyDb.credit(player.getUUID(), player.getGameProfile().name(), amount);
-		} catch (EconomyDb.DatabaseException ignored) {
-			// 结算失败静默。
-		}
-	}
-
-	private static void creditServerQuietly(long amount) {
-		if (amount <= 0) {
-			return;
-		}
-		try {
-			EconomyDb.credit(EconomyDb.SERVER_ACCOUNT_UUID, EconomyDb.SERVER_ACCOUNT_NAME, amount);
 		} catch (EconomyDb.DatabaseException ignored) {
 			// 结算失败静默。
 		}

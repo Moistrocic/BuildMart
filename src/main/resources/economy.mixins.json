@@ -5,8 +5,8 @@
 	"mixins": [
 		"ServerPlayerMixin",
 		"PlayerMixin",
-		"ItemStackMixin",
-		"RemoteSlotSynchronizedMixin",
+		"LivingEntityMixin",
+		"InventoryMixin",
 		"ServerGamePacketListenerImplMixin",
 		"ServerPlayerGameModeMixin",
 		"ExplosionDamageCalculatorMixin",
