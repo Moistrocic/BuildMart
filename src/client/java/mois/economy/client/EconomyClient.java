@@ -5,15 +5,14 @@ import mois.economy.net.PriceListPayload;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.item.v1.ItemTooltipCallback;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 
 public class EconomyClient implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
-		// 注册价格同步包：收到后更新本地价值缓存。
-		PayloadTypeRegistry.clientboundPlay().register(PriceListPayload.TYPE, PriceListPayload.CODEC);
+		// 注：PriceListPayload 的类型注册在公共入口 Economy.onInitialize 中
+		// （客户端与服务器都会执行），此处重复注册会导致 “already registered”。
 		ClientPlayNetworking.registerGlobalReceiver(PriceListPayload.TYPE, (payload, context) ->
 				context.client().execute(() -> PriceCache.load(payload.json())));
 
