@@ -59,7 +59,7 @@ public class Economy implements ModInitializer {
 		});
 		ServerTickEvents.END_SERVER_TICK.register(ShopManager::onServerTick);
 
-		// 玩家进入服务器时发送红色公告，并同步名字与物品价格。
+		// 玩家进入服务器时：同步名字到数据库（首次进服自动建行），并发送红色公告。
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
 			try {
 				// 同步玩家名字到数据库：首次进入自动建行，并修复历史上被覆盖为“未知玩家”的名字。

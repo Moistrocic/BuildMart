@@ -41,7 +41,7 @@ public final class ItemValues {
 	private ItemValues() {
 	}
 
-	/** 从 config 目录加载；文件不存在时生成示例默认配置。失败时回退为全默认 1.00 元。 */
+	/** 从 config 目录加载；文件不存在时按初始定价表（{@link ItemInitialPrices}）+ 注册表全量生成。失败时回退为全默认 1.00 元。 */
 	public static void load(Path configDir) {
 		Path file = configDir.resolve("economy").resolve("items.json");
 		Map<String, Long> parsed = new HashMap<>();
