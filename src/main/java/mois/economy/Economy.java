@@ -4,15 +4,12 @@ import mois.economy.command.EconomyCommands;
 import mois.economy.config.EconomyConfig;
 import mois.economy.config.ItemValues;
 import mois.economy.data.EconomyDb;
-import mois.economy.net.PriceListPayload;
 import mois.economy.shop.ShopManager;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
-import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.fabricmc.loader.api.FabricLoader;
 
 import net.minecraft.ChatFormatting;
@@ -40,14 +37,12 @@ public class Economy implements ModInitializer {
 		// However, some things (like resources) may still be uninitialized.
 		// Proceed with mild caution.
 
-		// 价格同步包（可选：纯净端没有该通道，不受影响）。
-		PayloadTypeRegistry.clientboundPlay().register(PriceListPayload.TYPE, PriceListPayload.CODEC);
-
 		ServerLifecycleEvents.SERVER_STARTED.register(server -> {
 			// 物品价值配置 + 主配置 + 资金数据库 + 商店数据。
 			ItemValues.load(FabricLoader.getInstance().getConfigDir());
 			EconomyConfig.load(FabricLoader.getInstance().getConfigDir());
 			PriceLore.enabled = EconomyConfig.itemPricesInLore();
+			PriceLore.configure(server);
 			if (PriceLore.enabled) {
 				PriceLore.selfCheck(server.registryAccess());
 			}
@@ -74,11 +69,6 @@ public class Economy implements ModInitializer {
 				}
 			} catch (EconomyDb.DatabaseException e) {
 				LOGGER.error("读取公告失败", e);
-			}
-			// lore 模式开启时价格随物品数据下发（纯净端可见），无需再发送价格同步包；
-			// 关闭时才给安装了本模组的客户端发送价格表用于提示。
-			if (!PriceLore.enabled && ServerPlayNetworking.canSend(handler.getPlayer(), PriceListPayload.TYPE)) {
-				ServerPlayNetworking.send(handler.getPlayer(), new PriceListPayload(ItemValues.toJson()));
 			}
 		});
 
