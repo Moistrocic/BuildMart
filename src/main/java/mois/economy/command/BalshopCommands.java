@@ -1,0 +1,237 @@
+package mois.economy.command;
+
+import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.context.CommandContext;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
+import mois.economy.Economy;
+import mois.economy.Money;
+import mois.economy.config.ItemValues;
+import mois.economy.data.EconomyDb;
+import mois.economy.shop.Shop;
+import mois.economy.shop.ShopManager;
+import net.minecraft.ChatFormatting;
+import net.minecraft.commands.CommandBuildContext;
+import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.Commands;
+import net.minecraft.commands.arguments.GameProfileArgument;
+import net.minecraft.commands.arguments.item.ItemArgument;
+import net.minecraft.commands.arguments.item.ItemInput;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.players.NameAndId;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.entity.ChestBlockEntity;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
+
+import java.util.UUID;
+import java.util.function.Predicate;
+
+/**
+ * /balshop 系列指令：箱子商店的创建/移除/收款人设置，物品价格查询与购买。
+ * 所有参数使用原版参数类型，保证纯净端兼容（规则书 3.1）。
+ */
+public final class BalshopCommands {
+	private static final int MAX_BUY_COUNT = 17280;
+
+	private static final SimpleCommandExceptionType NOT_CHEST =
+			new SimpleCommandExceptionType(Component.literal("请对准一个箱子"));
+	private static final SimpleCommandExceptionType NOT_SHOP =
+			new SimpleCommandExceptionType(Component.literal("这里不是商店"));
+	private static final SimpleCommandExceptionType ALREADY_SHOP =
+			new SimpleCommandExceptionType(Component.literal("该箱子已经是商店"));
+	private static final SimpleCommandExceptionType NOT_OWNER =
+			new SimpleCommandExceptionType(Component.literal("只能操作自己的商店"));
+	private static final SimpleCommandExceptionType PLAYER_ONLY =
+			new SimpleCommandExceptionType(Component.literal("该指令只能由玩家执行"));
+	private static final SimpleCommandExceptionType DB_ERROR =
+			new SimpleCommandExceptionType(Component.literal("数据库错误，请稍后再试"));
+	private static final SimpleCommandExceptionType PAYER_INSUFFICIENT =
+			new SimpleCommandExceptionType(Component.literal("你的资金不足"));
+
+	private BalshopCommands() {
+	}
+
+	public static void register(CommandDispatcher<CommandSourceStack> dispatcher, CommandBuildContext buildContext) {
+		dispatcher.register(Commands.literal("balshop")
+				.then(Commands.literal("create")
+						.executes(BalshopCommands::create))
+				.then(Commands.literal("remove")
+						.executes(BalshopCommands::remove))
+				.then(Commands.literal("setpayee")
+						.then(Commands.argument("player", GameProfileArgument.gameProfile())
+								.executes(BalshopCommands::setPayee)))
+				.then(Commands.literal("setpayeeserver")
+						.executes(BalshopCommands::setPayeeServer))
+				.then(Commands.literal("getprice")
+						.then(Commands.argument("item", ItemArgument.item(buildContext))
+								.executes(BalshopCommands::getPrice)))
+				.then(Commands.literal("buy")
+						.then(Commands.argument("item", ItemArgument.item(buildContext))
+								.then(Commands.argument("count", IntegerArgumentType.integer(1, MAX_BUY_COUNT))
+										.executes(BalshopCommands::buy)))));
+	}
+
+	// ---------- 商店管理 ----------
+
+	private static int create(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+		CommandSourceStack source = ctx.getSource();
+		ServerPlayer player = requirePlayer(source);
+		ChestBlockEntity chest = targetedChest(source);
+		ServerLevel level = player.level();
+		if (ShopManager.get(level.dimension(), chest.getBlockPos()) != null) {
+			throw ALREADY_SHOP.create();
+		}
+		ShopManager.create(level, chest.getBlockPos(), player);
+		source.sendSuccess(() -> text("商店已创建", ChatFormatting.GREEN), false);
+		return 1;
+	}
+
+	private static int remove(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+		CommandSourceStack source = ctx.getSource();
+		ServerPlayer player = requirePlayer(source);
+		ChestBlockEntity chest = targetedChest(source);
+		Shop shop = ShopManager.get(player.level().dimension(), chest.getBlockPos());
+		if (shop == null) {
+			throw NOT_SHOP.create();
+		}
+		if (!isAdmin(source) && !shop.owner().equals(player.getUUID())) {
+			throw NOT_OWNER.create();
+		}
+		ShopManager.remove(shop, player.level());
+		source.sendSuccess(() -> text("商店已移除", ChatFormatting.GREEN), false);
+		return 1;
+	}
+
+	private static int setPayee(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+		CommandSourceStack source = ctx.getSource();
+		ServerPlayer player = requirePlayer(source);
+		ChestBlockEntity chest = targetedChest(source);
+		Shop shop = requireOwnedShop(source, player, chest);
+		NameAndId profile = GameProfileArgument.getGameProfiles(ctx, "player").iterator().next();
+		UUID uuid = profile.id() != null ? profile.id() : NameAndId.createOffline(profile.name()).id();
+		ShopManager.setPayee(shop, uuid, profile.name());
+		source.sendSuccess(() -> text("收款人已设置为 ", ChatFormatting.GREEN)
+				.append(profile.name()), false);
+		return 1;
+	}
+
+	private static int setPayeeServer(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+		CommandSourceStack source = ctx.getSource();
+		ServerPlayer player = requirePlayer(source);
+		ChestBlockEntity chest = targetedChest(source);
+		Shop shop = requireOwnedShop(source, player, chest);
+		ShopManager.setPayee(shop, EconomyDb.SERVER_ACCOUNT_UUID, EconomyDb.SERVER_ACCOUNT_NAME);
+		source.sendSuccess(() -> text("收款人已设置为 ", ChatFormatting.GREEN)
+				.append(EconomyDb.SERVER_ACCOUNT_NAME), false);
+		return 1;
+	}
+
+	// ---------- 价格与购买 ----------
+
+	private static int getPrice(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+		ItemInput input = ItemArgument.getItem(ctx, "item");
+		long cents = ItemValues.get(input.item().value());
+		String id = BuiltInRegistries.ITEM.getKey(input.item().value()).toString();
+		ctx.getSource().sendSuccess(() -> text(id, ChatFormatting.GREEN)
+				.append(" 的价格：").append(Money.format(cents)).append(" 元"), false);
+		return 1;
+	}
+
+	private static int buy(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+		CommandSourceStack source = ctx.getSource();
+		ServerPlayer player = requirePlayer(source);
+		ItemInput input = ItemArgument.getItem(ctx, "item");
+		int count = IntegerArgumentType.getInteger(ctx, "count");
+		long unit = ItemValues.get(input.item().value());
+		long total = unit > Long.MAX_VALUE / count ? Long.MAX_VALUE : unit * count;
+
+		long balance = readBalance(player.getUUID());
+		if (balance < total) {
+			throw PAYER_INSUFFICIENT.create();
+		}
+		try {
+			if (!EconomyDb.deduct(player.getUUID(), total)) {
+				throw PAYER_INSUFFICIENT.create();
+			}
+			EconomyDb.credit(EconomyDb.SERVER_ACCOUNT_UUID, EconomyDb.SERVER_ACCOUNT_NAME, total);
+		} catch (EconomyDb.DatabaseException e) {
+			Economy.LOGGER.error("balshop buy 数据库错误", e);
+			throw DB_ERROR.create();
+		}
+
+		ItemStack stack = input.createItemStack(count);
+		Inventory inventory = player.getInventory();
+		if (!inventory.add(stack)) {
+			// 背包放不下的部分掉落在玩家脚下
+			player.spawnAtLocation(player.level(), stack);
+		}
+		String id = BuiltInRegistries.ITEM.getKey(input.item().value()).toString();
+		long balanceAfter = readBalance(player.getUUID());
+		source.sendSuccess(() -> text("已购买 ", ChatFormatting.GREEN)
+				.append(String.valueOf(count)).append(" 个 ").append(id)
+				.append("，花费 ").append(Money.format(total)).append(" 元，当前资金：")
+				.append(Money.format(balanceAfter)).append(" 元"), false);
+		return 1;
+	}
+
+	// ---------- 工具 ----------
+
+	private static ServerPlayer requirePlayer(CommandSourceStack source) throws CommandSyntaxException {
+		ServerPlayer player = source.getPlayer();
+		if (player == null) {
+			throw PLAYER_ONLY.create();
+		}
+		return player;
+	}
+
+	private static boolean isAdmin(CommandSourceStack source) {
+		Predicate<CommandSourceStack> admin = Commands.hasPermission(Commands.LEVEL_ADMINS);
+		return admin.test(source);
+	}
+
+	private static ChestBlockEntity targetedChest(CommandSourceStack source) throws CommandSyntaxException {
+		ServerPlayer player = requirePlayer(source);
+		HitResult hit = player.pick(5.0, 1.0F, false);
+		if (!(hit instanceof BlockHitResult blockHit)) {
+			throw NOT_CHEST.create();
+		}
+		BlockPos pos = blockHit.getBlockPos();
+		if (!(player.level().getBlockEntity(pos) instanceof ChestBlockEntity chest)) {
+			throw NOT_CHEST.create();
+		}
+		return chest;
+	}
+
+	private static Shop requireOwnedShop(CommandSourceStack source, ServerPlayer player, ChestBlockEntity chest)
+			throws CommandSyntaxException {
+		Shop shop = ShopManager.get(player.level().dimension(), chest.getBlockPos());
+		if (shop == null) {
+			throw NOT_SHOP.create();
+		}
+		if (!isAdmin(source) && !shop.owner().equals(player.getUUID())) {
+			throw NOT_OWNER.create();
+		}
+		return shop;
+	}
+
+	private static long readBalance(UUID uuid) throws CommandSyntaxException {
+		try {
+			return EconomyDb.getBalance(uuid);
+		} catch (EconomyDb.DatabaseException e) {
+			Economy.LOGGER.error("读取余额失败", e);
+			throw DB_ERROR.create();
+		}
+	}
+
+	private static MutableComponent text(String content, ChatFormatting color) {
+		return Component.literal(content).withStyle(color);
+	}
+}

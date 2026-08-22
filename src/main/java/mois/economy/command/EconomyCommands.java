@@ -10,6 +10,7 @@ import mois.economy.Economy;
 import mois.economy.Money;
 import mois.economy.data.EconomyDb;
 import net.minecraft.ChatFormatting;
+import net.minecraft.commands.CommandBuildContext;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.SharedSuggestionProvider;
@@ -55,13 +56,20 @@ public final class EconomyCommands {
 			"/pbal take 金额 - 取出服务器公共资金",
 			"/pbal save 金额 - 存入服务器公共资金",
 			"/pay 玩家 金额 - 向玩家支付",
-			"/baltop 页码 -  查看资金排行榜"
+			"/baltop 页码 -  查看资金排行榜",
+			"/balshop create - 创建出售商店",
+			"/balshop remove - 移除出售商店",
+			"/balshop setpayee 玩家 - 设置收款人",
+			"/balshop setpayeeserver - 设置服务器账户为收款人",
+			"/balshop getprice 物品 - 查看物品价格",
+			"/balshop buy 物品 数量 - 购买物品"
 	};
 
 	private EconomyCommands() {
 	}
 
-	public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
+	public static void register(CommandDispatcher<CommandSourceStack> dispatcher, CommandBuildContext buildContext) {
+		BalshopCommands.register(dispatcher, buildContext);
 		dispatcher.register(Commands.literal("bal")
 				.executes(ctx -> showBalance(ctx, null))
 				.then(Commands.argument("player", GameProfileArgument.gameProfile())
