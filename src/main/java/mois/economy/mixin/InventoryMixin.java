@@ -31,6 +31,13 @@ public abstract class InventoryMixin {
 		PriceLore.tag(stack);
 		Inventory inventory = (Inventory) (Object) this;
 		for (int i = 0; i < inventory.getContainerSize(); i++) {
+			// 跳过当前手持槽位：26.3 客户端 sameDestroyTarget 逐组件比较手持物品，
+			// 捡起物品时重打标签会刷新手持工具的价格行（价格随剩余耐久变化），触发
+			// 槽位同步并把正在进行的挖掘进度重置为 0；手持物品的价格行留待它
+			// 离开手持槽位时再刷新（届时价格计算已用最新耐久）。
+			if (i == inventory.getSelectedSlot()) {
+				continue;
+			}
 			PriceLore.tag(inventory.getItem(i));
 		}
 	}

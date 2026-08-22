@@ -48,7 +48,14 @@ public final class PriceLore {
 		}
 		Component line = priceLine(stack);
 		ItemLore lore = stack.getOrDefault(DataComponents.LORE, ItemLore.EMPTY);
-		List<Component> kept = lore.lines().stream().filter(existing -> !isPriceLine(existing)).toList();
+		List<Component> lines = lore.lines();
+		// 已带完全相同价格行时直接返回，不重写组件：重写会生成新的组件对象，
+		// 26.3 客户端 sameDestroyTarget 逐组件比较手持物品，捡起物品引发的
+		// 无意义重写会触发槽位同步并把玩家正在进行的挖掘进度重置为 0。
+		if (!lines.isEmpty() && lines.get(lines.size() - 1).equals(line)) {
+			return;
+		}
+		List<Component> kept = lines.stream().filter(existing -> !isPriceLine(existing)).toList();
 		ItemLore base = kept.isEmpty() ? ItemLore.EMPTY : new ItemLore(kept);
 		stack.set(DataComponents.LORE, base.withLineAdded(line));
 	}
