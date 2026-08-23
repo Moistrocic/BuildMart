@@ -63,7 +63,9 @@ public final class EconomyCommands {
 			"/balshop setpayeeserver - 设置服务器账户为收款人",
 			"/balshop getprice 物品 - 查看物品价格",
 			"/balshop buy 物品 数量 - 购买物品",
-			"/balshop buymode - 进入快捷购买模式"
+			"/balshop buymode - 进入快捷购买模式",
+			"/fly - 开启或关闭飞行模式",
+			"/fly warn - 开启或关闭飞行提醒"
 	};
 
 	private EconomyCommands() {
@@ -71,6 +73,7 @@ public final class EconomyCommands {
 
 	public static void register(CommandDispatcher<CommandSourceStack> dispatcher, CommandBuildContext buildContext) {
 		BalshopCommands.register(dispatcher, buildContext);
+		FlyCommands.register(dispatcher, buildContext);
 		dispatcher.register(Commands.literal("bal")
 				.executes(ctx -> showBalance(ctx, null))
 				.then(Commands.argument("player", GameProfileArgument.gameProfile())

@@ -6,6 +6,7 @@ import mois.economy.config.EconomyConfig;
 import mois.economy.config.EnchantmentValues;
 import mois.economy.config.ItemValues;
 import mois.economy.data.EconomyDb;
+import mois.economy.fly.FlyManager;
 import mois.economy.shop.ShopManager;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
@@ -57,6 +58,7 @@ public class Economy implements ModInitializer {
 			EconomyDb.close();
 		});
 		ServerTickEvents.END_SERVER_TICK.register(ShopManager::onServerTick);
+		ServerTickEvents.END_SERVER_TICK.register(FlyManager::onServerTick);
 
 		// 玩家进入服务器时：同步名字到数据库（首次进服自动建行），并发送红色公告。
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
@@ -72,18 +74,21 @@ public class Economy implements ModInitializer {
 			} catch (EconomyDb.DatabaseException e) {
 				LOGGER.error("读取公告失败", e);
 			}
+			// 保留的飞行模式恢复飞行能力
+			FlyManager.onJoin(handler.getPlayer());
 		});
 		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
-			// 下线：清除背包与打开容器的价格标签，退出便捷购买模式
+			// 下线：清除背包与打开容器的价格标签，退出便捷购买模式，停止飞行扣费（保留飞行模式）
 			if (handler.getPlayer() != null) {
 				PriceLore.untagPlayerAndMenu(handler.getPlayer());
+				FlyManager.onDisconnect(handler.getPlayer());
 			}
 			BuyModeManager.exit(handler.getPlayer());
 		});
 
 		CommandRegistrationCallback.EVENT.register((dispatcher, buildContext, selection) -> {
 			EconomyCommands.register(dispatcher, buildContext);
-			LOGGER.info("命令注册完成（bal/pbal/pay/baltop/balhelp/announcement/eco/peco/balshop）");
+			LOGGER.info("命令注册完成（bal/pbal/pay/baltop/balhelp/announcement/eco/peco/balshop/fly）");
 		});
 
 		LOGGER.info("Economy Mod Loaded!");
