@@ -33,6 +33,23 @@
    比较手持物品，捡起物品时重打标签刷新手持工具的价格行（价格随耐久变化）会导致挖掘进度重置。
 - ⚠️ 此跳过逻辑与 `PriceLore.tag` 的“内容相同不重写”是挖掘进度 bug 的一对配套修复，缺一不可。
 
+## `CraftingMenuMixin`（目标 `CraftingMenu`）— 合成结果源头打标
+
+- `slotChangedCraftingGrid` @RETURN（static 方法，回调须声明**全部参数**含 `RecipeHolder<CraftingRecipe>`）：
+  给 `resultContainer.getItem(0)` 打标——背包 2×2 与工作台 3×3 的结果都在此处计算
+  （仅服务端调用），结果槽内即带标签。
+- 作用：普通点击取走 → 光标携带已打标堆，放置时 `safeInsert` 的 `isSameItemSameComponents`
+  通过 → 与旧堆合并；shift 一键合成 → `quickMoveStack` 拷贝已打标堆 → `moveItemStackTo`
+  合并判定通过。修复“4*木板分格堆放”问题。
+- 标签生命周期与容器一致：结果槽不属于玩家背包，关界面被 `untagMenu` 清除。
+
+## `AbstractContainerMenuMixin`（目标 `AbstractContainerMenu`）— 快捷移动合并前兜底打标
+
+- `moveItemStackTo` @HEAD：给待移动的 stack 打标（幂等）。合并判定
+  （`isSameItemSameComponents`）在写入前进行，未打标堆（切石机/锻造台等不经过
+  CraftingMenuMixin 的结果、其它模组产物）会与已打标旧堆判为异种而分格，此处兜底。
+- 客户端侧同样生效（单机内置服务器开启标签时），保证本地预测与服务端一致。
+
 ## `ServerGamePacketListenerImplMixin`（目标 `ServerGamePacketListenerImpl`）— buymode 结算 + 创造标签补发
 
 本类最复杂，共 4 个注入点：
@@ -91,7 +108,8 @@
 
 - 商店保护：`ServerPlayerGameModeMixin` / `ExplosionDamageCalculatorMixin` /
   `ServerExplosionMixin` / `LevelMixin` → 全部调 `ShopManager`。
-- 价格标签：`InventoryMixin`（进背包）、`ServerPlayerMixin`（开关容器）、
+- 价格标签：`InventoryMixin`（进背包）、`CraftingMenuMixin`（合成结果源头）、
+  `AbstractContainerMenuMixin`（快捷移动合并前兜底）、`ServerPlayerMixin`（开关容器）、
   `LivingEntityMixin`（掉落清除）、`ServerGamePacketListenerImplMixin`（创造/buymode 补发）。
 - buymode：`ServerGamePacketListenerImplMixin` + `ServerPlayerMixin.doCloseContainer` +
   `Economy.java` DISCONNECT → `BuyModeManager`。

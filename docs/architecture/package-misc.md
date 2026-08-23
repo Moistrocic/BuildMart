@@ -27,9 +27,9 @@
 
 - `required: true`，`package: "mois.economy.mixin"`，`compatibilityLevel: "JAVA_21"`，
   `injectors.defaultRequire: 1`。
-- mixins 列表（9 个）：ServerPlayerMixin、PlayerMixin、LivingEntityMixin、InventoryMixin、
-  ServerGamePacketListenerImplMixin、ServerPlayerGameModeMixin、ExplosionDamageCalculatorMixin、
-  ServerExplosionMixin、LevelMixin。
+- mixins 列表（11 个）：ServerPlayerMixin、PlayerMixin、LivingEntityMixin、InventoryMixin、
+  AbstractContainerMenuMixin、CraftingMenuMixin、ServerGamePacketListenerImplMixin、
+  ServerPlayerGameModeMixin、ExplosionDamageCalculatorMixin、ServerExplosionMixin、LevelMixin。
 
 ### `assets/economy/icon.png`
 

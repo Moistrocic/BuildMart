@@ -67,6 +67,7 @@
 |---|---|---|
 | 创造拿取/放回不显示价格 | 原版 `setRemoteSlot` 标记“客户端已知”后不再下发 | `ServerGamePacketListenerImplMixin` 显式补发槽位包 |
 | 捡物品重置挖掘进度 | 重打标签改了手持物组件 → `sameDestroyTarget` 失败 | `PriceLore.tag` 幂等 + `InventoryMixin` 跳手持槽位 |
+| 合成产物分格堆放（4*木板不合堆） | 合成结果未打标，合并判定 `isSameItemSameComponents` 失败 | `CraftingMenuMixin` 结果源头打标 + `AbstractContainerMenuMixin` 移动前兜底 |
 | 纯净端被踢 | 自定义命令参数类型进同步注册表 | 只用原版参数类型（规则书 3.1） |
 | 管理员红名递归 | `createCommandSourceStack()` 会调 `getDisplayName()`（被 PlayerMixin 注入） | `AdminUtil` 用 `player.level().getServer()` |
 | `/eco` 目标解析 | word 参数手动解析选择器 | `EconomyTargets.resolve` 复用 `EntitySelectorParser` |
