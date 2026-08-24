@@ -27,6 +27,8 @@
   `UNTRADEABLE = -1`。
 - 配置 `items.json`：物品 ID → 十进制元字符串；`load(Path)` 首次生成全量表（见 ItemInitialPrices），
   解析失败整体回退默认（不可交易）。
+- **`load` 增量合并**：初始定价表（ItemInitialPrices）中存在而旧配置缺失的条目（26.3 数据驱动
+  注册表新增物品）自动补入并写回；`MIGRATED_IDS`（鸡蛋变体）强制迁移为初始价。
 - API：
   - `get(Item)` / `get(Identifier)` — 基础配置价（分）。
   - **`price(ItemStack)`** — 完整价值 =（基础价 + 附魔总价 + 容器内容物递归价）× 数量；
@@ -37,6 +39,12 @@
 - 定价细则（`pricePerItem`，`MAX_CONTAINER_DEPTH = 8` 防递归过深）：
   - 附魔书基础价记 0，价值全部来自存储附魔（与铁砧合并价值守恒）；
   - **耐久折算**：有耐久物品基础价 ×（剩余耐久/最大耐久）；
+  - **药水组件定价**（`POTION_CONTENTS`，`POTION_PRICES` 表 = 酿造配方链离线推导）：
+    药水 = 表价；喷溅 = 表价 + 100（火药）；滞留 = 表价 + 2100（火药 + 龙息）；
+    药水箭 = 箭基础价 + ⌈(滞留价)/8⌉（8 箭 + 1 滞留药水）；无标准药水（纯自定义效果）回退基础价；
+    无法酿造的药水（luck/wind_charged/weaving/oozing/infested）按 4.00 分布价兜底；
+  - **烟花组件定价**（`FIREWORKS`）：`flight` 等级 1/2/3 → 纸 + 火药 × 等级（1.20 / 2.20 / 3.20），
+    三等级价格不同；
   - 附魔：1 级价（`EnchantmentValues.get`）× 2^(等级-1)，ENCHANTMENTS 与 STORED_ENCHANTMENTS 都计；
   - 容器内容物（CONTAINER / BUNDLE_CONTENTS）递归计入，按件计。
 - 工具：`satAdd` / `satMul` / `satPow2Mul`（饱和运算）。
@@ -55,7 +63,11 @@
 
 ## `ItemInitialPrices.java` — 原版物品初始定价表
 
-- `public static final Map<String, String> INITIAL = build();`（约 1658 项，id → 元字符串）。
+- `public static final Map<String, String> INITIAL = build();`（约 1665 项，id → 元字符串）。
 - `build()` 用 `new HashMap<>(2048)` 填充；`"-1.00"` 表示不可交易。
-- 仅在首次生成 `items.json` 时被 `ItemValues.writeDefaults` 使用；之后改价直接改配置文件。
+- 表内含 26.3 **数据驱动注册表**物品（羊毛/混凝土/铜系列变体/床/潜影盒/旗帜/染料/坐垫/挽具等，
+  离线按配方推导：成品价 = 材料价之和 ÷ 产出数（向上取整），染色 = 基准价 + 染料价，
+  烧炼 +0.10，氧化铜变体与基础同价，waxed = +1.00 蜜脾）。
+- 仅在首次生成 `items.json` 时被 `ItemValues.writeDefaults` 使用；之后改价直接改配置文件
+  （`load` 会对新增条目做增量合并，见上）。
 - 定价原则（表头注释）：成品价 = 材料价之和（烧炼 +0.10 加工费；附魔金苹果按旧配方 8 金块+1 苹果）。

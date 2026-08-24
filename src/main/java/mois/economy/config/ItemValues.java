@@ -13,7 +13,9 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.alchemy.PotionContents;
 import net.minecraft.world.item.component.BundleContents;
+import net.minecraft.world.item.component.Fireworks;
 import net.minecraft.world.item.component.ItemContainerContents;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.ItemEnchantments;
@@ -42,6 +44,147 @@ public final class ItemValues {
 
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 	private static final Map<String, Long> VALUES = new HashMap<>();
+	/** 药水价格（分）：由酿造配方链推导（离线计算）。key = "形态-药水"，如 potion-swiftness / splash_potion-swiftness / lingering_potion-swiftness。 */
+	private static final Map<String, Long> POTION_PRICES = Map.ofEntries(
+Map.entry("lingering_potion-awkward", 2325L),
+Map.entry("lingering_potion-fire_resistance", 2625L),
+Map.entry("lingering_potion-harming", 2415L),
+Map.entry("lingering_potion-healing", 2627L),
+Map.entry("lingering_potion-infested", 2500L),
+Map.entry("lingering_potion-invisibility", 2677L),
+Map.entry("lingering_potion-leaping", 2825L),
+Map.entry("lingering_potion-long_fire_resistance", 2725L),
+Map.entry("lingering_potion-long_invisibility", 2777L),
+Map.entry("lingering_potion-long_leaping", 2925L),
+Map.entry("lingering_potion-long_night_vision", 2717L),
+Map.entry("lingering_potion-long_poison", 2455L),
+Map.entry("lingering_potion-long_regeneration", 4425L),
+Map.entry("lingering_potion-long_slow_falling", 2925L),
+Map.entry("lingering_potion-long_slowness", 2505L),
+Map.entry("lingering_potion-long_strength", 2675L),
+Map.entry("lingering_potion-long_swiftness", 2445L),
+Map.entry("lingering_potion-long_turtle_master", 3425L),
+Map.entry("lingering_potion-long_water_breathing", 2485L),
+Map.entry("lingering_potion-long_weakness", 2285L),
+Map.entry("lingering_potion-luck", 2500L),
+Map.entry("lingering_potion-mundane", 2145L),
+Map.entry("lingering_potion-night_vision", 2617L),
+Map.entry("lingering_potion-oozing", 2500L),
+Map.entry("lingering_potion-poison", 2355L),
+Map.entry("lingering_potion-regeneration", 4325L),
+Map.entry("lingering_potion-slow_falling", 2825L),
+Map.entry("lingering_potion-slowness", 2405L),
+Map.entry("lingering_potion-strength", 2575L),
+Map.entry("lingering_potion-strong_harming", 2515L),
+Map.entry("lingering_potion-strong_healing", 2727L),
+Map.entry("lingering_potion-strong_leaping", 2925L),
+Map.entry("lingering_potion-strong_poison", 2455L),
+Map.entry("lingering_potion-strong_regeneration", 4425L),
+Map.entry("lingering_potion-strong_slowness", 2505L),
+Map.entry("lingering_potion-strong_strength", 2675L),
+Map.entry("lingering_potion-strong_swiftness", 2445L),
+Map.entry("lingering_potion-strong_turtle_master", 3425L),
+Map.entry("lingering_potion-swiftness", 2345L),
+Map.entry("lingering_potion-thick", 2225L),
+Map.entry("lingering_potion-turtle_master", 3325L),
+Map.entry("lingering_potion-water", 2125L),
+Map.entry("lingering_potion-water_breathing", 2385L),
+Map.entry("lingering_potion-weakness", 2185L),
+Map.entry("lingering_potion-weaving", 2500L),
+Map.entry("lingering_potion-wind_charged", 2500L),
+Map.entry("potion-awkward", 225L),
+Map.entry("potion-fire_resistance", 525L),
+Map.entry("potion-harming", 315L),
+Map.entry("potion-healing", 527L),
+Map.entry("potion-infested", 400L),
+Map.entry("potion-invisibility", 577L),
+Map.entry("potion-leaping", 725L),
+Map.entry("potion-long_fire_resistance", 625L),
+Map.entry("potion-long_invisibility", 677L),
+Map.entry("potion-long_leaping", 825L),
+Map.entry("potion-long_night_vision", 617L),
+Map.entry("potion-long_poison", 355L),
+Map.entry("potion-long_regeneration", 2325L),
+Map.entry("potion-long_slow_falling", 825L),
+Map.entry("potion-long_slowness", 405L),
+Map.entry("potion-long_strength", 575L),
+Map.entry("potion-long_swiftness", 345L),
+Map.entry("potion-long_turtle_master", 1325L),
+Map.entry("potion-long_water_breathing", 385L),
+Map.entry("potion-long_weakness", 185L),
+Map.entry("potion-luck", 400L),
+Map.entry("potion-mundane", 45L),
+Map.entry("potion-night_vision", 517L),
+Map.entry("potion-oozing", 400L),
+Map.entry("potion-poison", 255L),
+Map.entry("potion-regeneration", 2225L),
+Map.entry("potion-slow_falling", 725L),
+Map.entry("potion-slowness", 305L),
+Map.entry("potion-strength", 475L),
+Map.entry("potion-strong_harming", 415L),
+Map.entry("potion-strong_healing", 627L),
+Map.entry("potion-strong_leaping", 825L),
+Map.entry("potion-strong_poison", 355L),
+Map.entry("potion-strong_regeneration", 2325L),
+Map.entry("potion-strong_slowness", 405L),
+Map.entry("potion-strong_strength", 575L),
+Map.entry("potion-strong_swiftness", 345L),
+Map.entry("potion-strong_turtle_master", 1325L),
+Map.entry("potion-swiftness", 245L),
+Map.entry("potion-thick", 125L),
+Map.entry("potion-turtle_master", 1225L),
+Map.entry("potion-water", 25L),
+Map.entry("potion-water_breathing", 285L),
+Map.entry("potion-weakness", 85L),
+Map.entry("potion-weaving", 400L),
+Map.entry("potion-wind_charged", 400L),
+Map.entry("splash_potion-awkward", 325L),
+Map.entry("splash_potion-fire_resistance", 625L),
+Map.entry("splash_potion-harming", 415L),
+Map.entry("splash_potion-healing", 627L),
+Map.entry("splash_potion-infested", 500L),
+Map.entry("splash_potion-invisibility", 677L),
+Map.entry("splash_potion-leaping", 825L),
+Map.entry("splash_potion-long_fire_resistance", 725L),
+Map.entry("splash_potion-long_invisibility", 777L),
+Map.entry("splash_potion-long_leaping", 925L),
+Map.entry("splash_potion-long_night_vision", 717L),
+Map.entry("splash_potion-long_poison", 455L),
+Map.entry("splash_potion-long_regeneration", 2425L),
+Map.entry("splash_potion-long_slow_falling", 925L),
+Map.entry("splash_potion-long_slowness", 505L),
+Map.entry("splash_potion-long_strength", 675L),
+Map.entry("splash_potion-long_swiftness", 445L),
+Map.entry("splash_potion-long_turtle_master", 1425L),
+Map.entry("splash_potion-long_water_breathing", 485L),
+Map.entry("splash_potion-long_weakness", 285L),
+Map.entry("splash_potion-luck", 500L),
+Map.entry("splash_potion-mundane", 145L),
+Map.entry("splash_potion-night_vision", 617L),
+Map.entry("splash_potion-oozing", 500L),
+Map.entry("splash_potion-poison", 355L),
+Map.entry("splash_potion-regeneration", 2325L),
+Map.entry("splash_potion-slow_falling", 825L),
+Map.entry("splash_potion-slowness", 405L),
+Map.entry("splash_potion-strength", 575L),
+Map.entry("splash_potion-strong_harming", 515L),
+Map.entry("splash_potion-strong_healing", 727L),
+Map.entry("splash_potion-strong_leaping", 925L),
+Map.entry("splash_potion-strong_poison", 455L),
+Map.entry("splash_potion-strong_regeneration", 2425L),
+Map.entry("splash_potion-strong_slowness", 505L),
+Map.entry("splash_potion-strong_strength", 675L),
+Map.entry("splash_potion-strong_swiftness", 445L),
+Map.entry("splash_potion-strong_turtle_master", 1425L),
+Map.entry("splash_potion-swiftness", 345L),
+Map.entry("splash_potion-thick", 225L),
+Map.entry("splash_potion-turtle_master", 1325L),
+Map.entry("splash_potion-water", 125L),
+Map.entry("splash_potion-water_breathing", 385L),
+Map.entry("splash_potion-weakness", 185L),
+Map.entry("splash_potion-weaving", 500L),
+Map.entry("splash_potion-wind_charged", 500L)
+	);
 
 	private ItemValues() {
 	}
@@ -59,6 +202,30 @@ public final class ItemValues {
 			for (Map.Entry<String, com.google.gson.JsonElement> entry : root.entrySet()) {
 				parsed.put(entry.getKey(), parseCents(entry.getValue().getAsString()));
 			}
+			// 合并缺失：初始定价表新增的物品（26.3 数据驱动注册表）补入配置并写回，
+			// 旧配置不会因为缺少新物品条目而全部落到默认不可交易
+			boolean changed = false;
+			for (Map.Entry<String, String> entry : ItemInitialPrices.INITIAL.entrySet()) {
+				if (!parsed.containsKey(entry.getKey())) {
+					parsed.put(entry.getKey(), parseCents(entry.getValue()));
+					changed = true;
+				}
+			}
+			// 迁移：本版本修正的初始价强制覆盖旧配置值（用户已确认的新价格）
+			for (String id : MIGRATED_IDS) {
+				String init = ItemInitialPrices.INITIAL.get(id);
+				if (init != null && parsed.containsKey(id)) {
+					long initCents = parseCents(init);
+					if (parsed.get(id) != initCents) {
+						parsed.put(id, initCents);
+						changed = true;
+					}
+				}
+			}
+			if (changed) {
+				writeJson(file, parsed);
+				Economy.LOGGER.info("物品价值配置已补充/迁移新条目，已写回 {}", file);
+			}
 			synchronized (VALUES) {
 				VALUES.clear();
 				VALUES.putAll(parsed);
@@ -70,6 +237,18 @@ public final class ItemValues {
 				VALUES.clear();
 			}
 		}
+	}
+
+	/** 本版本强制迁移的初始价（旧配置值被覆盖，一次性）：鸡蛋变体 1.00 -> 0.20。 */
+	private static final List<String> MIGRATED_IDS = List.of("minecraft:blue_egg", "minecraft:brown_egg");
+
+	/** 把价格表写回配置 JSON（与 writeDefaults 同一格式）。 */
+	private static void writeJson(Path file, Map<String, Long> values) throws IOException {
+		JsonObject root = new JsonObject();
+		for (String id : values.keySet().stream().sorted().toList()) {
+			root.addProperty(id, Money.format(values.get(id)));
+		}
+		Files.writeString(file, GSON.toJson(root), StandardCharsets.UTF_8);
 	}
 
 	public static long get(net.minecraft.world.item.Item item) {
@@ -168,6 +347,35 @@ public final class ItemValues {
 				int maxDamage = stack.getMaxDamage();
 				int damage = Math.min(Math.max(stack.getDamageValue(), 0), maxDamage);
 				total = satMul(total, maxDamage - damage) / maxDamage;
+			}
+		}
+		// 药水/喷溅/滞留/药水箭：按酿造配方链定价（标准药水组件覆盖基础价）；
+		// 自定义效果（无标准药水）或表外药水回退到物品基础价
+		PotionContents potionContents = stack.get(DataComponents.POTION_CONTENTS);
+		if (potionContents != null && potionContents.potion().isPresent()) {
+			Long base = POTION_PRICES.get("potion-"
+					+ potionContents.potion().get().getRegisteredName().replace("minecraft:", ""));
+			if (base != null) {
+				if (stack.is(Items.SPLASH_POTION)) {
+					// 喷溅 = 药水 + 火药
+					total = base + 100;
+				} else if (stack.is(Items.LINGERING_POTION)) {
+					// 滞留 = 喷溅 + 龙息（酿造链已含火药与龙息）
+					total = base + 2100;
+				} else if (stack.is(Items.TIPPED_ARROW)) {
+					// 药水箭：8 箭 + 1 滞留药水 -> 8 支（向上取整）
+					total = get(Items.ARROW) + (base + 2100 + 7) / 8;
+				} else {
+					total = base;
+				}
+			}
+		}
+		// 烟花：按飞行等级定价（纸 + 火药 × 等级），三等级价格不同
+		if (stack.is(Items.FIREWORK_ROCKET)) {
+			Fireworks fireworks = stack.get(DataComponents.FIREWORKS);
+			if (fireworks != null) {
+				int flight = Math.max(1, Math.min(3, fireworks.flightDuration()));
+				total = 20 + 100L * flight;
 			}
 		}
 		ItemEnchantments ench = stack.get(DataComponents.ENCHANTMENTS);
