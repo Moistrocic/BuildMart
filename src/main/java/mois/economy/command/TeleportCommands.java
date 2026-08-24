@@ -60,6 +60,7 @@ public final class TeleportCommands {
 						.executes(TeleportCommands::delHome)));
 
 		dispatcher.register(Commands.literal("listhome")
+				.executes(ctx -> listHome(ctx, 1))
 				.then(Commands.argument("page", IntegerArgumentType.integer(1))
 						.executes(ctx -> listHome(ctx, IntegerArgumentType.getInteger(ctx, "page")))));
 
