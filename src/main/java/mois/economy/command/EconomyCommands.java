@@ -69,7 +69,7 @@ public final class EconomyCommands {
 			"/home [名称] - 传送回家",
 			"/sethome 名称 - 设置家",
 			"/delhome 名称 - 删除家",
-			"/listhome [页码] - 查看家列表",
+			"/listhome 页码 - 查看家列表",
 			"/tpa 玩家 - 请求传送到玩家位置",
 			"/tpahere 玩家 - 请求玩家传送到自己位置",
 			"/tpaccept - 接受最近的传送请求",
