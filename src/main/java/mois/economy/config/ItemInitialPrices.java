@@ -42,7 +42,7 @@ public final class ItemInitialPrices {
         map.put("minecraft:allay_spawn_egg", "100.00");
         map.put("minecraft:allium", "0.10");
         map.put("minecraft:amethyst_block", "8.00");
-        map.put("minecraft:amethyst_cluster", "3.00");
+        map.put("minecraft:amethyst_cluster", "32.00");
         map.put("minecraft:amethyst_shard", "2.00");
         map.put("minecraft:ancient_debris", "150.00");
         map.put("minecraft:andesite", "0.20");
@@ -159,7 +159,7 @@ public final class ItemInitialPrices {
         map.put("minecraft:bubble_coral_block", "1.00");
         map.put("minecraft:bubble_coral_fan", "0.30");
         map.put("minecraft:bucket", "1.00");
-        map.put("minecraft:budding_amethyst", "-1.00");
+        map.put("minecraft:budding_amethyst", "320.00");
         map.put("minecraft:bundle", "1.30");
         map.put("minecraft:buried_ancient_city_map", "5.00");
         map.put("minecraft:buried_mineshaft_map", "5.00");
@@ -210,7 +210,7 @@ public final class ItemInitialPrices {
         map.put("minecraft:chest_minecart", "7.10");
         map.put("minecraft:chicken", "0.40");
         map.put("minecraft:chicken_spawn_egg", "100.00");
-        map.put("minecraft:chipped_anvil", "1.00");
+        map.put("minecraft:chipped_anvil", "-1.00");
         map.put("minecraft:chiseled_bookshelf", "0.75");
         map.put("minecraft:chiseled_cinnabar", "1.00");
         map.put("minecraft:chiseled_deepslate", "0.20");
@@ -325,7 +325,7 @@ public final class ItemInitialPrices {
         map.put("minecraft:cut_red_sandstone_slab", "0.30");
         map.put("minecraft:cut_sandstone", "0.60");
         map.put("minecraft:cut_standstone_slab", "1.00");
-        map.put("minecraft:damaged_anvil", "1.00");
+        map.put("minecraft:damaged_anvil", "-1.00");
         map.put("minecraft:dandelion", "0.10");
         map.put("minecraft:danger_pottery_sherd", "5.00");
         map.put("minecraft:dark_oak_boat", "0.50");

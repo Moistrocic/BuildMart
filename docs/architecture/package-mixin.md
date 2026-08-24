@@ -57,20 +57,28 @@
 
 1. `handleSetCreativeModeSlot` @HEAD（cancellable）`economy$handleBuyMode` — **buymode 主结算**：
    - 非 buymode 直接放行（原版处理）。
-   - `slotNum < 0`（创造界面丢弃包，原版会生成实体）→ `ci.cancel()` 取消实体生成。
+   - `slotNum < 0`（创造界面丢弃包，原版会生成实体）→ `ci.cancel()` + `handleBuyModeDrop`：
+     匹配会话暂存（先拿起再丢）→ **卖出**（按丢弃数量退款，不生成实体）；
+     不匹配 → 挂起 `session.pendingDrop`，由下一个槽位包用「槽位原内容」判定
+     （匹配 = 背包 ctrl+q 直接丢 → 卖出；不匹配 = 面板 ctrl+q → **购买** + 生成实体）；
+     不可交易物品丢弃 → 作废。挂起的旧 pendingDrop 被新丢弃包触发时按面板购买结算。
    - `slotNum > 45` 放行（原版同样忽略）。
-   - **严格比对（购买方向，优先于余额检查）**：`isVanillaCreativeItem(newStack, server)` ——
-     原版创造物品栏只存在未经任何修改的初始物品，购买（delta>0）的物品必须与其**完全一致**
-     （`isSameItemSameComponents` 比较 item+组件、忽略数量），任何差异都驳回；
-     改造物品无论余额多少都不可购买，先给“与原版创造物品栏不一致”的明确提示。
-     比对索引首次使用时构建（`CreativeModeTabs.tryRebuildTabContents` 用服务端注册表/
-     特性构建，与客户端展示内容一致，收集全部标签页 displayItems + searchTabDisplayItems）。
-     “保存的快捷栏”（标签页/热键加载的客户端本地数据）中的改造物品（属性/超限附魔/
-     自定义药水效果等）因此一律无法进入；卖出/放回方向不检测（改造物品无法通过
-     便捷购买获得，能持有的只有管理员）。
-   - 否则接管：不可交易物品（拿/放双方任一）→ 回滚 + `broadcastFullState` + 红字提示；
-     按 `ItemValues.price` 的差值结算（delta>0 扣款 / <0 退款 / =0 只换槽位）；
-     余额不足 → 回滚槽位 + `broadcastFullState`。
+   - 接管后按**暂存模型**判定（详见 package-buymode.md 的 `BuyModeSession`）：
+     - 槽位变空/同物品数量减少（拿起、拆分拿起）→ 物品入暂存，不结算；
+     - 槽位出现物品：增量匹配暂存（同 item+组件，untag 归一比较）→ 中性放回；
+       增量超出暂存的部分（面板叠放）或与暂存完全不同（面板来源）→ **购买**：
+       `isVanillaCreativeItem` 严格比对（比对前 `PriceLore.untag`，价格行是模组自身
+       数据须绕过）→ 余额检查 → 扣款；任一失败回滚槽位 + 恢复暂存快照 + `broadcastFullState`。
+   - **严格比对索引**首次使用时构建：`CreativeModeTabs.tryRebuildTabContents` 用服务端
+     注册表/特性重建创造面板内容（与客户端一致），收集全部标签页 displayItems 与
+     searchTabDisplayItems；**另加兜底**——所有注册物品的纯净默认形态
+     （`new ItemStack(item)`）也入索引，保证 26.3 独立服务端即使未构建标签页内容，
+     未经修改的纯净物品也能通过比对（内容类物品如药水/旗帜的合法形态来自标签页内容）。
+     比对用「相对物品默认组件的补丁相等」（`getComponentsPatch().equals`）而非
+     `PatchedDataComponentMap` 整体——网络重建堆与本地构造堆的内部表示可能不同，
+     语义内容（增删补丁）一致即可。“保存的快捷栏”（标签页/热键加载的客户端本地数据）
+     中的改造物品（属性/超限附魔/自定义药水效果等）因此一律无法进入；
+     卖出方向不检测（改造物品无法通过便捷购买获得，能持有的只有管理员）。
    - 成功写入后：`PriceLore.tag(newStack)` + `menu.setRemoteSlot(slotNum, newStack)` +
      **`player.connection.send(new ClientboundContainerSetSlotPacket(menu.containerId,
      menu.incrementStateId(), slotNum, newStack.copy()))`** ——原版 `setRemoteSlot` 会把槽位标记为
@@ -80,10 +88,13 @@
    （守卫：slotNum 1..45、非空、数量合法、`PriceLore.enabled`）。与上一条互斥。
 3. `handleContainerClick` @HEAD（cancellable）`economy$buyModeClickHead` — buymode 点击包快照：
    - 记录 `economy$beforeItems`（全部槽位拷贝）+ `economy$settleClick` 标记；
-   - `slotNum == -999` 且光标有物品（点击外部丢弃）→ 清空光标 + `ci.cancel()`（物品拿起时已退款）。
-4. `handleContainerClick` @RETURN `economy$buyModeClickSettle` — buymode 点击包结算：
+   - `slotNum == -999` 且光标有物品（点击外部丢弃）→ 清空光标 + `ci.cancel()`
+     （26.3 创造界面实际不发点击包，此路径为防御保留；光标物品由暂存模型结算）。
+4. `handleContainerClick` @RETURN `economy$buyModeClickSettle` — buymode 点击包结算（防御）：
    - 对比 before/current：不可交易整体回滚；按各槽位 `ItemValues.price` 净变化结算
-     （`SlotDelta(int slot, before, after, delta)` record 记录变化槽位）；余额不足回滚 + 全量同步；
+     （`SlotDelta(int slot, before, after, delta)` record 记录变化槽位）；
+     **购买方向（netDelta>0）同样执行严格比对**（任一价值增加槽位不匹配 → 整体回滚）；
+     余额不足回滚 + 全量同步；
    - 结算完成后对每个变化槽位 `PriceLore.tag` + 补发 `ClientboundContainerSetSlotPacket`
      （结算发生在原版 `broadcastChanges` 之后，补发保证界面内标签立即刷新）。
 - 辅助：`gainedName`/`lostName`（物品名×数量展示）、`sendBuy/sendRefund/sendBuyNet/sendRefundNet/

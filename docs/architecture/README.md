@@ -64,11 +64,14 @@
     `/balhelp` 的 `HELP_LINES`。
 11. **验证规范（规则书 4）**：启动验证用“后台启动 + 日志监视”，成功标记 = 模组初始化标记；
     run 开发服 `server.properties` 须 `online-mode=false`、`white-list=false`、`enforce-secure-profile=false`。
-12. **buymode 安全性**：buymode 购买方向（delta>0）的物品必须与原版创造物品栏内容
-    **完全一致**（`ServerGamePacketListenerImplMixin.isVanillaCreativeItem`，比较 item+组件、
-    忽略数量；比对索引首次使用时用服务端注册表/特性构建并缓存）——原版创造面板只存在
-    未经修改的初始物品，因此“保存的快捷栏”（客户端本地数据，标签页/热键加载路径均无法
-    服务端禁用）里的任何改造物品都无法购买；卖出/放回方向不检测。同时 buymode 期间
+12. **buymode 安全性**：购买判定 = 「背包消失物品暂存追踪（`BuyModeSession`）+ 出现不匹配
+    暂存即面板来源」。购买方向必须与原版创造物品栏内容**完全一致**
+    （`ServerGamePacketListenerImplMixin.isVanillaCreativeItem`，比较相对默认的组件补丁、
+    忽略数量、先剥除价格行；比对索引首次使用时用服务端注册表/特性构建并缓存，
+    含纯净默认形态兜底）——原版创造面板只存在未经修改的初始物品，因此“保存的快捷栏”
+    （客户端本地数据，标签页/热键加载路径均无法服务端禁用）里的任何改造物品都无法购买；
+    卖出方向不检测（改造物品只能由管理员持有）。拿起（消失）不结算：放回匹配暂存 = 中性
+    重组，丢弃/关闭界面 = 卖出（统一由 `BuyModeManager.exit` 结算）。同时 buymode 期间
     禁止破坏方块（instabuild 会创造式秒破）。
 
 ## 已知坑位速查

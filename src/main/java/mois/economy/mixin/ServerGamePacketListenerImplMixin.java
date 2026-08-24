@@ -11,9 +11,11 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import mois.economy.Economy;
 import mois.economy.Money;
 import mois.economy.PriceLore;
 import mois.economy.buymode.BuyModeManager;
+import mois.economy.buymode.BuyModeSession;
 import mois.economy.config.ItemValues;
 import mois.economy.data.EconomyDb;
 import net.minecraft.ChatFormatting;
@@ -26,6 +28,7 @@ import net.minecraft.network.protocol.game.ServerboundSetCreativeModeSlotPacket;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.ServerGamePacketListenerImpl;
+import net.minecraft.util.Prediction;
 import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.CreativeModeTab;
@@ -34,22 +37,25 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
 /**
- * 便捷购买模式的服务端结算，全部以服务端权威状态为准：
+ * 便捷购买模式的服务端结算，全部以服务端权威状态为准，判定模型见
+ * {@link mois.economy.buymode.BuyModeSession}：
  * <p>
- * 1. 创造槽位包：拦截 slotNum &lt; 0 的原版“丢出”行为（26.3 创造界面的 ctrl+q /
- * 点击外部会发送该包并由原版直接生成实体），取消实体生成；槽位 1..45 按
- * “完整价值差（基础价+附魔+容器内容物）”做拿取扣款、放回退款、清空退款，
- * 余额不足时回滚槽位并强制全量同步，杜绝客户端幽灵物品；
- * 2. 普通点击包：26.3 创造界面从面板拿取物品实际走点击包（changedSlots）通道，
- * 在处理前后对比服务端各槽位完整价值做同样的扣款/退款，余额不足时恢复点击前
- * 状态并全量同步。
+ * 1. 创造槽位包：背包物品消失（拿起/拆分/顶出）→ 暂存不结算；出现且匹配暂存
+ * → 中性放回；出现不匹配暂存（来自创造面板）→ 购买（严格比对原版创造物品栏
+ * + 余额检查 + 扣款）；slotNum &lt; 0 的丢弃包 → 匹配暂存=卖出（物品消失），
+ * 不匹配则挂起由下一槽位包区分「背包 ctrl+q 直接丢（卖出）」与
+ * 「面板 ctrl+q（购买并生成实体）」；余额不足/比对失败回滚槽位并全量同步；
+ * 2. 普通点击包（26.3 创造界面实际不发点击包，保留兜底）：按槽位价值净变化
+ * 结算，购买方向同样执行严格比对。
  * <p>
- * 两条路径结算后都会把变化槽位的权威内容（含价格标签）强制下发给客户端：
- * 原版用 setRemoteSlot 把槽位标记为“客户端已知”后不会再发同步包，客户端本地
- * 持有的堆没有价格标签，若不补发，标签要等之后的操作触发同步才可见。
- * 非便捷购买的普通创造模式同样受影响，由 handleSetCreativeModeSlot 的 RETURN
- * 注入在保留原版处理的前提下补发打标后的槽位内容。
+ * 结算后把变化槽位的权威内容（含价格标签）强制下发给客户端：原版用 setRemoteSlot
+ * 把槽位标记为“客户端已知”后不会再发同步包，客户端本地持有的堆没有价格标签，
+ * 若不补发，标签要等之后的操作触发同步才可见。非便捷购买的普通创造模式同样
+ * 受影响，由 handleSetCreativeModeSlot 的 RETURN 注入在保留原版处理的前提下
+ * 补发打标后的槽位内容。
  * <p>
+ * 关闭物品栏/退出模式/掉线时，会话内尚未结清的暂存物品统一按卖出结算
+ * （见 {@link mois.economy.buymode.BuyModeManager#exit(net.minecraft.server.level.ServerPlayer)}）。
  * 购买花费只从玩家账户扣除、不入服务器资产（服务器资产仅来自商店收款与玩家主动存入）。
  */
 @Mixin(ServerGamePacketListenerImpl.class)
@@ -64,15 +70,24 @@ public abstract class ServerGamePacketListenerImplMixin {
 		}
 		short slotNum = packet.slotNum();
 		if (slotNum < 0) {
-			// 26.3 创造界面丢弃物品（ctrl+q 等）会发送 slotNum<0 的包并由原版生成真实实体；
-			// 便捷购买下取消：不生成实体。对应物品的退款由随后的槽位包结算。
+			// 26.3 创造界面丢弃物品（ctrl+q 等）会发送 slotNum<0 的包并由原版生成真实实体。
+			// 便捷购买下接管判定：匹配暂存=卖出（先拿起再丢）；否则挂起由下一槽位包
+			// 用槽位原内容区分「背包 ctrl+q 直接丢（卖出）」与「面板 ctrl+q（购买）」。
 			ci.cancel();
+			BuyModeSession session = BuyModeManager.session(player);
+			if (session != null) {
+				handleBuyModeDrop(player, session, packet.itemStack());
+			}
 			return;
 		}
 		if (slotNum > 45) {
 			return; // 超出玩家库存菜单范围的槽位，原版同样会忽略
 		}
 		ci.cancel();
+		BuyModeSession session = BuyModeManager.session(player);
+		if (session == null) {
+			return;
+		}
 		ItemStack newStack = packet.itemStack();
 		InventoryMenu menu = player.inventoryMenu;
 		Slot slot = menu.getSlot(slotNum);
@@ -84,46 +99,158 @@ public abstract class ServerGamePacketListenerImplMixin {
 			sendUntradeable(player);
 			return;
 		}
-		// 以服务端槽位状态为准计算完整价值差（基础价+附魔+容器内容物）：
-		// 价值增加=购买，价值减少=放回退款，等价变化只更新槽位不动资金。
-		long delta = ItemValues.price(newStack) - ItemValues.price(prev);
-		// 严格校验（购买方向，优先于余额检查）：原版创造物品栏只存在未经任何修改的
-		// 初始状态物品，购买的物品必须与其完全一致（比较 item+组件，忽略数量），
-		// 任何差异都驳回——改造物品无论余额多少都不可购买，先给明确提示。
-		// 这样“保存的快捷栏”（客户端本地数据，标签页/热键加载）里的改造物品
-		// （属性/超限附魔/自定义药水效果等）一律无法进入便捷购买；
-		// 卖出/放回方向不做检测（改造物品无法通过本模式获得，能持有的只有管理员）。
-		if (delta > 0 && !isVanillaCreativeItem(newStack, player.level().getServer())) {
-			slot.setByPlayer(prev);
-			menu.broadcastFullState();
+		// ---- 1) 结算挂起的 -1 包（用槽位原内容判定来源）----
+		if (session.hasPendingDrop()) {
+			ItemStack drop = session.pendingDrop();
+			session.clearPendingDrop();
+			if (!drop.isEmpty() && BuyModeSession.sameItemAndComponents(prev, drop)
+					&& prev.getCount() >= drop.getCount()) {
+				// 背包 ctrl+q 直接丢：卖出丢出部分；槽位直接设为剩余（不再走出现/消失判定）
+				long refund = ItemValues.price(drop);
+				creditQuietly(player, refund);
+				setSlotAndSync(player, menu, slotNum, slot, newStack);
+				if (refund > 0) {
+					sendSell(player, drop, refund);
+				}
+				return;
+			}
+			// 面板 ctrl+q：购买（严格校验 + 余额 + 扣款 + 生成实体）
+			tryBuyDrop(player, drop);
+		}
+		// ---- 2) 出现/消失判定（暂存模型）----
+		if (newStack.isEmpty()) {
+			// 消失：拿起/清空，物品入暂存（不结算，关闭界面时统一卖出）
+			if (!prev.isEmpty()) {
+				session.recordVanished(prev);
+			}
+			setSlotAndSync(player, menu, slotNum, slot, newStack);
+			return;
+		}
+		boolean sameAsPrev = !prev.isEmpty() && BuyModeSession.sameItemAndComponents(prev, newStack);
+		if (sameAsPrev && newStack.getCount() < prev.getCount()) {
+			// 部分消失（拆分拿起等）：消失部分入暂存，剩余留槽
+			session.recordVanished(newStack.copyWithCount(prev.getCount() - newStack.getCount()));
+			setSlotAndSync(player, menu, slotNum, slot, newStack);
+			return;
+		}
+		if (!sameAsPrev && !prev.isEmpty()) {
+			// 原槽内容被顶出（去客户端光标）→ 入暂存
+			session.recordVanished(prev);
+		}
+		// 先吸收暂存（放回自己的物品 → 中性）；未能吸收的增量 = 面板来源 → 购买
+		int deltaCount = sameAsPrev ? newStack.getCount() - prev.getCount() : newStack.getCount();
+		int unbought = session.absorb(newStack, deltaCount);
+		if (unbought == 0) {
+			// 全部来自暂存（放回自己的物品）：中性
+			setSlotAndSync(player, menu, slotNum, slot, newStack);
+			return;
+		}
+		// 未能吸收的部分来自创造面板：购买（严格校验 + 余额 + 按增量扣款）
+		long cost = ItemValues.price(newStack)
+				- ItemValues.price(newStack.copyWithCount(newStack.getCount() - unbought));
+		Object snapshot = session.snapshot();
+		if (!approveBuy(player, newStack, cost)) {
+			session.restore(snapshot);
+			rollbackSlot(menu, slot, prev);
+			return;
+		}
+		setSlotAndSync(player, menu, slotNum, slot, newStack);
+		sendBuy(player, prev, newStack, cost);
+	}
+
+	/**
+	 * -1 丢弃包判定：先匹配暂存（拿起后丢弃 = 卖出，按丢弃数量退款）；
+	 * 不匹配则挂起 pendingDrop，由下一个槽位包用「槽位原内容」区分
+	 * 背包 ctrl+q 直接丢（卖出）与面板 ctrl+q（购买）。
+	 */
+	@Unique
+	private static void handleBuyModeDrop(ServerPlayer player, BuyModeSession session, ItemStack dropped) {
+		if (dropped.isEmpty()) {
+			return;
+		}
+		if (!ItemValues.isTradable(dropped)) {
+			sendUntradeable(player); // 不可交易物品丢弃：作废（不退款、不生成实体）
+			return;
+		}
+		// 已有挂起 -1：先结算旧的（无槽位包跟随 = 面板丢 = 购买）
+		if (session.hasPendingDrop()) {
+			ItemStack old = session.pendingDrop();
+			session.clearPendingDrop();
+			tryBuyDrop(player, old);
+		}
+		// 完全匹配暂存才吸收并卖出；否则原样挂起
+		Object snapshot = session.snapshot();
+		int unbought = session.absorb(dropped, dropped.getCount());
+		if (unbought == 0) {
+			long refund = ItemValues.price(dropped);
+			creditQuietly(player, refund);
+			if (refund > 0) {
+				sendSell(player, dropped, refund);
+			}
+			return;
+		}
+		session.restore(snapshot);
+		session.setPendingDrop(dropped);
+	}
+
+	/**
+	 * 面板 ctrl+q：购买（严格校验 + 余额 + 扣款），成功时生成丢出实体。
+	 * 严格校验失败或余额不足：不生成实体、不扣款（物品在客户端已销毁，无损失）。
+	 */
+	@Unique
+	private static boolean tryBuyDrop(ServerPlayer player, ItemStack drop) {
+		long cost = ItemValues.price(drop);
+		if (!approveBuy(player, drop, cost)) {
+			return false;
+		}
+		player.drop(drop.copy(), true, Prediction.PREDICTED);
+		sendBuy(player, ItemStack.EMPTY, drop, cost);
+		return true;
+	}
+
+	/**
+	 * 购买校验 + 扣款：严格比对原版创造物品栏（剥除价格行后），再查余额。
+	 * 任一失败返回 false（提示已发），由调用方回滚。
+	 */
+	@Unique
+	private static boolean approveBuy(ServerPlayer player, ItemStack stack, long cost) {
+		ItemStack probe = stack.copy();
+		PriceLore.untag(probe); // 价格行是本模组自身数据，比对应绕过
+		if (!isVanillaCreativeItem(probe, player.level().getServer())) {
+			List<ItemStack> candidates = CREATIVE_ITEMS.getOrDefault(probe.getItem(), List.of());
+			Economy.LOGGER.warn("buymode 拒绝购买：{} 尝试 {} ×{}（cost={}），剥除价格行后候选数={}",
+					player.getGameProfile().name(), probe, probe.getCount(), cost, candidates.size());
 			sendModified(player);
-			return;
+			return false;
 		}
-		if (delta > 0 && balance(player) < delta) {
-			// 余额不足：回滚槽位 + 强制全量同步，本包不做任何资金变动
-			slot.setByPlayer(prev);
-			menu.broadcastFullState();
-			sendInsufficient(player, prev, newStack, delta);
-			return;
+		if (balance(player) < cost) {
+			sendInsufficient(player, ItemStack.EMPTY, stack, cost);
+			return false;
 		}
-		slot.setByPlayer(newStack);
+		deductQuietly(player, cost);
+		return true;
+	}
+
+	/** 设置槽位（服务端权威 + 打标 + 强制下发），购买/放回/拿起共用。 */
+	@Unique
+	private static void setSlotAndSync(ServerPlayer player, InventoryMenu menu, int slotNum, Slot slot, ItemStack stack) {
+		slot.setByPlayer(stack);
 		// 显式打标：覆盖合成格等不经过 Inventory.setItem 的容器槽位（幂等）
-		PriceLore.tag(newStack);
+		PriceLore.tag(stack);
 		// 原版 handleSetCreativeModeSlot 用 setRemoteSlot 把该槽位标记为“客户端已知”后不会
 		// 再下发同步包，客户端本地持有的堆没有价格标签。这里标记远端状态后强制下发一次
 		// 打标后的权威堆（同步机制与服务端 ContainerSynchronizer.sendSlotChange 一致），
 		// 保证拿取/放回的瞬间客户端即可看到价值标签。
-		menu.setRemoteSlot(slotNum, newStack);
+		menu.setRemoteSlot(slotNum, stack);
 		player.connection.send(new ClientboundContainerSetSlotPacket(
-				menu.containerId, menu.incrementStateId(), slotNum, newStack.copy()));
-		if (delta > 0) {
-			// 购买：只扣玩家资金，不入服务器资产
-			deductQuietly(player, delta);
-			sendBuy(player, prev, newStack, delta);
-		} else if (delta < 0) {
-			creditQuietly(player, -delta);
-			sendRefund(player, prev, newStack, -delta);
-		}
+				menu.containerId, menu.incrementStateId(), slotNum, stack.copy()));
+	}
+
+	/** 回滚槽位并全量同步（购买被拒/余额不足）。 */
+	@Unique
+	private static void rollbackSlot(InventoryMenu menu, Slot slot, ItemStack prev) {
+		slot.setByPlayer(prev);
+		menu.broadcastFullState();
 	}
 
 	// ---------- 普通创造模式（非便捷购买）的标签即时同步 ----------
@@ -230,6 +357,24 @@ public abstract class ServerGamePacketListenerImplMixin {
 			}
 		}
 
+		if (netDelta > 0) {
+			// 防御：点击包路径（26.3 创造界面实际不发点击包，保留兜底）同样执行
+			// 购买严格比对——任何价值增加的槽位内容必须与原版创造物品栏一致
+			for (SlotDelta change : changes) {
+				if (change.delta > 0) {
+					ItemStack probe = change.after.copy();
+					PriceLore.untag(probe);
+					if (!isVanillaCreativeItem(probe, player.level().getServer())) {
+						for (int i = 0; i < before.size() && i < current.size(); i++) {
+							menu.getSlot(i).setByPlayer(before.get(i).copy());
+						}
+						menu.broadcastFullState();
+						sendModified(player);
+						return;
+					}
+				}
+			}
+		}
 		if (netDelta > 0 && balance(player) < netDelta) {
 			// 余额不足：恢复点击前全部槽位 + 强制全量同步，杜绝幽灵物品；本包不做任何资金变动
 			for (int i = 0; i < before.size() && i < current.size(); i++) {
@@ -282,7 +427,13 @@ public abstract class ServerGamePacketListenerImplMixin {
 	@Unique
 	private static boolean creativeItemsBuilt = false;
 
-	/** 购买的物品是否与原版创造物品栏中的某个展示堆完全一致（比较 item+组件，忽略数量）。 */
+	/**
+	 * 购买的物品是否与“原版创造物品栏”中的某个展示堆完全一致（比较相对物品默认组件的
+	 * 补丁，忽略数量）。比对索引 = 创造标签页内容 ∪ 全注册物品的纯净默认形态
+	 * （new ItemStack(item)）：后者作为兜底，保证即使服务端标签页内容未构建
+	 * （26.3 独立服务端可能不构建），任何未经修改的纯净物品也能通过比对；内容类物品
+	 * （药水/旗帜等）的合法形态来自标签页内容。
+	 */
 	@Unique
 	private static boolean isVanillaCreativeItem(ItemStack stack, MinecraftServer server) {
 		if (stack.isEmpty()) {
@@ -294,7 +445,11 @@ public abstract class ServerGamePacketListenerImplMixin {
 			return false;
 		}
 		for (ItemStack creative : candidates) {
-			if (ItemStack.isSameItemSameComponents(stack, creative)) {
+			// 比“相对物品默认组件的补丁”而非 PatchedDataComponentMap 整体：26.3 从
+			// 网络包重建的堆（Item.STREAM_CODEC → new ItemStack(holder, count, patch)）
+			// 与本地构造的堆在内部补丁/原型表示上可能不同，但语义内容（相对默认的
+			// 增删）一致；纯净堆补丁为空、真改造物品补丁必然非空，语义等价且更稳健。
+			if (stack.getComponentsPatch().equals(creative.getComponentsPatch())) {
 				return true;
 			}
 		}
@@ -316,6 +471,11 @@ public abstract class ServerGamePacketListenerImplMixin {
 			for (ItemStack stack : tab.getSearchTabDisplayItems()) {
 				CREATIVE_ITEMS.computeIfAbsent(stack.getItem(), k -> new ArrayList<>()).add(stack);
 			}
+		}
+		// 兜底：所有注册物品的纯净默认形态（new ItemStack(item)），保证未构建标签页
+		// 内容时纯净物品也能通过比对。
+		for (Item item : BuiltInRegistries.ITEM) {
+			CREATIVE_ITEMS.computeIfAbsent(item, k -> new ArrayList<>()).add(new ItemStack(item));
 		}
 	}
 
@@ -345,6 +505,14 @@ public abstract class ServerGamePacketListenerImplMixin {
 	private static void sendRefund(ServerPlayer player, ItemStack before, ItemStack after, long refund) {
 		player.sendSystemMessage(Component.literal(
 				"已放回 " + lostName(before, after)
+						+ "，获得 " + Money.format(refund) + " 元" + balanceSuffix(player))
+				.withStyle(ChatFormatting.GREEN), false);
+	}
+
+	/** 卖出提示：物品从背包消失（丢弃/关闭界面统一结算），按价值退款。 */
+	private static void sendSell(ServerPlayer player, ItemStack stack, long refund) {
+		player.sendSystemMessage(Component.literal(
+				"已卖出 " + stack.getHoverName().getString() + " ×" + stack.getCount()
 						+ "，获得 " + Money.format(refund) + " 元" + balanceSuffix(player))
 				.withStyle(ChatFormatting.GREEN), false);
 	}

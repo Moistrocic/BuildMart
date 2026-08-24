@@ -56,8 +56,9 @@ public abstract class ServerPlayerMixin {
 		PriceLore.untagMenu(player.containerMenu, player.getInventory());
 		PriceLore.untag(player.containerMenu.getCarried());
 		if (BuyModeManager.isActive(player)) {
-			// 光标上的物品在拿起时已退款，关闭界面时直接作废，
-			// 避免原版把它放回背包或掉落实体造成白嫖。
+			// 光标上的物品已计入会话暂存（拿起不结算），关闭界面时由
+			// BuyModeManager.exit 统一按卖出结算；这里清空服务端光标，
+			// 避免原版把它放回背包或掉落实体造成重复资产。
 			player.inventoryMenu.setCarried(ItemStack.EMPTY);
 		}
 		BuyModeManager.exit(player);
