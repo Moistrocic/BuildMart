@@ -243,9 +243,10 @@ public final class ItemValues {
 		}
 	}
 
-	/** 本版本强制迁移的初始价（旧配置值被覆盖，一次性）：鸡蛋变体 1.00 -> 0.20；风弹 1.00 -> 10.00。 */
+	/** 本版本强制迁移的初始价（旧配置值被覆盖，一次性）：鸡蛋变体 1.00 -> 0.20；风弹 1.00 -> 10.00；干草 -1 -> 0.05/0.10。 */
 	private static final List<String> MIGRATED_IDS = List.of(
-			"minecraft:blue_egg", "minecraft:brown_egg", "minecraft:wind_charge");
+			"minecraft:blue_egg", "minecraft:brown_egg", "minecraft:wind_charge",
+			"minecraft:short_dry_grass", "minecraft:tall_dry_grass");
 
 	/** 把价格表写回配置 JSON（与 writeDefaults 同一格式）。 */
 	private static void writeJson(Path file, Map<String, Long> values) throws IOException {

@@ -1236,6 +1236,9 @@ public final class ItemInitialPrices {
         map.put("minecraft:zombie_spawn_egg", "100.00");
         map.put("minecraft:zombie_villager_spawn_egg", "100.00");
         map.put("minecraft:zombified_piglin_spawn_egg", "100.00");
+		// 干草（方块剪刀/精准采集掉落，无配方，按同类草定价）
+		map.put("minecraft:short_dry_grass", "0.05");
+		map.put("minecraft:tall_dry_grass", "0.10");
 		// ---------- 26.3 data-driven items (derived from recipes, offline calc) ----------
 		map.put("minecraft:black_banner", "10.25");
 		map.put("minecraft:black_bed", "5.40");
