@@ -64,11 +64,12 @@
     `/balhelp` 的 `HELP_LINES`。
 11. **验证规范（规则书 4）**：启动验证用“后台启动 + 日志监视”，成功标记 = 模组初始化标记；
     run 开发服 `server.properties` 须 `online-mode=false`、`white-list=false`、`enforce-secure-profile=false`。
-12. **buymode 安全性**：buymode 结算拒绝携带危险组件的物品
-    （`ServerGamePacketListenerImplMixin.hasForbiddenComponents`，危险组件黑名单
-    含容器内容物递归）——保存的快捷栏数据在客户端本地，标签页/热键加载路径都无法
-    服务端禁用，必须靠服务端拦截；黑名单而非白名单，避免 26.3 内容/外观组件误报；
-    同时 buymode 期间禁止破坏方块（instabuild 会创造式秒破）。
+12. **buymode 安全性**：buymode 购买方向（delta>0）的物品必须与原版创造物品栏内容
+    **完全一致**（`ServerGamePacketListenerImplMixin.isVanillaCreativeItem`，比较 item+组件、
+    忽略数量；比对索引首次使用时用服务端注册表/特性构建并缓存）——原版创造面板只存在
+    未经修改的初始物品，因此“保存的快捷栏”（客户端本地数据，标签页/热键加载路径均无法
+    服务端禁用）里的任何改造物品都无法购买；卖出/放回方向不检测。同时 buymode 期间
+    禁止破坏方块（instabuild 会创造式秒破）。
 
 ## 已知坑位速查
 
@@ -79,7 +80,7 @@
 | 合成产物分格堆放（4*木板不合堆） | 合成结果未打标，合并判定 `isSameItemSameComponents` 失败 | `CraftingMenuMixin` 结果源头打标 + `AbstractContainerMenuMixin` 移动前兜底 |
 | 打开熔炉后烧制停止 | tagMenu 给机器输出槽打标 → `canBurn` 组件比对失败 | `PriceLore.tagMenu` 跳过熔炉/酿造容器槽 |
 | buymode 秒破方块无掉落 | instabuild 使客户端走创造破坏 | `ServerPlayerGameModeMixin.destroyBlock` buymode 取消 |
-| buymode 拿到改造 NBT 物品 | 保存的快捷栏（标签页/热键）加载客户端本地数据 | buymode 危险组件黑名单 `hasForbiddenComponents` |
+| buymode 拿到改造 NBT 物品 | 保存的快捷栏（标签页/热键）加载客户端本地数据 | buymode 购买方向严格比对原版创造物品栏 `isVanillaCreativeItem` |
 | 纯净端被踢 | 自定义命令参数类型进同步注册表 | 只用原版参数类型（规则书 3.1） |
 | 管理员红名递归 | `createCommandSourceStack()` 会调 `getDisplayName()`（被 PlayerMixin 注入） | `AdminUtil` 用 `player.level().getServer()` |
 | `/eco` 目标解析 | word 参数手动解析选择器 | `EconomyTargets.resolve` 复用 `EntitySelectorParser` |

@@ -59,14 +59,14 @@
    - 非 buymode 直接放行（原版处理）。
    - `slotNum < 0`（创造界面丢弃包，原版会生成实体）→ `ci.cancel()` 取消实体生成。
    - `slotNum > 45` 放行（原版同样忽略）。
-   - **危险组件黑名单**：`hasForbiddenComponents(stack)` 校验（`DataComponentPatch.split()`
-     的 added 键命中 `FORBIDDEN_COMPONENTS` 即拒绝，容器/收纳袋内容物递归）——
-     拒绝“保存的快捷栏”（标签页/热键加载的客户端本地数据）等途径的改造 NBT 物品
-     （自定义属性/无法破坏/堆叠数/原始NBT/方块NBT/锁/食物与使用行为注入/药水时长缩放等）；
-     另有**药水规则**：`POTION_CONTENTS.custom_effects` 非空即拒绝（自定义效果只能由指令
-     产生，原版酿造/创造面板均为注册药水）；**买入与卖出（放回退款）两个方向都校验**；
-     采用黑名单而非白名单：26.3 的创造面板与玩家自身合法物品带大量内容/外观组件
-     （生物变体、装饰罐、不祥之瓶、自定义名称/lore 等），白名单会不断误报。
+   - **严格比对（购买方向）**：`isVanillaCreativeItem(newStack, server)` ——原版创造物品栏
+     只存在未经任何修改的初始物品，购买（delta>0）的物品必须与其**完全一致**
+     （`isSameItemSameComponents` 比较 item+组件、忽略数量），任何差异都驳回；
+     比对索引首次使用时构建（`CreativeModeTabs.tryRebuildTabContents` 用服务端注册表/
+     特性构建，与客户端展示内容一致，收集全部标签页 displayItems + searchTabDisplayItems）。
+     “保存的快捷栏”（标签页/热键加载的客户端本地数据）中的改造物品（属性/超限附魔/
+     自定义药水效果等）因此一律无法进入；卖出/放回方向不检测（改造物品无法通过
+     便捷购买获得，能持有的只有管理员）。
    - 否则接管：不可交易物品（拿/放双方任一）→ 回滚 + `broadcastFullState` + 红字提示；
      按 `ItemValues.price` 的差值结算（delta>0 扣款 / <0 退款 / =0 只换槽位）；
      余额不足 → 回滚槽位 + `broadcastFullState`。

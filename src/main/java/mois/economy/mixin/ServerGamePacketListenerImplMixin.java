@@ -1,8 +1,9 @@
 package mois.economy.mixin;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
@@ -17,21 +18,20 @@ import mois.economy.config.ItemValues;
 import mois.economy.data.EconomyDb;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.NonNullList;
-import net.minecraft.core.component.DataComponentPatch;
-import net.minecraft.core.component.DataComponentType;
-import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundContainerSetSlotPacket;
 import net.minecraft.network.protocol.game.ServerboundContainerClickPacket;
 import net.minecraft.network.protocol.game.ServerboundSetCreativeModeSlotPacket;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.ServerGamePacketListenerImpl;
 import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.CreativeModeTab;
+import net.minecraft.world.item.CreativeModeTabs;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.alchemy.PotionContents;
-import net.minecraft.world.item.component.BundleContents;
-import net.minecraft.world.item.component.ItemContainerContents;
 
 /**
  * 便捷购买模式的服务端结算，全部以服务端权威状态为准：
@@ -84,19 +84,6 @@ public abstract class ServerGamePacketListenerImplMixin {
 			sendUntradeable(player);
 			return;
 		}
-		// 只接受“安全”物品：携带危险组件（属性/无法破坏/堆叠/原始NBT/方块NBT/
-		// 锁/食物与使用行为注入/自定义药水效果等）的一律拒绝（含容器内容物递归），
-		// 买入与卖出（放回退款）两个方向都校验。
-		// 防止从“保存的快捷栏”等途径获取带改造 NBT 的物品——保存的快捷栏数据在
-		// 客户端本地，任何界面禁用都无法覆盖原版热键加载路径，必须在服务端结算处拦截。
-		// 采用黑名单而非白名单：26.3 的创造面板/玩家自身合法物品会带大量内容与外观
-		// 组件（生物变体、装饰罐、不祥之瓶、自定义名称/lore 等），白名单会不断误报。
-		if (hasForbiddenComponents(newStack) || hasForbiddenComponents(prev)) {
-			slot.setByPlayer(prev);
-			menu.broadcastFullState();
-			sendModified(player);
-			return;
-		}
 		// 以服务端槽位状态为准计算完整价值差（基础价+附魔+容器内容物）：
 		// 价值增加=购买，价值减少=放回退款，等价变化只更新槽位不动资金。
 		long delta = ItemValues.price(newStack) - ItemValues.price(prev);
@@ -105,6 +92,17 @@ public abstract class ServerGamePacketListenerImplMixin {
 			slot.setByPlayer(prev);
 			menu.broadcastFullState();
 			sendInsufficient(player, prev, newStack, delta);
+			return;
+		}
+		// 严格校验（购买方向）：原版创造物品栏只存在未经任何修改的初始状态物品，
+		// 购买的物品必须与其完全一致（比较 item+组件，忽略数量），任何差异都驳回。
+		// 这样“保存的快捷栏”（客户端本地数据，标签页/热键加载）里的改造物品
+		// （属性/超限附魔/自定义药水效果等）一律无法进入便捷购买；
+		// 卖出/放回方向不做检测（改造物品无法通过本模式获得，能持有的只有管理员）。
+		if (delta > 0 && !isVanillaCreativeItem(newStack, player.level().getServer())) {
+			slot.setByPlayer(prev);
+			menu.broadcastFullState();
+			sendModified(player);
 			return;
 		}
 		slot.setByPlayer(newStack);
@@ -277,76 +275,47 @@ public abstract class ServerGamePacketListenerImplMixin {
 
 	// ---------- 工具 ----------
 
-	/**
-	 * 便捷购买禁止携带的“危险”组件黑名单：这些组件能注入属性/行为/原始 NBT，
-	 * 或绕过价值计价（不可破坏、堆叠数、容器战利品等），保存的快捷栏等来源
-	 * 携带它们时必须拒绝。外观/内容类组件（自定义名称/lore、生物变体、药水、
-	 * 旗帜、烟花、装饰罐、附魔等）不影响强度或已被价值计价，放行。
-	 */
+	/** 原版创造物品栏内容索引：物品 → 该物品在创造面板中的全部展示堆（构建一次后缓存）。 */
 	@Unique
-	private static final Set<DataComponentType<?>> FORBIDDEN_COMPONENTS = Set.of(
-			DataComponents.ATTRIBUTE_MODIFIERS,
-			DataComponents.UNBREAKABLE,
-			DataComponents.MAX_STACK_SIZE,
-			DataComponents.CUSTOM_DATA,
-			DataComponents.BLOCK_ENTITY_DATA,
-			DataComponents.BLOCK_STATE,
-			DataComponents.CAN_PLACE_ON,
-			DataComponents.CAN_BREAK,
-			DataComponents.LOCK,
-			DataComponents.FOOD,
-			DataComponents.CONSUMABLE,
-			DataComponents.USE_REMAINDER,
-			DataComponents.USE_COOLDOWN,
-			DataComponents.USE_EFFECTS,
-			DataComponents.DEATH_PROTECTION,
-			DataComponents.DAMAGE_RESISTANT,
-			DataComponents.BLOCKS_ATTACKS,
-			DataComponents.KINETIC_WEAPON,
-			DataComponents.PIERCING_WEAPON,
-			DataComponents.ATTACK_RANGE,
-			DataComponents.ATTACK_ANIMATION,
-			DataComponents.INTERACT_ANIMATION,
-			DataComponents.CONTAINER_LOOT,
-			DataComponents.DEBUG_STICK_STATE,
-			DataComponents.CREATIVE_SLOT_LOCK,
-			DataComponents.POTION_DURATION_SCALE);
+	private static final Map<Item, List<ItemStack>> CREATIVE_ITEMS = new HashMap<>();
+	@Unique
+	private static boolean creativeItemsBuilt = false;
 
-	/** 物品或其容器/收纳袋内容物是否携带危险组件。 */
+	/** 购买的物品是否与原版创造物品栏中的某个展示堆完全一致（比较 item+组件，忽略数量）。 */
 	@Unique
-	private static boolean hasForbiddenComponents(ItemStack stack) {
+	private static boolean isVanillaCreativeItem(ItemStack stack, MinecraftServer server) {
 		if (stack.isEmpty()) {
+			return true;
+		}
+		buildCreativeItemsIfNeeded(server);
+		List<ItemStack> candidates = CREATIVE_ITEMS.get(stack.getItem());
+		if (candidates == null) {
 			return false;
 		}
-		DataComponentPatch.SplitResult split = stack.getComponentsPatch().split();
-		for (DataComponentType<?> type : split.added().keySet()) {
-			if (FORBIDDEN_COMPONENTS.contains(type)) {
+		for (ItemStack creative : candidates) {
+			if (ItemStack.isSameItemSameComponents(stack, creative)) {
 				return true;
 			}
 		}
-		// 药水/药箭：custom_effects（自定义效果，如速度 255）只能通过指令产生，
-		// 原版酿造与创造面板均为注册药水（potion 字段），视为改造物品拒绝。
-		PotionContents potion = stack.get(DataComponents.POTION_CONTENTS);
-		if (potion != null && !potion.customEffects().isEmpty()) {
-			return true;
-		}
-		ItemContainerContents container = stack.get(DataComponents.CONTAINER);
-		if (container != null) {
-			for (ItemStack inner : container.nonEmptyItemCopyStream().toList()) {
-				if (hasForbiddenComponents(inner)) {
-					return true;
-				}
-			}
-		}
-		BundleContents bundle = stack.get(DataComponents.BUNDLE_CONTENTS);
-		if (bundle != null) {
-			for (ItemStack inner : bundle.itemCopies().toList()) {
-				if (hasForbiddenComponents(inner)) {
-					return true;
-				}
-			}
-		}
 		return false;
+	}
+
+	/** 首次使用时构建创造物品栏内容（与客户端展示用同一套注册表/特性构建，内容一致）。 */
+	@Unique
+	private static synchronized void buildCreativeItemsIfNeeded(MinecraftServer server) {
+		if (creativeItemsBuilt) {
+			return;
+		}
+		creativeItemsBuilt = true;
+		CreativeModeTabs.tryRebuildTabContents(server.getWorldData().enabledFeatures(), false, server.registryAccess());
+		for (CreativeModeTab tab : BuiltInRegistries.CREATIVE_MODE_TAB) {
+			for (ItemStack stack : tab.getDisplayItems()) {
+				CREATIVE_ITEMS.computeIfAbsent(stack.getItem(), k -> new ArrayList<>()).add(stack);
+			}
+			for (ItemStack stack : tab.getSearchTabDisplayItems()) {
+				CREATIVE_ITEMS.computeIfAbsent(stack.getItem(), k -> new ArrayList<>()).add(stack);
+			}
+		}
 	}
 
 	/** 从 before 变为 after 时“新增”部分的展示信息（物品名与数量）。 */
@@ -405,7 +374,7 @@ public abstract class ServerGamePacketListenerImplMixin {
 
 	private static void sendModified(ServerPlayer player) {
 		player.sendSystemMessage(Component.literal(
-				"该物品包含不可购买的改造内容（自定义属性/无法破坏/特殊NBT等）").withStyle(ChatFormatting.RED), false);
+				"该物品与原版创造物品栏不一致，无法购买（仅允许未经修改的物品）").withStyle(ChatFormatting.RED), false);
 	}
 
 	private static void sendInsufficientNet(ServerPlayer player, long total) {
