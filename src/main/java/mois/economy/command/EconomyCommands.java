@@ -66,7 +66,7 @@ public final class EconomyCommands {
 			"/balshop buymode - 进入快捷购买模式",
 			"/fly - 开启或关闭飞行模式",
 			"/fly warn - 开启或关闭飞行提醒",
-			"/home [名称] - 传送回家",
+			"/home 名称 - 传送回家",
 			"/sethome 名称 - 设置家",
 			"/delhome 名称 - 删除家",
 			"/listhome 页码 - 查看家列表",
