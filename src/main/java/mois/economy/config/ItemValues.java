@@ -46,146 +46,149 @@ public final class ItemValues {
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 	private static final Map<String, Long> VALUES = new HashMap<>();
 	/** 药水价格（分）：由酿造配方链推导（离线计算）。key = "形态-药水"，如 potion-swiftness / splash_potion-swiftness / lingering_potion-swiftness。 */
-	private static final Map<String, Long> POTION_PRICES = Map.ofEntries(
-Map.entry("lingering_potion-awkward", 2325L),
-Map.entry("lingering_potion-fire_resistance", 2625L),
-Map.entry("lingering_potion-harming", 2415L),
-Map.entry("lingering_potion-healing", 2627L),
-Map.entry("lingering_potion-infested", 2500L),
-Map.entry("lingering_potion-invisibility", 2677L),
-Map.entry("lingering_potion-leaping", 2825L),
-Map.entry("lingering_potion-long_fire_resistance", 2725L),
-Map.entry("lingering_potion-long_invisibility", 2777L),
-Map.entry("lingering_potion-long_leaping", 2925L),
-Map.entry("lingering_potion-long_night_vision", 2717L),
-Map.entry("lingering_potion-long_poison", 2455L),
-Map.entry("lingering_potion-long_regeneration", 4425L),
-Map.entry("lingering_potion-long_slow_falling", 2925L),
-Map.entry("lingering_potion-long_slowness", 2505L),
-Map.entry("lingering_potion-long_strength", 2675L),
-Map.entry("lingering_potion-long_swiftness", 2445L),
-Map.entry("lingering_potion-long_turtle_master", 3425L),
-Map.entry("lingering_potion-long_water_breathing", 2485L),
-Map.entry("lingering_potion-long_weakness", 2285L),
-Map.entry("lingering_potion-luck", 2500L),
-Map.entry("lingering_potion-mundane", 2145L),
-Map.entry("lingering_potion-night_vision", 2617L),
-Map.entry("lingering_potion-oozing", 2500L),
-Map.entry("lingering_potion-poison", 2355L),
-Map.entry("lingering_potion-regeneration", 4325L),
-Map.entry("lingering_potion-slow_falling", 2825L),
-Map.entry("lingering_potion-slowness", 2405L),
-Map.entry("lingering_potion-strength", 2575L),
-Map.entry("lingering_potion-strong_harming", 2515L),
-Map.entry("lingering_potion-strong_healing", 2727L),
-Map.entry("lingering_potion-strong_leaping", 2925L),
-Map.entry("lingering_potion-strong_poison", 2455L),
-Map.entry("lingering_potion-strong_regeneration", 4425L),
-Map.entry("lingering_potion-strong_slowness", 2505L),
-Map.entry("lingering_potion-strong_strength", 2675L),
-Map.entry("lingering_potion-strong_swiftness", 2445L),
-Map.entry("lingering_potion-strong_turtle_master", 3425L),
-Map.entry("lingering_potion-swiftness", 2345L),
-Map.entry("lingering_potion-thick", 2225L),
-Map.entry("lingering_potion-turtle_master", 3325L),
-Map.entry("lingering_potion-water", 2125L),
-Map.entry("lingering_potion-water_breathing", 2385L),
-Map.entry("lingering_potion-weakness", 2185L),
-Map.entry("lingering_potion-weaving", 2500L),
-Map.entry("lingering_potion-wind_charged", 2500L),
-Map.entry("potion-awkward", 225L),
-Map.entry("potion-fire_resistance", 525L),
-Map.entry("potion-harming", 315L),
-Map.entry("potion-healing", 527L),
-Map.entry("potion-infested", 400L),
-Map.entry("potion-invisibility", 577L),
-Map.entry("potion-leaping", 725L),
-Map.entry("potion-long_fire_resistance", 625L),
-Map.entry("potion-long_invisibility", 677L),
-Map.entry("potion-long_leaping", 825L),
-Map.entry("potion-long_night_vision", 617L),
-Map.entry("potion-long_poison", 355L),
-Map.entry("potion-long_regeneration", 2325L),
-Map.entry("potion-long_slow_falling", 825L),
-Map.entry("potion-long_slowness", 405L),
-Map.entry("potion-long_strength", 575L),
-Map.entry("potion-long_swiftness", 345L),
-Map.entry("potion-long_turtle_master", 1325L),
-Map.entry("potion-long_water_breathing", 385L),
-Map.entry("potion-long_weakness", 185L),
-Map.entry("potion-luck", 400L),
-Map.entry("potion-mundane", 45L),
-Map.entry("potion-night_vision", 517L),
-Map.entry("potion-oozing", 400L),
-Map.entry("potion-poison", 255L),
-Map.entry("potion-regeneration", 2225L),
-Map.entry("potion-slow_falling", 725L),
-Map.entry("potion-slowness", 305L),
-Map.entry("potion-strength", 475L),
-Map.entry("potion-strong_harming", 415L),
-Map.entry("potion-strong_healing", 627L),
-Map.entry("potion-strong_leaping", 825L),
-Map.entry("potion-strong_poison", 355L),
-Map.entry("potion-strong_regeneration", 2325L),
-Map.entry("potion-strong_slowness", 405L),
-Map.entry("potion-strong_strength", 575L),
-Map.entry("potion-strong_swiftness", 345L),
-Map.entry("potion-strong_turtle_master", 1325L),
-Map.entry("potion-swiftness", 245L),
-Map.entry("potion-thick", 125L),
-Map.entry("potion-turtle_master", 1225L),
-Map.entry("potion-water", 25L),
-Map.entry("potion-water_breathing", 285L),
-Map.entry("potion-weakness", 85L),
-Map.entry("potion-weaving", 400L),
-Map.entry("potion-wind_charged", 400L),
-Map.entry("splash_potion-awkward", 325L),
-Map.entry("splash_potion-fire_resistance", 625L),
-Map.entry("splash_potion-harming", 415L),
-Map.entry("splash_potion-healing", 627L),
-Map.entry("splash_potion-infested", 500L),
-Map.entry("splash_potion-invisibility", 677L),
-Map.entry("splash_potion-leaping", 825L),
-Map.entry("splash_potion-long_fire_resistance", 725L),
-Map.entry("splash_potion-long_invisibility", 777L),
-Map.entry("splash_potion-long_leaping", 925L),
-Map.entry("splash_potion-long_night_vision", 717L),
-Map.entry("splash_potion-long_poison", 455L),
-Map.entry("splash_potion-long_regeneration", 2425L),
-Map.entry("splash_potion-long_slow_falling", 925L),
-Map.entry("splash_potion-long_slowness", 505L),
-Map.entry("splash_potion-long_strength", 675L),
-Map.entry("splash_potion-long_swiftness", 445L),
-Map.entry("splash_potion-long_turtle_master", 1425L),
-Map.entry("splash_potion-long_water_breathing", 485L),
-Map.entry("splash_potion-long_weakness", 285L),
-Map.entry("splash_potion-luck", 500L),
-Map.entry("splash_potion-mundane", 145L),
-Map.entry("splash_potion-night_vision", 617L),
-Map.entry("splash_potion-oozing", 500L),
-Map.entry("splash_potion-poison", 355L),
-Map.entry("splash_potion-regeneration", 2325L),
-Map.entry("splash_potion-slow_falling", 825L),
-Map.entry("splash_potion-slowness", 405L),
-Map.entry("splash_potion-strength", 575L),
-Map.entry("splash_potion-strong_harming", 515L),
-Map.entry("splash_potion-strong_healing", 727L),
-Map.entry("splash_potion-strong_leaping", 925L),
-Map.entry("splash_potion-strong_poison", 455L),
-Map.entry("splash_potion-strong_regeneration", 2425L),
-Map.entry("splash_potion-strong_slowness", 505L),
-Map.entry("splash_potion-strong_strength", 675L),
-Map.entry("splash_potion-strong_swiftness", 445L),
-Map.entry("splash_potion-strong_turtle_master", 1425L),
-Map.entry("splash_potion-swiftness", 345L),
-Map.entry("splash_potion-thick", 225L),
-Map.entry("splash_potion-turtle_master", 1325L),
-Map.entry("splash_potion-water", 125L),
-Map.entry("splash_potion-water_breathing", 385L),
-Map.entry("splash_potion-weakness", 185L),
-Map.entry("splash_potion-weaving", 500L),
-Map.entry("splash_potion-wind_charged", 500L)
-	);
+	private static final Map<String, Long> POTION_PRICES = buildPotionPrices();
+	private static Map<String, Long> buildPotionPrices() {
+		Map<String, Long> map = new HashMap<>(160);
+		map.put("lingering_potion-awkward", 2325L);
+		map.put("lingering_potion-fire_resistance", 2625L);
+		map.put("lingering_potion-harming", 2415L);
+		map.put("lingering_potion-healing", 2627L);
+		map.put("lingering_potion-infested", 2500L);
+		map.put("lingering_potion-invisibility", 2677L);
+		map.put("lingering_potion-leaping", 2825L);
+		map.put("lingering_potion-long_fire_resistance", 2725L);
+		map.put("lingering_potion-long_invisibility", 2777L);
+		map.put("lingering_potion-long_leaping", 2925L);
+		map.put("lingering_potion-long_night_vision", 2717L);
+		map.put("lingering_potion-long_poison", 2455L);
+		map.put("lingering_potion-long_regeneration", 4425L);
+		map.put("lingering_potion-long_slow_falling", 2925L);
+		map.put("lingering_potion-long_slowness", 2505L);
+		map.put("lingering_potion-long_strength", 2675L);
+		map.put("lingering_potion-long_swiftness", 2445L);
+		map.put("lingering_potion-long_turtle_master", 3425L);
+		map.put("lingering_potion-long_water_breathing", 2485L);
+		map.put("lingering_potion-long_weakness", 2285L);
+		map.put("lingering_potion-luck", 2500L);
+		map.put("lingering_potion-mundane", 2145L);
+		map.put("lingering_potion-night_vision", 2617L);
+		map.put("lingering_potion-oozing", 2500L);
+		map.put("lingering_potion-poison", 2355L);
+		map.put("lingering_potion-regeneration", 4325L);
+		map.put("lingering_potion-slow_falling", 2825L);
+		map.put("lingering_potion-slowness", 2405L);
+		map.put("lingering_potion-strength", 2575L);
+		map.put("lingering_potion-strong_harming", 2515L);
+		map.put("lingering_potion-strong_healing", 2727L);
+		map.put("lingering_potion-strong_leaping", 2925L);
+		map.put("lingering_potion-strong_poison", 2455L);
+		map.put("lingering_potion-strong_regeneration", 4425L);
+		map.put("lingering_potion-strong_slowness", 2505L);
+		map.put("lingering_potion-strong_strength", 2675L);
+		map.put("lingering_potion-strong_swiftness", 2445L);
+		map.put("lingering_potion-strong_turtle_master", 3425L);
+		map.put("lingering_potion-swiftness", 2345L);
+		map.put("lingering_potion-thick", 2225L);
+		map.put("lingering_potion-turtle_master", 3325L);
+		map.put("lingering_potion-water", 2125L);
+		map.put("lingering_potion-water_breathing", 2385L);
+		map.put("lingering_potion-weakness", 2185L);
+		map.put("lingering_potion-weaving", 2500L);
+		map.put("lingering_potion-wind_charged", 2500L);
+		map.put("potion-awkward", 225L);
+		map.put("potion-fire_resistance", 525L);
+		map.put("potion-harming", 315L);
+		map.put("potion-healing", 527L);
+		map.put("potion-infested", 400L);
+		map.put("potion-invisibility", 577L);
+		map.put("potion-leaping", 725L);
+		map.put("potion-long_fire_resistance", 625L);
+		map.put("potion-long_invisibility", 677L);
+		map.put("potion-long_leaping", 825L);
+		map.put("potion-long_night_vision", 617L);
+		map.put("potion-long_poison", 355L);
+		map.put("potion-long_regeneration", 2325L);
+		map.put("potion-long_slow_falling", 825L);
+		map.put("potion-long_slowness", 405L);
+		map.put("potion-long_strength", 575L);
+		map.put("potion-long_swiftness", 345L);
+		map.put("potion-long_turtle_master", 1325L);
+		map.put("potion-long_water_breathing", 385L);
+		map.put("potion-long_weakness", 185L);
+		map.put("potion-luck", 400L);
+		map.put("potion-mundane", 45L);
+		map.put("potion-night_vision", 517L);
+		map.put("potion-oozing", 400L);
+		map.put("potion-poison", 255L);
+		map.put("potion-regeneration", 2225L);
+		map.put("potion-slow_falling", 725L);
+		map.put("potion-slowness", 305L);
+		map.put("potion-strength", 475L);
+		map.put("potion-strong_harming", 415L);
+		map.put("potion-strong_healing", 627L);
+		map.put("potion-strong_leaping", 825L);
+		map.put("potion-strong_poison", 355L);
+		map.put("potion-strong_regeneration", 2325L);
+		map.put("potion-strong_slowness", 405L);
+		map.put("potion-strong_strength", 575L);
+		map.put("potion-strong_swiftness", 345L);
+		map.put("potion-strong_turtle_master", 1325L);
+		map.put("potion-swiftness", 245L);
+		map.put("potion-thick", 125L);
+		map.put("potion-turtle_master", 1225L);
+		map.put("potion-water", 25L);
+		map.put("potion-water_breathing", 285L);
+		map.put("potion-weakness", 85L);
+		map.put("potion-weaving", 400L);
+		map.put("potion-wind_charged", 400L);
+		map.put("splash_potion-awkward", 325L);
+		map.put("splash_potion-fire_resistance", 625L);
+		map.put("splash_potion-harming", 415L);
+		map.put("splash_potion-healing", 627L);
+		map.put("splash_potion-infested", 500L);
+		map.put("splash_potion-invisibility", 677L);
+		map.put("splash_potion-leaping", 825L);
+		map.put("splash_potion-long_fire_resistance", 725L);
+		map.put("splash_potion-long_invisibility", 777L);
+		map.put("splash_potion-long_leaping", 925L);
+		map.put("splash_potion-long_night_vision", 717L);
+		map.put("splash_potion-long_poison", 455L);
+		map.put("splash_potion-long_regeneration", 2425L);
+		map.put("splash_potion-long_slow_falling", 925L);
+		map.put("splash_potion-long_slowness", 505L);
+		map.put("splash_potion-long_strength", 675L);
+		map.put("splash_potion-long_swiftness", 445L);
+		map.put("splash_potion-long_turtle_master", 1425L);
+		map.put("splash_potion-long_water_breathing", 485L);
+		map.put("splash_potion-long_weakness", 285L);
+		map.put("splash_potion-luck", 500L);
+		map.put("splash_potion-mundane", 145L);
+		map.put("splash_potion-night_vision", 617L);
+		map.put("splash_potion-oozing", 500L);
+		map.put("splash_potion-poison", 355L);
+		map.put("splash_potion-regeneration", 2325L);
+		map.put("splash_potion-slow_falling", 825L);
+		map.put("splash_potion-slowness", 405L);
+		map.put("splash_potion-strength", 575L);
+		map.put("splash_potion-strong_harming", 515L);
+		map.put("splash_potion-strong_healing", 727L);
+		map.put("splash_potion-strong_leaping", 925L);
+		map.put("splash_potion-strong_poison", 455L);
+		map.put("splash_potion-strong_regeneration", 2425L);
+		map.put("splash_potion-strong_slowness", 505L);
+		map.put("splash_potion-strong_strength", 675L);
+		map.put("splash_potion-strong_swiftness", 445L);
+		map.put("splash_potion-strong_turtle_master", 1425L);
+		map.put("splash_potion-swiftness", 345L);
+		map.put("splash_potion-thick", 225L);
+		map.put("splash_potion-turtle_master", 1325L);
+		map.put("splash_potion-water", 125L);
+		map.put("splash_potion-water_breathing", 385L);
+		map.put("splash_potion-weakness", 185L);
+		map.put("splash_potion-weaving", 500L);
+		map.put("splash_potion-wind_charged", 500L);
+		return map;
+	}
 
 	private ItemValues() {
 	}
