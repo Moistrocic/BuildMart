@@ -8,6 +8,7 @@ import mois.economy.config.ItemValues;
 import mois.economy.data.EconomyDb;
 import mois.economy.fly.FlyManager;
 import mois.economy.shop.ShopManager;
+import mois.economy.teleport.TeleportManager;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
@@ -59,6 +60,7 @@ public class Economy implements ModInitializer {
 		});
 		ServerTickEvents.END_SERVER_TICK.register(ShopManager::onServerTick);
 		ServerTickEvents.END_SERVER_TICK.register(FlyManager::onServerTick);
+		ServerTickEvents.END_SERVER_TICK.register(TeleportManager::onServerTick);
 
 		// 玩家进入服务器时：同步名字到数据库（首次进服自动建行），并发送红色公告。
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
@@ -88,7 +90,7 @@ public class Economy implements ModInitializer {
 
 		CommandRegistrationCallback.EVENT.register((dispatcher, buildContext, selection) -> {
 			EconomyCommands.register(dispatcher, buildContext);
-			LOGGER.info("命令注册完成（bal/pbal/pay/baltop/balhelp/announcement/eco/peco/balshop/fly）");
+			LOGGER.info("命令注册完成（bal/pbal/pay/baltop/balhelp/announcement/eco/peco/balshop/fly/home/sethome/tpa/tpahere/tpaccept/back）");
 		});
 
 		LOGGER.info("Economy Mod Loaded!");

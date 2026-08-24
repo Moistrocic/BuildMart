@@ -7,16 +7,26 @@
 - 键：
   - `itemPricesInLore`（boolean，默认 true）——物品价格以金色 lore 下发（纯净端可见）。
   - `flyFeePerSecond`（十进制元字符串，默认 `"500.00"`，即 50000 分/秒）——/fly 每秒扣费。
-- API：`load(Path configDir)`、`itemPricesInLore()`、`flyFeeCents()`。
-- 常量：`DEFAULT_ITEM_PRICES_IN_LORE = true`、`DEFAULT_FLY_FEE_CENTS = 50000L`。
-- 行为：文件缺失时 `writeDefault` 写入默认 JSON；已有文件缺某键时该键用默认值；
-  `flyFeePerSecond` 解析失败回退默认并记 error 日志。金额解析 `parseCents`：非负、最多两位小数。
+  - `home` / `tpa` / `back`（传送配置段，见下）。
+- 传送配置段字段（`home` 无 enabled；`tpa`/`back` 有 enabled；`tpa` 另有 timeoutSeconds）：
+  `max`（home，默认 0 = 未开放）、`enabled`（tpa/back，默认 false）、`cooldownSeconds`（默认 0）、
+  `fixedFee`（默认 false）、`fixedFeeAmount`（元字符串，默认 "500.00"）、
+  `perDistanceFee`（默认 "1.00"）、`crossDimensionFee`（默认 "1000.00"）、
+  `timeoutSeconds`（tpa，默认 60）。
+- 配置记录：`TpFees(cooldownSeconds, fixedFee, fixedFeeAmountCents, perDistanceFeeCents,
+  crossDimensionFeeCents)`、`HomeSettings(max, fees)`、`TpaSettings(enabled, fees, timeoutSeconds)`、
+  `BackSettings(enabled, fees)`。
+- API：`load(Path configDir)`、`itemPricesInLore()`、`flyFeeCents()`、`homeSettings()`、
+  `tpaSettings()`、`backSettings()`。
+- 行为：文件缺失时 `writeDefault` 写入含全部段的默认 JSON；已有文件缺段时该段用默认值；
+  金额字段解析失败回退默认并记 error 日志。
 
 ## `ItemValues.java` — 物品定价（items.json + 完整价值计算）
 
-- `DEFAULT_CENTS = 100`（未配置物品默认 1.00 元）；`UNTRADEABLE = -1`（不可购买/出售）。
+- `DEFAULT_CENTS = UNTRADEABLE`（**未配置物品默认不可交易**：后续新增物品默认 -1，不可购买/出售）；
+  `UNTRADEABLE = -1`。
 - 配置 `items.json`：物品 ID → 十进制元字符串；`load(Path)` 首次生成全量表（见 ItemInitialPrices），
-  解析失败整体回退默认。
+  解析失败整体回退默认（不可交易）。
 - API：
   - `get(Item)` / `get(Identifier)` — 基础配置价（分）。
   - **`price(ItemStack)`** — 完整价值 =（基础价 + 附魔总价 + 容器内容物递归价）× 数量；

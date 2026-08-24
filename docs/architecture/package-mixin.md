@@ -12,6 +12,7 @@
 2. `openMenu` @RETURN：打开容器后 `PriceLore.tagMenu(player.containerMenu)` 全界面打标。
 3. `doCloseContainer` @HEAD：`untagMenu`（保留玩家背包部分）+ 光标 untag；若在便捷购买中，
    光标物品作废（`setCarried(EMPTY)`，避免白嫖）+ `BuyModeManager.exit`。
+4. `die` @HEAD：记录最近死亡点（`TeleportManager.recordDeath`，back 配置关闭时不记录）。
 
 ## `PlayerMixin`（目标 `Player`）
 
@@ -58,6 +59,10 @@
    - 非 buymode 直接放行（原版处理）。
    - `slotNum < 0`（创造界面丢弃包，原版会生成实体）→ `ci.cancel()` 取消实体生成。
    - `slotNum > 45` 放行（原版同样忽略）。
+   - **组件白名单**：`isBuyableClean(newStack)` 校验（`DataComponentPatch.split()` 的 added
+     键全部在 `BUYABLE_COMPONENTS` 白名单内，removed 为空，容器/收纳袋内容物递归）——
+     拒绝“保存的快捷栏”（标签页/热键加载的客户端本地数据）等途径的改造 NBT 物品；
+     26.3 中 `BASE_POTION`/`BANNER_BASE_COLOR` 已并入 `POTION_CONTENTS`/`BANNER_PATTERNS`。
    - 否则接管：不可交易物品（拿/放双方任一）→ 回滚 + `broadcastFullState` + 红字提示；
      按 `ItemValues.price` 的差值结算（delta>0 扣款 / <0 退款 / =0 只换槽位）；
      余额不足 → 回滚槽位 + `broadcastFullState`。
@@ -77,14 +82,17 @@
    - 结算完成后对每个变化槽位 `PriceLore.tag` + 补发 `ClientboundContainerSetSlotPacket`
      （结算发生在原版 `broadcastChanges` 之后，补发保证界面内标签立即刷新）。
 - 辅助：`gainedName`/`lostName`（物品名×数量展示）、`sendBuy/sendRefund/sendBuyNet/sendRefundNet/
-  sendInsufficient/sendUntradeable/sendInsufficientNet`（聊天提示）、`balance/balanceOrMax/
-  balanceOrMinusOne`（DB 异常兜底）、`deductQuietly/creditQuietly`（静默失败）、`satAdd`。
+  sendInsufficient/sendUntradeable/sendInsufficientNet/sendModified`（聊天提示）、
+  `balance/balanceOrMax/balanceOrMinusOne`（DB 异常兜底）、`deductQuietly/creditQuietly`（静默失败）、
+  `isBuyableClean`（组件白名单，见上）、`satAdd`。
 - 设计原则：购买只扣玩家资金、不入服务器资产；一切以服务端权威槽位状态为准。
 
-## `ServerPlayerGameModeMixin`（目标 `ServerPlayerGameMode`）— 商店拆除保护
+## `ServerPlayerGameModeMixin`（目标 `ServerPlayerGameMode`）— 商店拆除保护 + buymode 禁挖
 
-- `destroyBlock` @HEAD（cancellable）：`ShopManager.getShopOrHalf` 命中且非主人/管理员 →
-  红字提示 + `cir.setReturnValue(false)`（阻止拆除）。
+- `destroyBlock` @HEAD（cancellable）：
+  - **buymode 激活时直接取消**（`BuyModeManager.isActive`）——instabuild 会让客户端走创造
+    式秒破且无掉落物，关闭 buymode 后恢复正常生存挖掘；
+  - 否则 `ShopManager.getShopOrHalf` 命中且非主人/管理员 → 红字提示 + false（阻止拆除）。
 - `destroyBlock` @RETURN：拆除成功（`cir.getReturnValue()`）→ `ShopManager.removeIfShop` 自动删店。
 
 ## `ExplosionDamageCalculatorMixin`（目标 `ExplosionDamageCalculator`）

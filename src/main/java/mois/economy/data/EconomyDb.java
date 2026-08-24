@@ -87,6 +87,25 @@ public final class EconomyDb {
 						key TEXT PRIMARY KEY,
 						value TEXT NOT NULL
 					)""");
+			statement.execute("""
+					CREATE TABLE IF NOT EXISTS homes (
+						uuid TEXT NOT NULL,
+						name TEXT NOT NULL,
+						world TEXT NOT NULL,
+						x REAL NOT NULL,
+						y REAL NOT NULL,
+						z REAL NOT NULL,
+						created INTEGER NOT NULL,
+						PRIMARY KEY (uuid, name)
+					)""");
+			statement.execute("""
+					CREATE TABLE IF NOT EXISTS back_points (
+						uuid TEXT PRIMARY KEY,
+						world TEXT NOT NULL,
+						x REAL NOT NULL,
+						y REAL NOT NULL,
+						z REAL NOT NULL
+					)""");
 		}
 		ensureAccount(SERVER_ACCOUNT_UUID, SERVER_ACCOUNT_NAME);
 	}
@@ -403,6 +422,145 @@ public final class EconomyDb {
 			throw new DatabaseException("查询排行榜失败", e);
 		}
 		return result;
+	}
+
+	// ---------- 家（homes） ----------
+
+	/** 家的坐标条目。world 为维度 ID 字符串（如 "minecraft:overworld"）。 */
+	public record HomeEntry(String name, String world, double x, double y, double z, long created) {
+	}
+
+	/** 设置/覆盖指定名称的家；created 为当前毫秒时间戳，用于“最近设置的家”判定。 */
+	public static synchronized void setHome(UUID uuid, String name, String world, double x, double y, double z) {
+		requireOpen();
+		try (PreparedStatement ps = connection.prepareStatement("""
+				INSERT INTO homes (uuid, name, world, x, y, z, created) VALUES (?, ?, ?, ?, ?, ?, ?)
+				ON CONFLICT(uuid, name) DO UPDATE SET
+					world = excluded.world, x = excluded.x, y = excluded.y, z = excluded.z,
+					created = excluded.created
+				""")) {
+			ps.setString(1, uuid.toString());
+			ps.setString(2, name);
+			ps.setString(3, world);
+			ps.setDouble(4, x);
+			ps.setDouble(5, y);
+			ps.setDouble(6, z);
+			ps.setLong(7, System.currentTimeMillis());
+			ps.executeUpdate();
+		} catch (SQLException e) {
+			throw new DatabaseException("设置家失败", e);
+		}
+	}
+
+	/** 查询指定名称的家；不存在返回 null。 */
+	public static synchronized HomeEntry getHome(UUID uuid, String name) {
+		requireOpen();
+		try (PreparedStatement ps = connection.prepareStatement("""
+				SELECT name, world, x, y, z, created FROM homes WHERE uuid = ? AND name = ?
+				""")) {
+			ps.setString(1, uuid.toString());
+			ps.setString(2, name);
+			try (ResultSet rs = ps.executeQuery()) {
+				if (rs.next()) {
+					return new HomeEntry(rs.getString(1), rs.getString(2),
+							rs.getDouble(3), rs.getDouble(4), rs.getDouble(5), rs.getLong(6));
+				}
+			}
+		} catch (SQLException e) {
+			throw new DatabaseException("查询家失败", e);
+		}
+		return null;
+	}
+
+	/** 查询玩家全部家，按设置时间倒序（第一项为最近设置的家）。 */
+	public static synchronized List<HomeEntry> getHomes(UUID uuid) {
+		requireOpen();
+		List<HomeEntry> result = new ArrayList<>();
+		try (PreparedStatement ps = connection.prepareStatement("""
+				SELECT name, world, x, y, z, created FROM homes WHERE uuid = ? ORDER BY created DESC
+				""")) {
+			ps.setString(1, uuid.toString());
+			try (ResultSet rs = ps.executeQuery()) {
+				while (rs.next()) {
+					result.add(new HomeEntry(rs.getString(1), rs.getString(2),
+							rs.getDouble(3), rs.getDouble(4), rs.getDouble(5), rs.getLong(6)));
+				}
+			}
+		} catch (SQLException e) {
+			throw new DatabaseException("查询家列表失败", e);
+		}
+		return result;
+	}
+
+	/** 玩家已设置的家数量。 */
+	public static synchronized int countHomes(UUID uuid) {
+		requireOpen();
+		try (PreparedStatement ps = connection.prepareStatement(
+				"SELECT COUNT(*) FROM homes WHERE uuid = ?")) {
+			ps.setString(1, uuid.toString());
+			try (ResultSet rs = ps.executeQuery()) {
+				if (rs.next()) {
+					return rs.getInt(1);
+				}
+			}
+		} catch (SQLException e) {
+			throw new DatabaseException("统计家数量失败", e);
+		}
+		return 0;
+	}
+
+	// ---------- 死亡点（back） ----------
+
+	/** 最近死亡点（每个玩家仅保留一个）。 */
+	public record BackPoint(String world, double x, double y, double z) {
+	}
+
+	/** 记录/覆盖玩家最近死亡点。 */
+	public static synchronized void setBackPoint(UUID uuid, String world, double x, double y, double z) {
+		requireOpen();
+		try (PreparedStatement ps = connection.prepareStatement("""
+				INSERT INTO back_points (uuid, world, x, y, z) VALUES (?, ?, ?, ?, ?)
+				ON CONFLICT(uuid) DO UPDATE SET
+					world = excluded.world, x = excluded.x, y = excluded.y, z = excluded.z
+				""")) {
+			ps.setString(1, uuid.toString());
+			ps.setString(2, world);
+			ps.setDouble(3, x);
+			ps.setDouble(4, y);
+			ps.setDouble(5, z);
+			ps.executeUpdate();
+		} catch (SQLException e) {
+			throw new DatabaseException("记录死亡点失败", e);
+		}
+	}
+
+	/** 查询最近死亡点；不存在返回 null。 */
+	public static synchronized BackPoint getBackPoint(UUID uuid) {
+		requireOpen();
+		try (PreparedStatement ps = connection.prepareStatement(
+				"SELECT world, x, y, z FROM back_points WHERE uuid = ?")) {
+			ps.setString(1, uuid.toString());
+			try (ResultSet rs = ps.executeQuery()) {
+				if (rs.next()) {
+					return new BackPoint(rs.getString(1), rs.getDouble(2), rs.getDouble(3), rs.getDouble(4));
+				}
+			}
+		} catch (SQLException e) {
+			throw new DatabaseException("查询死亡点失败", e);
+		}
+		return null;
+	}
+
+	/** 清除玩家最近死亡点（/back 使用成功后调用）。 */
+	public static synchronized void clearBackPoint(UUID uuid) {
+		requireOpen();
+		try (PreparedStatement ps = connection.prepareStatement(
+				"DELETE FROM back_points WHERE uuid = ?")) {
+			ps.setString(1, uuid.toString());
+			ps.executeUpdate();
+		} catch (SQLException e) {
+			throw new DatabaseException("清除死亡点失败", e);
+		}
 	}
 
 	// ---------- 公告 ----------

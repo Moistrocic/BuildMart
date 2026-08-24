@@ -30,10 +30,15 @@ import java.util.Map;
 
 /**
  * 物品价值配置：config/economy/items.json，键为物品 ID（如 minecraft:dirt），
- * 值为十进制元字符串（如 "0.10"），解析为整数分存储；未配置的物品默认 1.00 元。
+ * 值为十进制元字符串（如 "0.10"），解析为整数分存储；不在配置表中的物品默认
+ * 不可交易（-1，即后续新增的物品默认不可购买/出售）。
  */
 public final class ItemValues {
-	public static final long DEFAULT_CENTS = 100L; // 1.00 元
+	/** 不可交易标记：配置价为 -1 的物品不能购买也不能卖出。 */
+	public static final long UNTRADEABLE = -1L;
+
+	/** 未配置物品的默认价：-1 = 不可交易（后续新增的物品默认不可购买/出售）。 */
+	public static final long DEFAULT_CENTS = UNTRADEABLE;
 
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 	private static final Map<String, Long> VALUES = new HashMap<>();
@@ -41,7 +46,7 @@ public final class ItemValues {
 	private ItemValues() {
 	}
 
-	/** 从 config 目录加载；文件不存在时按初始定价表（{@link ItemInitialPrices}）+ 注册表全量生成。失败时回退为全默认 1.00 元。 */
+	/** 从 config 目录加载；文件不存在时按初始定价表（{@link ItemInitialPrices}）+ 注册表全量生成。失败时回退为全默认不可交易。 */
 	public static void load(Path configDir) {
 		Path file = configDir.resolve("economy").resolve("items.json");
 		Map<String, Long> parsed = new HashMap<>();
@@ -58,10 +63,9 @@ public final class ItemValues {
 				VALUES.clear();
 				VALUES.putAll(parsed);
 			}
-			Economy.LOGGER.info("物品价值配置已加载：{}（{} 项，未配置物品默认 {} 元）",
-					file, VALUES.size(), Money.format(DEFAULT_CENTS));
+			Economy.LOGGER.info("物品价值配置已加载：{}（{} 项，未配置物品默认不可交易）", file, VALUES.size());
 		} catch (Exception e) {
-			Economy.LOGGER.error("物品价值配置加载失败，全部回退为默认 1.00 元", e);
+			Economy.LOGGER.error("物品价值配置加载失败，全部回退为默认不可交易", e);
 			synchronized (VALUES) {
 				VALUES.clear();
 			}
@@ -77,9 +81,6 @@ public final class ItemValues {
 			return VALUES.getOrDefault(id.toString(), DEFAULT_CENTS);
 		}
 	}
-
-	/** 不可交易标记：配置价为 -1 的物品不能购买也不能卖出。 */
-	public static final long UNTRADEABLE = -1L;
 
 	/** 容器（潜影盒/收纳袋）内容物递归计价的最大嵌套深度，防止异常数据导致过深递归。 */
 	private static final int MAX_CONTAINER_DEPTH = 8;
@@ -247,7 +248,7 @@ public final class ItemValues {
 		return GSON.toJson(root);
 	}
 
-	/** 首次生成配置：写入全部已注册物品，表内物品用初始定价（{@link ItemInitialPrices}），表外物品用默认 1.00 元。 */
+	/** 首次生成配置：写入全部已注册物品，表内物品用初始定价（{@link ItemInitialPrices}），表外物品默认不可交易（-1.00）。 */
 	private static void writeDefaults(Path file) throws IOException {
 		JsonObject root = new JsonObject();
 		List<String> ids = new ArrayList<>();

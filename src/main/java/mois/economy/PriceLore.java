@@ -17,6 +17,8 @@ import net.minecraft.world.item.component.BundleContents;
 import net.minecraft.world.item.component.ItemContainerContents;
 import net.minecraft.world.item.component.ItemLore;
 import net.minecraft.world.item.slot.SlotSelector;
+import net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity;
+import net.minecraft.world.level.block.entity.BrewingStandBlockEntity;
 
 /**
  * 价格标签：以真实 lore 组件的形式打在被玩家持有的物品上（进背包/打开容器时），
@@ -108,6 +110,13 @@ public final class PriceLore {
 			return;
 		}
 		for (Slot slot : menu.slots) {
+			// 加工类机器（熔炉/烟熏炉/高炉/酿造台）的输出槽会被配方判定逐组件比对
+			// （AbstractFurnaceBlockEntity.canBurn 的 isSameItemSameComponents），打标会
+			// 改变组件导致烧制/酿造中断；合成网格的结果槽由 CraftingMenuMixin 在产出时打标。
+			if (slot.container instanceof AbstractFurnaceBlockEntity
+					|| slot.container instanceof BrewingStandBlockEntity) {
+				continue;
+			}
 			tag(slot.getItem());
 		}
 	}

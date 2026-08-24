@@ -1,5 +1,6 @@
 package mois.economy.mixin;
 
+import mois.economy.buymode.BuyModeManager;
 import mois.economy.shop.Shop;
 import mois.economy.shop.ShopManager;
 import mois.economy.util.AdminUtil;
@@ -31,6 +32,14 @@ public abstract class ServerPlayerGameModeMixin {
 
 	@Inject(method = "destroyBlock", at = @At("HEAD"), cancellable = true)
 	private void economy$protectShop(BlockPos pos, CallbackInfoReturnable<Boolean> cir) {
+		// 便捷购买模式授予了 instabuild，客户端会以创造方式破坏（秒破且无掉落物）：
+		// 购买模式下禁止破坏方块，关闭 buymode 后恢复正常生存挖掘。
+		if (BuyModeManager.isActive(player)) {
+			player.sendSystemMessage(
+					Component.literal("便捷购买模式下无法破坏方块").withStyle(ChatFormatting.RED), false);
+			cir.setReturnValue(false);
+			return;
+		}
 		Shop shop = ShopManager.getShopOrHalf(level, pos);
 		if (shop == null) {
 			return;

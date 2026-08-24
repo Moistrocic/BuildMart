@@ -38,7 +38,10 @@
   （重写会生成新组件对象，导致 26.3 客户端 `sameDestroyTarget` 检测到手持物变化而重置挖掘进度）。
   不递归进容器内容物（内容物在容器打开时另行打标）。
 - **`untag(ItemStack)`** — 递归清除价格行（深入 `CONTAINER` 与 `BUNDLE_CONTENTS`）。
-- `tagMenu(AbstractContainerMenu)` — 给界面所有槽位打标（含玩家背包部分）。
+- `tagMenu(AbstractContainerMenu)` — 给界面所有槽位打标（含玩家背包部分）；
+  **跳过加工类机器容器**（`AbstractFurnaceBlockEntity` / `BrewingStandBlockEntity`）：
+  熔炉 `canBurn` 会逐组件比对输出槽与配方产物，打标会中断烧制；合成结果槽由
+  CraftingMenuMixin 在产出时打标。
 - `untagMenu(menu, playerInventory)` — 关容器时清除非玩家背包槽位。
 - `untagInventory(ServerPlayer)` — 清背包（含盔甲/副手/容器内容物）与光标。
 - `untagPlayerAndMenu(ServerPlayer)` — 下线用：背包 + 当前容器 + 光标。

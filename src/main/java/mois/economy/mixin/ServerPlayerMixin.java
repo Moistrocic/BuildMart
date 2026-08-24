@@ -4,11 +4,13 @@ import java.util.OptionalInt;
 
 import mois.economy.PriceLore;
 import mois.economy.buymode.BuyModeManager;
+import mois.economy.teleport.TeleportManager;
 import mois.economy.util.AdminUtil;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.MenuProvider;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.item.ItemStack;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -59,5 +61,11 @@ public abstract class ServerPlayerMixin {
 			player.inventoryMenu.setCarried(ItemStack.EMPTY);
 		}
 		BuyModeManager.exit(player);
+	}
+
+	@Inject(method = "die", at = @At("HEAD"))
+	private void economy$recordBackPoint(DamageSource damageSource, CallbackInfo ci) {
+		// 记录最近死亡点（/back 使用；配置关闭时不记录）
+		TeleportManager.recordDeath((ServerPlayer) (Object) this);
 	}
 }

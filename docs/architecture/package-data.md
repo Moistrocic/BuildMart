@@ -8,6 +8,11 @@
 - **表结构**：
   - `economy_accounts(uuid TEXT PRIMARY KEY, name TEXT NOT NULL, balance INTEGER NOT NULL DEFAULT 0 CHECK (balance >= 0))`
   - `economy_settings(key TEXT PRIMARY KEY, value TEXT NOT NULL)`（目前仅存公告 `announcement`）。
+  - `homes(uuid, name, world, x, y, z, created, PRIMARY KEY(uuid, name))` —— /sethome 的家。
+  - `back_points(uuid PRIMARY KEY, world, x, y, z)` —— /back 的最近死亡点。
+- 家/死亡点 API：`setHome`/`getHome`/`getHomes`（按 created 倒序，第一项为最近设置）/`countHomes`，
+  `setBackPoint`/`getBackPoint`/`clearBackPoint`；记录类型 `HomeEntry(name, world, x, y, z, created)`
+  与 `BackPoint(world, x, y, z)`，world 为维度 ID 字符串（如 "minecraft:overworld"）。
 - **服务器资产账户**：`SERVER_ACCOUNT_UUID = new UUID(0L, 0L)`，`SERVER_ACCOUNT_NAME = "服务器资产"`，
   与玩家账户同表存储；商店收款、/peco、/pbal 使用。
 - **API（全部 `synchronized`，未 open 时 `requireOpen()` 抛 `DatabaseException`）**：

@@ -1,11 +1,12 @@
 # `mois.economy.command` 包 — 全部指令
 
 注册中枢：`EconomyCommands.register(dispatcher, buildContext)`（由 `Economy.onInitialize` 调用），
-内部再委托 `BalshopCommands.register` 与 `FlyCommands.register`。
+内部再委托 `BalshopCommands.register`、`FlyCommands.register` 与 `TeleportCommands.register`
+（传送指令见 package-teleport.md）。
 
 ## `EconomyCommands.java` — 资金指令 + /balhelp
 
-- `PAGE_SIZE = 10`；`HELP_LINES`（String[]，19 行）包含全部 /bal*、/balshop*、/fly 帮助行。
+- `PAGE_SIZE = 10`；`HELP_LINES`（String[]，25 行）包含全部 /bal*、/balshop*、/fly、传送指令帮助行。
 - 注册的指令与执行方法：
   | 指令 | 方法 | 说明 |
   |---|---|---|

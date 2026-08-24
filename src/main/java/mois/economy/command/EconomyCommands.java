@@ -65,7 +65,13 @@ public final class EconomyCommands {
 			"/balshop buy 物品 数量 - 购买物品",
 			"/balshop buymode - 进入快捷购买模式",
 			"/fly - 开启或关闭飞行模式",
-			"/fly warn - 开启或关闭飞行提醒"
+			"/fly warn - 开启或关闭飞行提醒",
+			"/home [名称] - 传送回家",
+			"/sethome 名称 - 设置家",
+			"/tpa 玩家 - 请求传送到玩家位置",
+			"/tpahere 玩家 - 请求玩家传送到自己位置",
+			"/tpaccept - 接受最近的传送请求",
+			"/back - 回到最近死亡点"
 	};
 
 	private EconomyCommands() {
@@ -74,6 +80,7 @@ public final class EconomyCommands {
 	public static void register(CommandDispatcher<CommandSourceStack> dispatcher, CommandBuildContext buildContext) {
 		BalshopCommands.register(dispatcher, buildContext);
 		FlyCommands.register(dispatcher, buildContext);
+		TeleportCommands.register(dispatcher, buildContext);
 		dispatcher.register(Commands.literal("bal")
 				.executes(ctx -> showBalance(ctx, null))
 				.then(Commands.argument("player", GameProfileArgument.gameProfile())

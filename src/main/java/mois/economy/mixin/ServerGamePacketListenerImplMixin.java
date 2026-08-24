@@ -2,6 +2,7 @@ package mois.economy.mixin;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
@@ -16,6 +17,9 @@ import mois.economy.config.ItemValues;
 import mois.economy.data.EconomyDb;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.NonNullList;
+import net.minecraft.core.component.DataComponentPatch;
+import net.minecraft.core.component.DataComponentType;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundContainerSetSlotPacket;
 import net.minecraft.network.protocol.game.ServerboundContainerClickPacket;
@@ -25,6 +29,8 @@ import net.minecraft.server.network.ServerGamePacketListenerImpl;
 import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.BundleContents;
+import net.minecraft.world.item.component.ItemContainerContents;
 
 /**
  * 便捷购买模式的服务端结算，全部以服务端权威状态为准：
@@ -75,6 +81,16 @@ public abstract class ServerGamePacketListenerImplMixin {
 			slot.setByPlayer(prev);
 			menu.broadcastFullState();
 			sendUntradeable(player);
+			return;
+		}
+		// 只接受“干净”物品：组件改动必须全部在白名单内（含容器内容物递归）。
+		// 防止从“保存的快捷栏”等途径获取带改造 NBT 的物品（如自定义属性/附魔
+		// 超限/自定义名称等）——保存的快捷栏数据在客户端本地，任何界面禁用都无法
+		// 覆盖原版热键加载路径，必须在服务端结算处拦截。
+		if (!isBuyableClean(newStack)) {
+			slot.setByPlayer(prev);
+			menu.broadcastFullState();
+			sendModified(player);
 			return;
 		}
 		// 以服务端槽位状态为准计算完整价值差（基础价+附魔+容器内容物）：
@@ -257,6 +273,63 @@ public abstract class ServerGamePacketListenerImplMixin {
 
 	// ---------- 工具 ----------
 
+	/**
+	 * 便捷购买允许的组件改动白名单：只放行“价格已计价”或“创造面板原生内容”的组件，
+	 * 其余（自定义属性/名称/lore/无法破坏/最大堆叠等）一律视为改造物品拒绝。
+	 */
+	@Unique
+	private static final Set<DataComponentType<?>> BUYABLE_COMPONENTS = Set.of(
+			DataComponents.ENCHANTMENTS,
+			DataComponents.STORED_ENCHANTMENTS,
+			DataComponents.DAMAGE,
+			DataComponents.CONTAINER,
+			DataComponents.BUNDLE_CONTENTS,
+			DataComponents.POTION_CONTENTS,
+			DataComponents.BANNER_PATTERNS,
+			DataComponents.FIREWORKS,
+			DataComponents.FIREWORK_EXPLOSION,
+			DataComponents.MAP_ID,
+			DataComponents.MAP_DECORATIONS,
+			DataComponents.WRITABLE_BOOK_CONTENT,
+			DataComponents.WRITTEN_BOOK_CONTENT,
+			DataComponents.INSTRUMENT,
+			DataComponents.SUSPICIOUS_STEW_EFFECTS,
+			DataComponents.TRIM);
+
+	/** 组件改动是否全部在白名单内（递归检查容器/收纳袋内容物）；删除默认组件也算改造。 */
+	@Unique
+	private static boolean isBuyableClean(ItemStack stack) {
+		if (stack.isEmpty()) {
+			return true;
+		}
+		DataComponentPatch.SplitResult split = stack.getComponentsPatch().split();
+		if (!split.removed().isEmpty()) {
+			return false;
+		}
+		for (DataComponentType<?> type : split.added().keySet()) {
+			if (!BUYABLE_COMPONENTS.contains(type)) {
+				return false;
+			}
+		}
+		ItemContainerContents container = stack.get(DataComponents.CONTAINER);
+		if (container != null) {
+			for (ItemStack inner : container.nonEmptyItemCopyStream().toList()) {
+				if (!isBuyableClean(inner)) {
+					return false;
+				}
+			}
+		}
+		BundleContents bundle = stack.get(DataComponents.BUNDLE_CONTENTS);
+		if (bundle != null) {
+			for (ItemStack inner : bundle.itemCopies().toList()) {
+				if (!isBuyableClean(inner)) {
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+
 	/** 从 before 变为 after 时“新增”部分的展示信息（物品名与数量）。 */
 	private static String gainedName(ItemStack before, ItemStack after) {
 		if (!after.isEmpty() && ItemStack.isSameItemSameComponents(before, after)) {
@@ -309,6 +382,11 @@ public abstract class ServerGamePacketListenerImplMixin {
 	private static void sendUntradeable(ServerPlayer player) {
 		player.sendSystemMessage(Component.literal(
 				"该物品不可购买或出售").withStyle(ChatFormatting.RED), false);
+	}
+
+	private static void sendModified(ServerPlayer player) {
+		player.sendSystemMessage(Component.literal(
+				"该物品包含不可购买的改造内容（自定义属性/附魔/名称等）").withStyle(ChatFormatting.RED), false);
 	}
 
 	private static void sendInsufficientNet(ServerPlayer player, long total) {

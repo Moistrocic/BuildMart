@@ -13,6 +13,7 @@
 - [package-shop.md](package-shop.md) — `shop` 包：箱子商店（创建/出售/保护/持久化）
 - [package-buymode.md](package-buymode.md) — `buymode` 包：/balshop buymode 便捷购买
 - [package-fly.md](package-fly.md) — `fly` 包：/fly 付费飞行
+- [package-teleport.md](package-teleport.md) — `teleport` 包：/home /sethome /tpa /tpahere /tpaccept /back
 - [package-mixin.md](package-mixin.md) — 全部 9 个 Mixin（注入点、原因、注意事项）
 - [package-misc.md](package-misc.md) — util/AdminUtil、client 源集、资源文件（fabric.mod.json、economy.mixins.json）
 
@@ -51,15 +52,22 @@
    （不写存档，上线由 tick/onJoin 重新授予能力）。
 7. **数据库**：SQLite 存 `world/economy.db`（WAL）；所有 `EconomyDb` 方法 `synchronized`，
    未 open 时 `requireOpen()` 抛运行时 `DatabaseException`；服务器资产 = 固定 UUID `new UUID(0,0)`。
-8. **配置**：`config/economy/` 下 `config.json`（主配置）、`items.json`（物品价）、`enchantments.json`
-   （附魔价），首次运行自动生成；商店数据 `world/economy-shops.json`。
+8. **配置**：`config/economy/` 下 `config.json`（主配置：itemPricesInLore / flyFeePerSecond /
+   home / tpa / back 传送段）、`items.json`（物品价）、`enchantments.json`（附魔价），
+   首次运行自动生成；商店数据 `world/economy-shops.json`；家与死亡点存数据库
+   （`homes` / `back_points` 表）。
 9. **自检**：启动时 `PriceLore.selfCheck()`（仅开启时）与 `EconomyDb.runSelfTest()`（open 时）自动执行，
    改动相关逻辑后这两处自检若失败会直接报错，务必保证通过。
 10. **指令注册中枢**：`EconomyCommands.register`（由 `Economy.onInitialize` 的
-    `CommandRegistrationCallback` 调用），内部再委托 `BalshopCommands`、`FlyCommands`；
-    新增指令要同步更新 `Economy.java` 的“命令注册完成”日志与 `/balhelp` 的 `HELP_LINES`。
+    `CommandRegistrationCallback` 调用），内部再委托 `BalshopCommands`、`FlyCommands`、
+    `TeleportCommands`；新增指令要同步更新 `Economy.java` 的“命令注册完成”日志与
+    `/balhelp` 的 `HELP_LINES`。
 11. **验证规范（规则书 4）**：启动验证用“后台启动 + 日志监视”，成功标记 = 模组初始化标记；
     run 开发服 `server.properties` 须 `online-mode=false`、`white-list=false`、`enforce-secure-profile=false`。
+12. **buymode 安全性**：buymode 结算只接受组件改动全部在白名单内的“干净”物品
+    （`ServerGamePacketListenerImplMixin.isBuyableClean`，含容器内容物递归）——保存的快捷栏
+    数据在客户端本地，标签页/热键加载路径都无法服务端禁用，必须靠组件白名单拦截；
+    同时 buymode 期间禁止破坏方块（instabuild 会创造式秒破）。
 
 ## 已知坑位速查
 
@@ -68,6 +76,9 @@
 | 创造拿取/放回不显示价格 | 原版 `setRemoteSlot` 标记“客户端已知”后不再下发 | `ServerGamePacketListenerImplMixin` 显式补发槽位包 |
 | 捡物品重置挖掘进度 | 重打标签改了手持物组件 → `sameDestroyTarget` 失败 | `PriceLore.tag` 幂等 + `InventoryMixin` 跳手持槽位 |
 | 合成产物分格堆放（4*木板不合堆） | 合成结果未打标，合并判定 `isSameItemSameComponents` 失败 | `CraftingMenuMixin` 结果源头打标 + `AbstractContainerMenuMixin` 移动前兜底 |
+| 打开熔炉后烧制停止 | tagMenu 给机器输出槽打标 → `canBurn` 组件比对失败 | `PriceLore.tagMenu` 跳过熔炉/酿造容器槽 |
+| buymode 秒破方块无掉落 | instabuild 使客户端走创造破坏 | `ServerPlayerGameModeMixin.destroyBlock` buymode 取消 |
+| buymode 拿到改造 NBT 物品 | 保存的快捷栏（标签页/热键）加载客户端本地数据 | buymode 组件白名单 `isBuyableClean` |
 | 纯净端被踢 | 自定义命令参数类型进同步注册表 | 只用原版参数类型（规则书 3.1） |
 | 管理员红名递归 | `createCommandSourceStack()` 会调 `getDisplayName()`（被 PlayerMixin 注入） | `AdminUtil` 用 `player.level().getServer()` |
 | `/eco` 目标解析 | word 参数手动解析选择器 | `EconomyTargets.resolve` 复用 `EntitySelectorParser` |
