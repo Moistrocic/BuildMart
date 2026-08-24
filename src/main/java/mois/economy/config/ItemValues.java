@@ -251,7 +251,8 @@ public final class ItemValues {
 	private static void writeJson(Path file, Map<String, Long> values) throws IOException {
 		JsonObject root = new JsonObject();
 		for (String id : values.keySet().stream().sorted().toList()) {
-			root.addProperty(id, Money.format(values.get(id)));
+			long cents = values.get(id);
+			root.addProperty(id, cents == UNTRADEABLE ? "-1.00" : Money.format(cents));
 		}
 		Files.writeString(file, GSON.toJson(root), StandardCharsets.UTF_8);
 	}
@@ -477,14 +478,19 @@ public final class ItemValues {
 		}
 		ids.sort(String::compareTo);
 		for (String id : ids) {
-			root.addProperty(id, ItemInitialPrices.INITIAL.getOrDefault(id, Money.format(DEFAULT_CENTS)));
+			root.addProperty(id, ItemInitialPrices.INITIAL.getOrDefault(id, "-1.00"));
 		}
 		Files.writeString(file, GSON.toJson(root), StandardCharsets.UTF_8);
 	}
 
 	/** 解析非负十进制元字符串为分（最多两位小数）；"-1"/"-1.00" 返回 {@link #UNTRADEABLE}，其它非法值抛异常。 */
 	private static long parseCents(String input) {
-		BigDecimal value = new BigDecimal(input.trim());
+		String trimmed = input.trim();
+		// 历史坏值兼容：旧版 writeDefaults 用 Money.format(-1) 把不可交易写成 "-0.01"
+		if ("-0.01".equals(trimmed)) {
+			return UNTRADEABLE;
+		}
+		BigDecimal value = new BigDecimal(trimmed);
 		if (value.compareTo(BigDecimal.ONE.negate()) == 0) {
 			return UNTRADEABLE;
 		}
