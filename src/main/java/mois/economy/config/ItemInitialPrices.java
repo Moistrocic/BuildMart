@@ -42,7 +42,7 @@ public final class ItemInitialPrices {
         map.put("minecraft:allay_spawn_egg", "100.00");
         map.put("minecraft:allium", "0.10");
         map.put("minecraft:amethyst_block", "8.00");
-        map.put("minecraft:amethyst_cluster", "32.00");
+        map.put("minecraft:amethyst_cluster", "17.60");
         map.put("minecraft:amethyst_shard", "2.00");
         map.put("minecraft:ancient_debris", "150.00");
         map.put("minecraft:andesite", "0.20");
@@ -241,7 +241,7 @@ public final class ItemInitialPrices {
         map.put("minecraft:closed_eyeblossom", "0.10");
         map.put("minecraft:coal", "0.50");
         map.put("minecraft:coal_block", "4.50");
-        map.put("minecraft:coal_ore", "0.50");
+        map.put("minecraft:coal_ore", "1.10");
         map.put("minecraft:coarse_dirt", "0.12");
         map.put("minecraft:coast_armor_trim_smithing_template", "140.90");
         map.put("minecraft:cobbled_deepslate", "0.20");
@@ -282,7 +282,7 @@ public final class ItemInitialPrices {
         map.put("minecraft:copper_leggings", "6.30");
         map.put("minecraft:copper_nautilus_armor", "25.00");
         map.put("minecraft:copper_nugget", "0.10");
-        map.put("minecraft:copper_ore", "0.80");
+        map.put("minecraft:copper_ore", "7.04");
         map.put("minecraft:copper_pickaxe", "2.80");
         map.put("minecraft:copper_shovel", "1.00");
         map.put("minecraft:copper_spear", "1.00");
@@ -373,14 +373,14 @@ public final class ItemInitialPrices {
         map.put("minecraft:deepslate_brick_stairs", "0.20");
         map.put("minecraft:deepslate_brick_wall", "0.20");
         map.put("minecraft:deepslate_bricks", "0.20");
-        map.put("minecraft:deepslate_coal_ore", "0.50");
-        map.put("minecraft:deepslate_copper_ore", "0.80");
-        map.put("minecraft:deepslate_diamond_ore", "20.00");
-        map.put("minecraft:deepslate_emerald_ore", "30.00");
-        map.put("minecraft:deepslate_gold_ore", "3.00");
-        map.put("minecraft:deepslate_iron_ore", "1.20");
-        map.put("minecraft:deepslate_lapis_ore", "1.50");
-        map.put("minecraft:deepslate_redstone_ore", "1.00");
+        map.put("minecraft:deepslate_coal_ore", "1.10");
+        map.put("minecraft:deepslate_copper_ore", "7.04");
+        map.put("minecraft:deepslate_diamond_ore", "44.22");
+        map.put("minecraft:deepslate_emerald_ore", "66.22");
+        map.put("minecraft:deepslate_gold_ore", "6.60");
+        map.put("minecraft:deepslate_iron_ore", "2.64");
+        map.put("minecraft:deepslate_lapis_ore", "21.12");
+        map.put("minecraft:deepslate_redstone_ore", "6.00");
         map.put("minecraft:deepslate_tile_slab", "0.10");
         map.put("minecraft:deepslate_tile_stairs", "0.20");
         map.put("minecraft:deepslate_tile_wall", "0.20");
@@ -398,7 +398,7 @@ public final class ItemInitialPrices {
         map.put("minecraft:diamond_horse_armor", "500.00");
         map.put("minecraft:diamond_leggings", "140.70");
         map.put("minecraft:diamond_nautilus_armor", "600.00");
-        map.put("minecraft:diamond_ore", "20.00");
+        map.put("minecraft:diamond_ore", "44.22");
         map.put("minecraft:diamond_pickaxe", "60.40");
         map.put("minecraft:diamond_shovel", "20.20");
         map.put("minecraft:diamond_spear", "20.20");
@@ -431,7 +431,7 @@ public final class ItemInitialPrices {
         map.put("minecraft:elytra", "500.00");
         map.put("minecraft:emerald", "30.10");
         map.put("minecraft:emerald_block", "270.90");
-        map.put("minecraft:emerald_ore", "30.00");
+        map.put("minecraft:emerald_ore", "66.22");
         map.put("minecraft:enchanted_book", "0.00");
         map.put("minecraft:enchanted_golden_apple", "220.52");
         map.put("minecraft:enchanting_table", "49.80");
@@ -503,7 +503,7 @@ public final class ItemInitialPrices {
         map.put("minecraft:gold_block", "27.54");
         map.put("minecraft:gold_ingot", "3.06");
         map.put("minecraft:gold_nugget", "0.34");
-        map.put("minecraft:gold_ore", "3.00");
+        map.put("minecraft:gold_ore", "6.60");
         map.put("minecraft:golden_apple", "24.68");
         map.put("minecraft:golden_axe", "9.28");
         map.put("minecraft:golden_boots", "12.24");
@@ -576,7 +576,7 @@ public final class ItemInitialPrices {
         map.put("minecraft:iron_leggings", "8.82");
         map.put("minecraft:iron_nautilus_armor", "50.00");
         map.put("minecraft:iron_nugget", "0.14");
-        map.put("minecraft:iron_ore", "1.20");
+        map.put("minecraft:iron_ore", "2.64");
         map.put("minecraft:iron_pickaxe", "3.88");
         map.put("minecraft:iron_shovel", "1.36");
         map.put("minecraft:iron_spear", "1.36");
@@ -611,7 +611,7 @@ public final class ItemInitialPrices {
         map.put("minecraft:lantern", "1.25");
         map.put("minecraft:lapis_block", "14.40");
         map.put("minecraft:lapis_lazuli", "1.60");
-        map.put("minecraft:lapis_ore", "1.50");
+        map.put("minecraft:lapis_ore", "21.12");
         map.put("minecraft:large_amethyst_bud", "2.00");
         map.put("minecraft:large_fern", "0.10");
         map.put("minecraft:lava_bucket", "5.00");
@@ -720,8 +720,8 @@ public final class ItemInitialPrices {
         map.put("minecraft:nether_brick_stairs", "1.20");
         map.put("minecraft:nether_brick_wall", "1.20");
         map.put("minecraft:nether_bricks", "1.20");
-        map.put("minecraft:nether_gold_ore", "5.00");
-        map.put("minecraft:nether_quartz_ore", "0.80");
+        map.put("minecraft:nether_gold_ore", "3.00");
+        map.put("minecraft:nether_quartz_ore", "1.76");
         map.put("minecraft:nether_sprouts", "0.10");
         map.put("minecraft:nether_star", "1000.00");
         map.put("minecraft:nether_wart", "2.00");
@@ -943,7 +943,7 @@ public final class ItemInitialPrices {
         map.put("minecraft:redstone", "1.00");
         map.put("minecraft:redstone_block", "9.00");
         map.put("minecraft:redstone_lamp", "8.00");
-        map.put("minecraft:redstone_ore", "1.00");
+        map.put("minecraft:redstone_ore", "6.00");
         map.put("minecraft:redstone_torch", "1.05");
         map.put("minecraft:reinforced_deepslate", "-1.00");
         map.put("minecraft:repeater", "4.00");
