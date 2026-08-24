@@ -13,6 +13,8 @@ import mois.economy.Economy;
 import mois.economy.Money;
 import mois.economy.config.EconomyConfig;
 import mois.economy.data.EconomyDb;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -35,8 +37,8 @@ public final class TeleportManager {
 	public record PendingRequest(long seq, UUID requesterUuid, String requesterName, boolean toTarget, long expireTick) {
 	}
 
-	/** 传送执行结果：ok=false 时 message 为可读失败原因。 */
-	public record TpOutcome(boolean ok, String message) {
+	/** 传送执行结果：ok=false 时 message 为可读失败原因；cost 为实际扣费（分，0 表示免费）。 */
+	public record TpOutcome(boolean ok, String message, long cost) {
 	}
 
 	private static final AtomicLong SEQ = new AtomicLong();
@@ -83,25 +85,53 @@ public final class TeleportManager {
 				.max(Comparator.comparingLong(PendingRequest::seq)).orElse(null);
 	}
 
-	/** 接受最近请求并执行传送（费用由请求方承担，冷却记在被传送者身上）。 */
+	/**
+	 * 接受最近请求并执行传送。费用始终由请求方承担（“收费目标为自己”），
+	 * 冷却记在被传送者身上：
+	 * <ul>
+	 * <li>/tpa（toTarget=true）：请求方被传送到被请求方位置；</li>
+	 * <li>/tpahere（toTarget=false）：被请求方被传送到请求方位置。</li>
+	 * </ul>
+	 * 成功/失败通知：被请求方（执行 /tpaccept 者）与请求方（付费方）都会收到对应消息。
+	 */
 	public static TpOutcome accept(ServerPlayer accepter, MinecraftServer server) {
 		PendingRequest request = latestRequest(accepter.getUUID(), server);
 		if (request == null) {
-			return new TpOutcome(false, "没有待接受的传送请求");
+			return new TpOutcome(false, "没有待接受的传送请求", 0);
 		}
 		ServerPlayer requester = server.getPlayerList().getPlayer(request.requesterUuid());
 		if (requester == null) {
-			return new TpOutcome(false, "请求方已不在线");
+			return new TpOutcome(false, "请求方已不在线", 0);
 		}
-		ServerPlayer mover = request.toTarget() ? requester : accepter;
+		boolean toTarget = request.toTarget();
+		ServerPlayer mover = toTarget ? requester : accepter;
+		ServerPlayer destination = toTarget ? accepter : requester; // 传送到谁的位置
 		TpOutcome outcome = teleportAndCharge(mover, request.requesterUuid(), request.requesterName(),
-				accepter.level(), accepter.position(), EconomyConfig.tpaSettings().fees(),
+				destination.level(), destination.position(), EconomyConfig.tpaSettings().fees(),
 				TPA_COOLDOWN, server);
 		if (outcome.ok()) {
 			List<PendingRequest> list = REQUESTS.get(accepter.getUUID());
 			if (list != null) {
 				list.removeIf(r -> r.requesterUuid().equals(request.requesterUuid()));
 			}
+			String payerNotice = outcome.cost() > 0
+					? "（费用 " + Money.format(outcome.cost()) + " 元由请求方 " + request.requesterName() + " 支付）"
+					: "（本次免费）";
+			accepter.sendSystemMessage(Component.literal("已接受传送请求" + payerNotice)
+					.withStyle(ChatFormatting.GREEN), false);
+			// 付费方（请求方）确认扣费；与 accepter 是同一人时不重复提示
+			if (!requester.getUUID().equals(accepter.getUUID())) {
+				requester.sendSystemMessage(Component.literal(outcome.cost() > 0
+								? "传送完成，已扣除 " + Money.format(outcome.cost()) + " 元"
+								: "传送完成（本次免费）")
+						.withStyle(ChatFormatting.GREEN), false);
+			}
+			return outcome;
+		}
+		// 失败：付费方（请求方）也应知晓失败原因；被请求方由指令层展示
+		if (!requester.getUUID().equals(accepter.getUUID())) {
+			requester.sendSystemMessage(Component.literal("传送失败：" + outcome.message())
+					.withStyle(ChatFormatting.RED), false);
 		}
 		return outcome;
 	}
@@ -161,7 +191,7 @@ public final class TeleportManager {
 		int cooldownTicks = fees.cooldownSeconds() * 20;
 		if (now - last < cooldownTicks) {
 			long remain = (cooldownTicks - (now - last) + 19) / 20;
-			return new TpOutcome(false, "传送冷却中，剩余 " + remain + " 秒");
+			return new TpOutcome(false, "传送冷却中，剩余 " + remain + " 秒", 0);
 		}
 		long cost = fee(fees, mover.level(), mover.position(), toLevel, toPos);
 		if (cost > 0) {
@@ -170,25 +200,25 @@ public final class TeleportManager {
 				balance = EconomyDb.getBalance(payerUuid);
 			} catch (EconomyDb.DatabaseException e) {
 				Economy.LOGGER.error("传送扣费读取余额失败", e);
-				return new TpOutcome(false, "数据库错误，请稍后再试");
+				return new TpOutcome(false, "数据库错误，请稍后再试", 0);
 			}
 			if (balance < cost) {
 				return new TpOutcome(false, "你的资金不足（传送费用 " + Money.format(cost)
-						+ " 元，当前资金 " + Money.format(balance) + " 元）");
+						+ " 元，当前资金 " + Money.format(balance) + " 元）", 0);
 			}
 			try {
 				if (!EconomyDb.deduct(payerUuid, cost)) {
-					return new TpOutcome(false, "你的资金不足（传送费用 " + Money.format(cost) + " 元）");
+					return new TpOutcome(false, "你的资金不足（传送费用 " + Money.format(cost) + " 元）", 0);
 				}
 			} catch (EconomyDb.DatabaseException e) {
 				Economy.LOGGER.error("传送扣费失败", e);
-				return new TpOutcome(false, "数据库错误，请稍后再试");
+				return new TpOutcome(false, "数据库错误，请稍后再试", 0);
 			}
 		}
 		mover.teleportTo(toLevel, toPos.x(), toPos.y(), toPos.z(), Set.of(),
 				mover.getYRot(), mover.getXRot(), false);
 		cooldownMap.put(mover.getUUID(), now);
-		return new TpOutcome(true, cost > 0 ? "已传送，费用 " + Money.format(cost) + " 元" : "已传送");
+		return new TpOutcome(true, cost > 0 ? "已传送，费用 " + Money.format(cost) + " 元" : "已传送", cost);
 	}
 
 	// ---------- 费用 ----------

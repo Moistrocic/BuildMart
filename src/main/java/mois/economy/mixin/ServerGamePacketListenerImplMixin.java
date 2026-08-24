@@ -87,6 +87,9 @@ public abstract class ServerGamePacketListenerImplMixin {
 		// 防止从“保存的快捷栏”等途径获取带改造 NBT 的物品（如自定义属性/附魔
 		// 超限/自定义名称等）——保存的快捷栏数据在客户端本地，任何界面禁用都无法
 		// 覆盖原版热键加载路径，必须在服务端结算处拦截。
+		// 先剥除本模组的价格行：创造界面与玩家自身背包互动（热键栏同步等）会回传
+		// 已打标的自身物品，LORE 组件不应算作“改造内容”。
+		PriceLore.untag(newStack);
 		if (!isBuyableClean(newStack)) {
 			slot.setByPlayer(prev);
 			menu.broadcastFullState();

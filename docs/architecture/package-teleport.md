@@ -29,14 +29,21 @@
 
 ## `TeleportCommands.java` — 传送指令
 
-- 注册：`/home [名称]`、`/sethome 名称`、`/tpa 玩家`、`/tpahere 玩家`、`/tpaccept`、`/back`。
+- 注册：`/home [名称]`、`/sethome 名称`、`/delhome 名称`、`/listhome [页码]`（每页 10 行）、
+  `/tpa 玩家`、`/tpahere 玩家`、`/tpaccept`、`/back`。
 - `/home`：无名称 → 最近设置的家（`getHomes` 按 created 倒序取第一项）；有名称 → 忽略大小写匹配；
   无家/未找到/维度不可用各有提示。费用/冷却用 home 配置。
 - `/sethome`：名称 ≤ 16 字符；`max <= 0`（默认 0）拒绝；达到上限拒绝（覆盖已存在的同名家不占新名额）；
   存 `EconomyDb.setHome`（维度 ID 字符串 + 坐标）。
-- `/tpa`/`/tpahere`：tpa.enabled 关闭时拒绝；目标必须在线、不能是自己；成功后双方各有提示
-  （被请求人提示“输入 /tpaccept 接受”）。
-- `/tpaccept`：接受最近请求（`TeleportManager.accept`），费用由请求方承担。
+- `/delhome`：`EconomyDb.removeHome`（新增 API），不存在提示“没有找到名为 X 的家”。
+- `/listhome`：分页展示（名称 - 维度 (x, y, z)），页码超出范围提示。
+- `/tpa`/`/tpahere`：tpa.enabled 关闭时拒绝；目标必须在线、不能是自己；请求消息用
+  `playerName(player)`（`getDisplayName()` 可能为 null，回退档案名）构造组件，
+  不能用字符串拼接 `Component`（会输出 Component.toString() 的原始结构）。
+- `/tpaccept`：接受最近请求；**费用始终由请求方承担**（tpa：请求方被传送；tpahere：被请求方
+  被传送，目标位置为请求方位置）；成功时被请求方看到“费用 X 元由请求方支付”，
+  请求方（付费方）单独收到扣费确认；失败时双方都收到失败原因（指令层只负责本地失败提示，
+  避免重复）。
 - `/back`：back.enabled 关闭时拒绝；无死亡点拒绝；传送**成功后立即清除死亡点**
   （再次 /back 视为无死亡点）；费用/冷却用 back 配置。
 - 维度解析：`ResourceKey.create(Registries.DIMENSION, Identifier.parse(world))`。

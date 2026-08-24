@@ -509,6 +509,19 @@ public final class EconomyDb {
 		return 0;
 	}
 
+	/** 删除指定名称的家；返回是否真的删除了。 */
+	public static synchronized boolean removeHome(UUID uuid, String name) {
+		requireOpen();
+		try (PreparedStatement ps = connection.prepareStatement(
+				"DELETE FROM homes WHERE uuid = ? AND name = ?")) {
+			ps.setString(1, uuid.toString());
+			ps.setString(2, name);
+			return ps.executeUpdate() > 0;
+		} catch (SQLException e) {
+			throw new DatabaseException("删除家失败", e);
+		}
+	}
+
 	// ---------- 死亡点（back） ----------
 
 	/** 最近死亡点（每个玩家仅保留一个）。 */

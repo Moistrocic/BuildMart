@@ -1,6 +1,7 @@
 package mois.economy.command;
 
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
@@ -53,6 +54,15 @@ public final class TeleportCommands {
 		dispatcher.register(Commands.literal("sethome")
 				.then(Commands.argument("name", StringArgumentType.word())
 						.executes(TeleportCommands::setHome)));
+
+		dispatcher.register(Commands.literal("delhome")
+				.then(Commands.argument("name", StringArgumentType.word())
+						.executes(TeleportCommands::delHome)));
+
+		dispatcher.register(Commands.literal("listhome")
+				.executes(ctx -> listHome(ctx, 1))
+				.then(Commands.argument("page", IntegerArgumentType.integer(1))
+						.executes(ctx -> listHome(ctx, IntegerArgumentType.getInteger(ctx, "page")))));
 
 		dispatcher.register(Commands.literal("tpa")
 				.then(Commands.argument("player", GameProfileArgument.gameProfile())
@@ -142,6 +152,64 @@ public final class TeleportCommands {
 		return 1;
 	}
 
+	// ---------- /delhome ----------
+
+	/** /delhome 名称 —— 删除指定名称的家。 */
+	private static int delHome(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+		CommandSourceStack source = ctx.getSource();
+		ServerPlayer player = requirePlayer(source);
+		String name = StringArgumentType.getString(ctx, "name");
+		boolean removed;
+		try {
+			removed = EconomyDb.removeHome(player.getUUID(), name);
+		} catch (EconomyDb.DatabaseException e) {
+			Economy.LOGGER.error("删除家失败", e);
+			throw DB_ERROR.create();
+		}
+		if (!removed) {
+			source.sendFailure(text("没有找到名为 " + name + " 的家", ChatFormatting.RED));
+			return 0;
+		}
+		source.sendSuccess(() -> text("已删除家 ", ChatFormatting.GREEN).append(name), false);
+		return 1;
+	}
+
+	// ---------- /listhome ----------
+
+	/** /listhome [页码] —— 查看已有的家，每页 10 行。 */
+	private static int listHome(CommandContext<CommandSourceStack> ctx, int page) throws CommandSyntaxException {
+		CommandSourceStack source = ctx.getSource();
+		ServerPlayer player = requirePlayer(source);
+		List<EconomyDb.HomeEntry> homes;
+		try {
+			homes = EconomyDb.getHomes(player.getUUID());
+		} catch (EconomyDb.DatabaseException e) {
+			Economy.LOGGER.error("查询家列表失败", e);
+			throw DB_ERROR.create();
+		}
+		int pageSize = 10;
+		int pages = Math.max(1, (homes.size() + pageSize - 1) / pageSize);
+		if (page > pages) {
+			source.sendFailure(text("页码超出范围，共 " + pages + " 页", ChatFormatting.RED));
+			return 0;
+		}
+		MutableComponent message = text("=== 我的家 第 " + page + "/" + pages + " 页 ===", ChatFormatting.GOLD)
+				.append("\n");
+		int start = (page - 1) * pageSize;
+		int end = Math.min(start + pageSize, homes.size());
+		for (int i = start; i < end; i++) {
+			EconomyDb.HomeEntry home = homes.get(i);
+			message.append(String.valueOf(i + 1)).append(". ")
+					.append(home.name()).append(" - ")
+					.append(home.world())
+					.append(" (").append(String.valueOf((int) home.x())).append(", ")
+					.append(String.valueOf((int) home.y())).append(", ")
+					.append(String.valueOf((int) home.z())).append(")\n");
+		}
+		source.sendSuccess(() -> message, false);
+		return 1;
+	}
+
 	// ---------- /tpa /tpahere /tpaccept ----------
 
 	/** /tpa 玩家（toTarget=true 传送到对方位置）/ /tpahere 玩家（请求对方传送到自己位置）。 */
@@ -165,20 +233,20 @@ public final class TeleportCommands {
 		}
 		TeleportManager.request(requester, target, toTarget, source.getServer());
 		if (toTarget) {
-			source.sendSuccess(() -> text("已向 ", ChatFormatting.GREEN).append(target.getDisplayName())
+			source.sendSuccess(() -> text("已向 ", ChatFormatting.GREEN).append(playerName(target))
 					.append(" 发送传送到其位置的请求"), false);
-			target.sendSystemMessage(text(requester.getDisplayName() + " 请求传送到你的位置，输入 /tpaccept 接受",
-					ChatFormatting.GOLD), false);
+			target.sendSystemMessage(text("", ChatFormatting.GOLD)
+					.append(playerName(requester)).append(" 请求传送到你的位置，输入 /tpaccept 接受"), false);
 		} else {
-			source.sendSuccess(() -> text("已向 ", ChatFormatting.GREEN).append(target.getDisplayName())
+			source.sendSuccess(() -> text("已向 ", ChatFormatting.GREEN).append(playerName(target))
 					.append(" 发送传送到你位置的请求"), false);
-			target.sendSystemMessage(text(requester.getDisplayName() + " 请求你传送到其位置，输入 /tpaccept 接受",
-					ChatFormatting.GOLD), false);
+			target.sendSystemMessage(text("", ChatFormatting.GOLD)
+					.append(playerName(requester)).append(" 请求你传送到其位置，输入 /tpaccept 接受"), false);
 		}
 		return 1;
 	}
 
-	/** /tpaccept —— 接受最近的传送请求（费用由请求方承担）。 */
+	/** /tpaccept —— 接受最近的传送请求（费用由请求方承担；成功/失败通知由 TeleportManager 分发）。 */
 	private static int accept(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
 		CommandSourceStack source = ctx.getSource();
 		ServerPlayer player = requirePlayer(source);
@@ -187,8 +255,12 @@ public final class TeleportCommands {
 			return 0;
 		}
 		TeleportManager.TpOutcome outcome = TeleportManager.accept(player, source.getServer());
-		send(source, outcome);
-		return outcome.ok() ? 1 : 0;
+		if (!outcome.ok()) {
+			// 无请求/请求方离线等本地失败：直接提示；传送失败已由 TeleportManager 通知付费方
+			source.sendFailure(text(outcome.message(), ChatFormatting.RED));
+			return 0;
+		}
+		return 1;
 	}
 
 	// ---------- /back ----------
@@ -240,6 +312,12 @@ public final class TeleportCommands {
 			throw PLAYER_ONLY.create();
 		}
 		return player;
+	}
+
+	/** 玩家显示名组件（26.3 中 getDisplayName 可能返回 null，回退到档案名）。 */
+	private static Component playerName(ServerPlayer player) {
+		Component name = player.getDisplayName();
+		return name != null ? name : Component.literal(player.getGameProfile().name());
 	}
 
 	/** 维度 ID 字符串（如 "minecraft:overworld"）→ 维度键。 */
