@@ -59,9 +59,10 @@
    - 非 buymode 直接放行（原版处理）。
    - `slotNum < 0`（创造界面丢弃包，原版会生成实体）→ `ci.cancel()` 取消实体生成。
    - `slotNum > 45` 放行（原版同样忽略）。
-   - **严格比对（购买方向）**：`isVanillaCreativeItem(newStack, server)` ——原版创造物品栏
-     只存在未经任何修改的初始物品，购买（delta>0）的物品必须与其**完全一致**
+   - **严格比对（购买方向，优先于余额检查）**：`isVanillaCreativeItem(newStack, server)` ——
+     原版创造物品栏只存在未经任何修改的初始物品，购买（delta>0）的物品必须与其**完全一致**
      （`isSameItemSameComponents` 比较 item+组件、忽略数量），任何差异都驳回；
+     改造物品无论余额多少都不可购买，先给“与原版创造物品栏不一致”的明确提示。
      比对索引首次使用时构建（`CreativeModeTabs.tryRebuildTabContents` 用服务端注册表/
      特性构建，与客户端展示内容一致，收集全部标签页 displayItems + searchTabDisplayItems）。
      “保存的快捷栏”（标签页/热键加载的客户端本地数据）中的改造物品（属性/超限附魔/

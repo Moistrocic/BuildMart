@@ -87,15 +87,9 @@ public abstract class ServerGamePacketListenerImplMixin {
 		// 以服务端槽位状态为准计算完整价值差（基础价+附魔+容器内容物）：
 		// 价值增加=购买，价值减少=放回退款，等价变化只更新槽位不动资金。
 		long delta = ItemValues.price(newStack) - ItemValues.price(prev);
-		if (delta > 0 && balance(player) < delta) {
-			// 余额不足：回滚槽位 + 强制全量同步，本包不做任何资金变动
-			slot.setByPlayer(prev);
-			menu.broadcastFullState();
-			sendInsufficient(player, prev, newStack, delta);
-			return;
-		}
-		// 严格校验（购买方向）：原版创造物品栏只存在未经任何修改的初始状态物品，
-		// 购买的物品必须与其完全一致（比较 item+组件，忽略数量），任何差异都驳回。
+		// 严格校验（购买方向，优先于余额检查）：原版创造物品栏只存在未经任何修改的
+		// 初始状态物品，购买的物品必须与其完全一致（比较 item+组件，忽略数量），
+		// 任何差异都驳回——改造物品无论余额多少都不可购买，先给明确提示。
 		// 这样“保存的快捷栏”（客户端本地数据，标签页/热键加载）里的改造物品
 		// （属性/超限附魔/自定义药水效果等）一律无法进入便捷购买；
 		// 卖出/放回方向不做检测（改造物品无法通过本模式获得，能持有的只有管理员）。
@@ -103,6 +97,13 @@ public abstract class ServerGamePacketListenerImplMixin {
 			slot.setByPlayer(prev);
 			menu.broadcastFullState();
 			sendModified(player);
+			return;
+		}
+		if (delta > 0 && balance(player) < delta) {
+			// 余额不足：回滚槽位 + 强制全量同步，本包不做任何资金变动
+			slot.setByPlayer(prev);
+			menu.broadcastFullState();
+			sendInsufficient(player, prev, newStack, delta);
 			return;
 		}
 		slot.setByPlayer(newStack);
