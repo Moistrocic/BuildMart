@@ -1211,7 +1211,7 @@ public final class ItemInitialPrices {
         map.put("minecraft:white_tulip", "0.10");
         map.put("minecraft:wild_armor_trim_smithing_template", "140.95");
         map.put("minecraft:wildflowers", "0.30");
-        map.put("minecraft:wind_charge", "1.00");
+        map.put("minecraft:wind_charge", "10.00");
         map.put("minecraft:witch_spawn_egg", "100.00");
         map.put("minecraft:wither_rose", "0.10");
         map.put("minecraft:wither_skeleton_skull", "100.00");

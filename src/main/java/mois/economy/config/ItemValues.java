@@ -17,6 +17,7 @@ import net.minecraft.world.item.alchemy.PotionContents;
 import net.minecraft.world.item.component.BundleContents;
 import net.minecraft.world.item.component.Fireworks;
 import net.minecraft.world.item.component.ItemContainerContents;
+import net.minecraft.world.item.component.OminousBottleAmplifier;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.ItemEnchantments;
 
@@ -239,8 +240,9 @@ Map.entry("splash_potion-wind_charged", 500L)
 		}
 	}
 
-	/** 本版本强制迁移的初始价（旧配置值被覆盖，一次性）：鸡蛋变体 1.00 -> 0.20。 */
-	private static final List<String> MIGRATED_IDS = List.of("minecraft:blue_egg", "minecraft:brown_egg");
+	/** 本版本强制迁移的初始价（旧配置值被覆盖，一次性）：鸡蛋变体 1.00 -> 0.20；风弹 1.00 -> 10.00。 */
+	private static final List<String> MIGRATED_IDS = List.of(
+			"minecraft:blue_egg", "minecraft:brown_egg", "minecraft:wind_charge");
 
 	/** 把价格表写回配置 JSON（与 writeDefaults 同一格式）。 */
 	private static void writeJson(Path file, Map<String, Long> values) throws IOException {
@@ -376,6 +378,13 @@ Map.entry("splash_potion-wind_charged", 500L)
 			if (fireworks != null) {
 				int flight = Math.max(1, Math.min(3, fireworks.flightDuration()));
 				total = 20 + 100L * flight;
+			}
+		}
+		// 不详之瓶：10 元 × 等级（amplifier 0 = I 级）
+		if (stack.is(Items.OMINOUS_BOTTLE)) {
+			OminousBottleAmplifier amplifier = stack.get(DataComponents.OMINOUS_BOTTLE_AMPLIFIER);
+			if (amplifier != null) {
+				total = 1000L * (Math.max(0, amplifier.value()) + 1);
 			}
 		}
 		ItemEnchantments ench = stack.get(DataComponents.ENCHANTMENTS);

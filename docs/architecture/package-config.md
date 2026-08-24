@@ -28,7 +28,7 @@
 - 配置 `items.json`：物品 ID → 十进制元字符串；`load(Path)` 首次生成全量表（见 ItemInitialPrices），
   解析失败整体回退默认（不可交易）。
 - **`load` 增量合并**：初始定价表（ItemInitialPrices）中存在而旧配置缺失的条目（26.3 数据驱动
-  注册表新增物品）自动补入并写回；`MIGRATED_IDS`（鸡蛋变体）强制迁移为初始价。
+  注册表新增物品）自动补入并写回；`MIGRATED_IDS`（鸡蛋变体、风弹）强制迁移为初始价。
 - API：
   - `get(Item)` / `get(Identifier)` — 基础配置价（分）。
   - **`price(ItemStack)`** — 完整价值 =（基础价 + 附魔总价 + 容器内容物递归价）× 数量；
@@ -45,6 +45,7 @@
     无法酿造的药水（luck/wind_charged/weaving/oozing/infested）按 4.00 分布价兜底；
   - **烟花组件定价**（`FIREWORKS`）：`flight` 等级 1/2/3 → 纸 + 火药 × 等级（1.20 / 2.20 / 3.20），
     三等级价格不同；
+  - **不详之瓶组件定价**（`OMINOUS_BOTTLE_AMPLIFIER`）：10 元 × 等级（amplifier 0 = I 级）；
   - 附魔：1 级价（`EnchantmentValues.get`）× 2^(等级-1)，ENCHANTMENTS 与 STORED_ENCHANTMENTS 都计；
   - 容器内容物（CONTAINER / BUNDLE_CONTENTS）递归计入，按件计。
 - 工具：`satAdd` / `satMul` / `satPow2Mul`（饱和运算）。
