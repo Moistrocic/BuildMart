@@ -83,14 +83,13 @@ public abstract class ServerGamePacketListenerImplMixin {
 			sendUntradeable(player);
 			return;
 		}
-		// 只接受“干净”物品：组件改动必须全部在白名单内（含容器内容物递归）。
-		// 防止从“保存的快捷栏”等途径获取带改造 NBT 的物品（如自定义属性/附魔
-		// 超限/自定义名称等）——保存的快捷栏数据在客户端本地，任何界面禁用都无法
-		// 覆盖原版热键加载路径，必须在服务端结算处拦截。
-		// 先剥除本模组的价格行：创造界面与玩家自身背包互动（热键栏同步等）会回传
-		// 已打标的自身物品，LORE 组件不应算作“改造内容”。
-		PriceLore.untag(newStack);
-		if (!isBuyableClean(newStack)) {
+		// 只接受“安全”物品：携带危险组件（属性/无法破坏/堆叠/原始NBT/方块NBT/
+		// 锁/食物与使用行为注入等）的一律拒绝（含容器内容物递归）。
+		// 防止从“保存的快捷栏”等途径获取带改造 NBT 的物品——保存的快捷栏数据在
+		// 客户端本地，任何界面禁用都无法覆盖原版热键加载路径，必须在服务端结算处拦截。
+		// 采用黑名单而非白名单：26.3 的创造面板/玩家自身合法物品会带大量内容与外观
+		// 组件（生物变体、装饰罐、不祥之瓶、自定义名称/lore 等），白名单会不断误报。
+		if (hasForbiddenComponents(newStack)) {
 			slot.setByPlayer(prev);
 			menu.broadcastFullState();
 			sendModified(player);
@@ -277,60 +276,68 @@ public abstract class ServerGamePacketListenerImplMixin {
 	// ---------- 工具 ----------
 
 	/**
-	 * 便捷购买允许的组件改动白名单：只放行“价格已计价”或“创造面板原生内容”的组件，
-	 * 其余（自定义属性/名称/lore/无法破坏/最大堆叠等）一律视为改造物品拒绝。
+	 * 便捷购买禁止携带的“危险”组件黑名单：这些组件能注入属性/行为/原始 NBT，
+	 * 或绕过价值计价（不可破坏、堆叠数、容器战利品等），保存的快捷栏等来源
+	 * 携带它们时必须拒绝。外观/内容类组件（自定义名称/lore、生物变体、药水、
+	 * 旗帜、烟花、装饰罐、附魔等）不影响强度或已被价值计价，放行。
 	 */
 	@Unique
-	private static final Set<DataComponentType<?>> BUYABLE_COMPONENTS = Set.of(
-			DataComponents.ENCHANTMENTS,
-			DataComponents.STORED_ENCHANTMENTS,
-			DataComponents.DAMAGE,
-			DataComponents.CONTAINER,
-			DataComponents.BUNDLE_CONTENTS,
-			DataComponents.POTION_CONTENTS,
-			DataComponents.BANNER_PATTERNS,
-			DataComponents.FIREWORKS,
-			DataComponents.FIREWORK_EXPLOSION,
-			DataComponents.MAP_ID,
-			DataComponents.MAP_DECORATIONS,
-			DataComponents.WRITABLE_BOOK_CONTENT,
-			DataComponents.WRITTEN_BOOK_CONTENT,
-			DataComponents.INSTRUMENT,
-			DataComponents.SUSPICIOUS_STEW_EFFECTS,
-			DataComponents.TRIM);
+	private static final Set<DataComponentType<?>> FORBIDDEN_COMPONENTS = Set.of(
+			DataComponents.ATTRIBUTE_MODIFIERS,
+			DataComponents.UNBREAKABLE,
+			DataComponents.MAX_STACK_SIZE,
+			DataComponents.CUSTOM_DATA,
+			DataComponents.BLOCK_ENTITY_DATA,
+			DataComponents.BLOCK_STATE,
+			DataComponents.CAN_PLACE_ON,
+			DataComponents.CAN_BREAK,
+			DataComponents.LOCK,
+			DataComponents.FOOD,
+			DataComponents.CONSUMABLE,
+			DataComponents.USE_REMAINDER,
+			DataComponents.USE_COOLDOWN,
+			DataComponents.USE_EFFECTS,
+			DataComponents.DEATH_PROTECTION,
+			DataComponents.DAMAGE_RESISTANT,
+			DataComponents.BLOCKS_ATTACKS,
+			DataComponents.KINETIC_WEAPON,
+			DataComponents.PIERCING_WEAPON,
+			DataComponents.ATTACK_RANGE,
+			DataComponents.ATTACK_ANIMATION,
+			DataComponents.INTERACT_ANIMATION,
+			DataComponents.CONTAINER_LOOT,
+			DataComponents.DEBUG_STICK_STATE,
+			DataComponents.CREATIVE_SLOT_LOCK);
 
-	/** 组件改动是否全部在白名单内（递归检查容器/收纳袋内容物）；删除默认组件也算改造。 */
+	/** 物品或其容器/收纳袋内容物是否携带危险组件。 */
 	@Unique
-	private static boolean isBuyableClean(ItemStack stack) {
+	private static boolean hasForbiddenComponents(ItemStack stack) {
 		if (stack.isEmpty()) {
-			return true;
-		}
-		DataComponentPatch.SplitResult split = stack.getComponentsPatch().split();
-		if (!split.removed().isEmpty()) {
 			return false;
 		}
+		DataComponentPatch.SplitResult split = stack.getComponentsPatch().split();
 		for (DataComponentType<?> type : split.added().keySet()) {
-			if (!BUYABLE_COMPONENTS.contains(type)) {
-				return false;
+			if (FORBIDDEN_COMPONENTS.contains(type)) {
+				return true;
 			}
 		}
 		ItemContainerContents container = stack.get(DataComponents.CONTAINER);
 		if (container != null) {
 			for (ItemStack inner : container.nonEmptyItemCopyStream().toList()) {
-				if (!isBuyableClean(inner)) {
-					return false;
+				if (hasForbiddenComponents(inner)) {
+					return true;
 				}
 			}
 		}
 		BundleContents bundle = stack.get(DataComponents.BUNDLE_CONTENTS);
 		if (bundle != null) {
 			for (ItemStack inner : bundle.itemCopies().toList()) {
-				if (!isBuyableClean(inner)) {
-					return false;
+				if (hasForbiddenComponents(inner)) {
+					return true;
 				}
 			}
 		}
-		return true;
+		return false;
 	}
 
 	/** 从 before 变为 after 时“新增”部分的展示信息（物品名与数量）。 */
@@ -389,7 +396,7 @@ public abstract class ServerGamePacketListenerImplMixin {
 
 	private static void sendModified(ServerPlayer player) {
 		player.sendSystemMessage(Component.literal(
-				"该物品包含不可购买的改造内容（自定义属性/附魔/名称等）").withStyle(ChatFormatting.RED), false);
+				"该物品包含不可购买的改造内容（自定义属性/无法破坏/特殊NBT等）").withStyle(ChatFormatting.RED), false);
 	}
 
 	private static void sendInsufficientNet(ServerPlayer player, long total) {

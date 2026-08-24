@@ -128,12 +128,17 @@ public final class TeleportManager {
 			}
 			return outcome;
 		}
-		// 失败：付费方（请求方）也应知晓失败原因；被请求方由指令层展示
-		if (!requester.getUUID().equals(accepter.getUUID())) {
-			requester.sendSystemMessage(Component.literal("传送失败：" + outcome.message())
-					.withStyle(ChatFormatting.RED), false);
+		// 失败：付费方（请求方）收到原始措辞（“你的资金不足”对请求方是准确的）；
+		// 被请求方（执行 /tpaccept 者）若非付费方，提示要区分“对方”，避免误以为自己的资金不足。
+		if (requester.getUUID().equals(accepter.getUUID())) {
+			return outcome;
 		}
-		return outcome;
+		requester.sendSystemMessage(Component.literal("传送失败：" + outcome.message())
+				.withStyle(ChatFormatting.RED), false);
+		String accepterMessage = outcome.message().startsWith("你的资金不足")
+				? "对方的资金不足" + outcome.message().substring("你的资金不足".length())
+				: outcome.message();
+		return new TpOutcome(false, accepterMessage, 0);
 	}
 
 	/** 过期请求清理（服务端 tick 调用）。 */

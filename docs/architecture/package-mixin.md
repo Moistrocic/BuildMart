@@ -59,10 +59,12 @@
    - 非 buymode 直接放行（原版处理）。
    - `slotNum < 0`（创造界面丢弃包，原版会生成实体）→ `ci.cancel()` 取消实体生成。
    - `slotNum > 45` 放行（原版同样忽略）。
-   - **组件白名单**：`isBuyableClean(newStack)` 校验（`DataComponentPatch.split()` 的 added
-     键全部在 `BUYABLE_COMPONENTS` 白名单内，removed 为空，容器/收纳袋内容物递归）——
-     拒绝“保存的快捷栏”（标签页/热键加载的客户端本地数据）等途径的改造 NBT 物品；
-     26.3 中 `BASE_POTION`/`BANNER_BASE_COLOR` 已并入 `POTION_CONTENTS`/`BANNER_PATTERNS`。
+   - **危险组件黑名单**：`hasForbiddenComponents(newStack)` 校验（`DataComponentPatch.split()`
+     的 added 键命中 `FORBIDDEN_COMPONENTS` 即拒绝，容器/收纳袋内容物递归）——拒绝
+     “保存的快捷栏”（标签页/热键加载的客户端本地数据）等途径的改造 NBT 物品
+     （自定义属性/无法破坏/堆叠数/原始NBT/方块NBT/锁/食物与使用行为注入等）；
+     采用黑名单而非白名单：26.3 的创造面板与玩家自身合法物品带大量内容/外观组件
+     （生物变体、装饰罐、不祥之瓶、自定义名称/lore 等），白名单会不断误报。
    - 否则接管：不可交易物品（拿/放双方任一）→ 回滚 + `broadcastFullState` + 红字提示；
      按 `ItemValues.price` 的差值结算（delta>0 扣款 / <0 退款 / =0 只换槽位）；
      余额不足 → 回滚槽位 + `broadcastFullState`。
@@ -84,7 +86,7 @@
 - 辅助：`gainedName`/`lostName`（物品名×数量展示）、`sendBuy/sendRefund/sendBuyNet/sendRefundNet/
   sendInsufficient/sendUntradeable/sendInsufficientNet/sendModified`（聊天提示）、
   `balance/balanceOrMax/balanceOrMinusOne`（DB 异常兜底）、`deductQuietly/creditQuietly`（静默失败）、
-  `isBuyableClean`（组件白名单，见上）、`satAdd`。
+  `hasForbiddenComponents`（危险组件黑名单，见上）、`satAdd`。
 - 设计原则：购买只扣玩家资金、不入服务器资产；一切以服务端权威槽位状态为准。
 
 ## `ServerPlayerGameModeMixin`（目标 `ServerPlayerGameMode`）— 商店拆除保护 + buymode 禁挖
