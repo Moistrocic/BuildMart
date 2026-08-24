@@ -59,10 +59,12 @@
    - 非 buymode 直接放行（原版处理）。
    - `slotNum < 0`（创造界面丢弃包，原版会生成实体）→ `ci.cancel()` 取消实体生成。
    - `slotNum > 45` 放行（原版同样忽略）。
-   - **危险组件黑名单**：`hasForbiddenComponents(newStack)` 校验（`DataComponentPatch.split()`
-     的 added 键命中 `FORBIDDEN_COMPONENTS` 即拒绝，容器/收纳袋内容物递归）——拒绝
-     “保存的快捷栏”（标签页/热键加载的客户端本地数据）等途径的改造 NBT 物品
-     （自定义属性/无法破坏/堆叠数/原始NBT/方块NBT/锁/食物与使用行为注入等）；
+   - **危险组件黑名单**：`hasForbiddenComponents(stack)` 校验（`DataComponentPatch.split()`
+     的 added 键命中 `FORBIDDEN_COMPONENTS` 即拒绝，容器/收纳袋内容物递归）——
+     拒绝“保存的快捷栏”（标签页/热键加载的客户端本地数据）等途径的改造 NBT 物品
+     （自定义属性/无法破坏/堆叠数/原始NBT/方块NBT/锁/食物与使用行为注入/药水时长缩放等）；
+     另有**药水规则**：`POTION_CONTENTS.custom_effects` 非空即拒绝（自定义效果只能由指令
+     产生，原版酿造/创造面板均为注册药水）；**买入与卖出（放回退款）两个方向都校验**；
      采用黑名单而非白名单：26.3 的创造面板与玩家自身合法物品带大量内容/外观组件
      （生物变体、装饰罐、不祥之瓶、自定义名称/lore 等），白名单会不断误报。
    - 否则接管：不可交易物品（拿/放双方任一）→ 回滚 + `broadcastFullState` + 红字提示；

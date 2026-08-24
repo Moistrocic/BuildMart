@@ -29,6 +29,7 @@ import net.minecraft.server.network.ServerGamePacketListenerImpl;
 import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.alchemy.PotionContents;
 import net.minecraft.world.item.component.BundleContents;
 import net.minecraft.world.item.component.ItemContainerContents;
 
@@ -84,12 +85,13 @@ public abstract class ServerGamePacketListenerImplMixin {
 			return;
 		}
 		// 只接受“安全”物品：携带危险组件（属性/无法破坏/堆叠/原始NBT/方块NBT/
-		// 锁/食物与使用行为注入等）的一律拒绝（含容器内容物递归）。
+		// 锁/食物与使用行为注入/自定义药水效果等）的一律拒绝（含容器内容物递归），
+		// 买入与卖出（放回退款）两个方向都校验。
 		// 防止从“保存的快捷栏”等途径获取带改造 NBT 的物品——保存的快捷栏数据在
 		// 客户端本地，任何界面禁用都无法覆盖原版热键加载路径，必须在服务端结算处拦截。
 		// 采用黑名单而非白名单：26.3 的创造面板/玩家自身合法物品会带大量内容与外观
 		// 组件（生物变体、装饰罐、不祥之瓶、自定义名称/lore 等），白名单会不断误报。
-		if (hasForbiddenComponents(newStack)) {
+		if (hasForbiddenComponents(newStack) || hasForbiddenComponents(prev)) {
 			slot.setByPlayer(prev);
 			menu.broadcastFullState();
 			sendModified(player);
@@ -307,7 +309,8 @@ public abstract class ServerGamePacketListenerImplMixin {
 			DataComponents.INTERACT_ANIMATION,
 			DataComponents.CONTAINER_LOOT,
 			DataComponents.DEBUG_STICK_STATE,
-			DataComponents.CREATIVE_SLOT_LOCK);
+			DataComponents.CREATIVE_SLOT_LOCK,
+			DataComponents.POTION_DURATION_SCALE);
 
 	/** 物品或其容器/收纳袋内容物是否携带危险组件。 */
 	@Unique
@@ -320,6 +323,12 @@ public abstract class ServerGamePacketListenerImplMixin {
 			if (FORBIDDEN_COMPONENTS.contains(type)) {
 				return true;
 			}
+		}
+		// 药水/药箭：custom_effects（自定义效果，如速度 255）只能通过指令产生，
+		// 原版酿造与创造面板均为注册药水（potion 字段），视为改造物品拒绝。
+		PotionContents potion = stack.get(DataComponents.POTION_CONTENTS);
+		if (potion != null && !potion.customEffects().isEmpty()) {
+			return true;
 		}
 		ItemContainerContents container = stack.get(DataComponents.CONTAINER);
 		if (container != null) {
