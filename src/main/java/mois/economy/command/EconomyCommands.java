@@ -57,13 +57,13 @@ public final class EconomyCommands {
 			"/pbal save 金额 - 存入服务器公共资金",
 			"/pay 玩家 金额 - 向玩家支付",
 			"/baltop 页码 -  查看资金排行榜",
-			"/balshop create - 创建出售商店",
-			"/balshop remove - 移除出售商店",
-			"/balshop setpayee 玩家 - 设置收款人",
-			"/balshop setpayeeserver - 设置服务器账户为收款人",
-			"/balshop getprice 物品 - 查看物品价格",
-			"/balshop buy 物品 数量 - 购买物品",
-			"/balshop buymode - 进入快捷购买模式",
+			"/shop create - 创建出售商店",
+			"/shop remove - 移除出售商店",
+			"/shop setpayee 玩家 - 设置收款人",
+			"/shop setpayeeserver - 设置服务器账户为收款人",
+			"/price 物品 - 查看物品价格",
+			"/buy 物品 数量 - 购买物品",
+			"/bm - 进入快捷购买模式",
 			"/fly - 开启或关闭飞行模式",
 			"/fly warn - 开启或关闭飞行提醒",
 			"/home 名称 - 传送回家",
@@ -73,7 +73,9 @@ public final class EconomyCommands {
 			"/tpa 玩家 - 请求传送到玩家位置",
 			"/tpahere 玩家 - 请求玩家传送到自己位置",
 			"/tpaccept - 接受最近的传送请求",
-			"/back - 回到最近死亡点"
+			"/back - 回到最近死亡点",
+			"/suicide - 自杀",
+			"/hongbao 总金额 数量 口令 - 发红包"
 	};
 
 	private EconomyCommands() {
