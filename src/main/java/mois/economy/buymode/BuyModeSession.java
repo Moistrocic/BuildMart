@@ -50,6 +50,8 @@ public final class BuyModeSession {
 
 	private final List<PendingStack> pendingStacks = new ArrayList<>();
 	private ItemStack pendingDrop = null;
+	/** pendingDrop 挂起时的服务端 tick（用于超时结算：面板 ctrl+q 无槽位包跟随）。 */
+	private long pendingDropTick = -1;
 
 	// ---------- 暂存 ----------
 
@@ -115,12 +117,19 @@ public final class BuyModeSession {
 		return pendingDrop;
 	}
 
-	public void setPendingDrop(ItemStack stack) {
+	public void setPendingDrop(ItemStack stack, long serverTick) {
 		pendingDrop = normalize(stack);
+		pendingDropTick = serverTick;
+	}
+
+	/** pendingDrop 是否已超过宽限期（挂起 ≥2 tick 仍无槽位包认领 = 面板 ctrl+q，应结算为购买）。 */
+	public boolean pendingDropExpired(long nowTick) {
+		return pendingDrop != null && pendingDropTick >= 0 && nowTick - pendingDropTick >= 2;
 	}
 
 	public void clearPendingDrop() {
 		pendingDrop = null;
+		pendingDropTick = -1;
 	}
 
 	// ---------- 结算 ----------

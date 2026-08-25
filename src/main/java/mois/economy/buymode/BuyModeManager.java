@@ -1,5 +1,7 @@
 package mois.economy.buymode;
 
+import mois.economy.mixin.ServerGamePacketListenerImplMixin;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 
 import java.util.Collections;
@@ -39,6 +41,20 @@ public final class BuyModeManager {
 		SESSIONS.put(uuid, new BuyModeSession());
 		player.getAbilities().instabuild = true;
 		player.onUpdateAbilities();
+	}
+
+	/** 服务端 tick：结算挂起超过宽限期的 -1 包（面板 ctrl+q 购买，避免滞后一拍）。 */
+	public static void onServerTick(MinecraftServer server) {
+		for (UUID uuid : ACTIVE) {
+			ServerPlayer player = server.getPlayerList().getPlayer(uuid);
+			if (player == null) {
+				continue;
+			}
+			BuyModeSession session = SESSIONS.get(uuid);
+			if (session != null) {
+				ServerGamePacketListenerImplMixin.settlePendingDrop(player, session);
+			}
+		}
 	}
 
 	public static void exit(ServerPlayer player) {

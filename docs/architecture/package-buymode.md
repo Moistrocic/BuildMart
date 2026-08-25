@@ -16,6 +16,8 @@
   - `enter(ServerPlayer)` — 记录原值 + 建会话 + 置 `abilities.instabuild = true` + `onUpdateAbilities()`。
   - `exit(ServerPlayer)` — **先结算**（`session.settleAndClear`：暂存剩余统一按卖出退款，
     pendingDrop 作废）再还原 instabuild 并 `onUpdateAbilities()`。
+  - `onServerTick(MinecraftServer)` — 结算挂起超过宽限期的 pendingDrop（面板 ctrl+q 购买），
+    由 `Economy.java` 的 END_SERVER_TICK 注册。
 - 退出时机（外部触发）：`ServerPlayerMixin` 的 `doCloseContainer`（关界面）与
   `Economy.java` 的 DISCONNECT（下线）——两条路径都走 `exit`，结算时机天然统一。
 - 内存状态：服务器重启清空；玩家下线时退出（`BuyModeManager.exit` 幂等）。
@@ -30,7 +32,7 @@
 | 槽位出现物品（放回） | 增量匹配暂存（同 item+组件） | 增量 ≤ 暂存剩余 → 中性；超出部分 → **购买** |
 | 槽位出现物品（与暂存完全不同） | 面板来源 | **购买**：严格比对 + 余额 + 扣款 |
 | `-1` 丢弃包完全匹配暂存 | 先拿起再丢（点击外部/丢弃光标） | **卖出**：按丢弃数量退款，暂存扣减 |
-| `-1` 不匹配暂存 | 挂起 pendingDrop | 下一槽位包用「槽位原内容」判定：匹配 → 背包 ctrl+q 直接丢 = **卖出**；否则 → 面板 ctrl+q = **购买**（生成实体） |
+| `-1` 不匹配暂存 | 挂起 pendingDrop | 下一槽位包用「槽位原内容」判定：匹配 → 背包 ctrl+q 直接丢 = **卖出**；否则 → 面板 ctrl+q = **购买**（生成实体）；**挂起 ≥2 tick 仍无槽位包认领（面板 ctrl+q 无后续包）→ 服务端 tick 直接结算为购买**（`BuyModeManager.onServerTick` → `settlePendingDrop`，避免滞后一拍） |
 | 关闭物品栏 / 退出模式 / 掉线 | `settleAndClear` | 暂存剩余统一**卖出**；pendingDrop 作废 |
 
 - 消失/出现只改暂存不动资金；购买失败（严格比对不过/余额不足）回滚槽位与暂存快照。

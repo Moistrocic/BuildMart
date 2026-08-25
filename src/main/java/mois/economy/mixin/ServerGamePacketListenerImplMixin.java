@@ -192,7 +192,7 @@ public abstract class ServerGamePacketListenerImplMixin {
 			return;
 		}
 		session.restore(snapshot);
-		session.setPendingDrop(dropped);
+		session.setPendingDrop(dropped, player.level().getServer().getTickCount());
 	}
 
 	/**
@@ -208,6 +208,23 @@ public abstract class ServerGamePacketListenerImplMixin {
 		player.drop(drop.copy(), true, Prediction.PREDICTED);
 		sendBuy(player, ItemStack.EMPTY, drop, cost);
 		return true;
+	}
+
+	/**
+	 * 结算挂起超过宽限期的 -1 包为面板购买（由服务端 tick 调用）：
+	 * 面板 ctrl+q 只发 -1 包、无槽位包跟随，若一直等下一个包会滞后一拍；
+	 * 挂起 ≥2 tick 仍无槽位包认领即按面板购买立即结算。
+	 */
+	@Unique
+	public static void settlePendingDrop(ServerPlayer player, BuyModeSession session) {
+		if (session == null || !session.pendingDropExpired(player.level().getServer().getTickCount())) {
+			return;
+		}
+		ItemStack drop = session.pendingDrop();
+		session.clearPendingDrop();
+		if (drop != null && !drop.isEmpty()) {
+			tryBuyDrop(player, drop);
+		}
 	}
 
 	/**

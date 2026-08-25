@@ -63,6 +63,7 @@ public class Economy implements ModInitializer {
 		ServerTickEvents.END_SERVER_TICK.register(ShopManager::onServerTick);
 		ServerTickEvents.END_SERVER_TICK.register(FlyManager::onServerTick);
 		ServerTickEvents.END_SERVER_TICK.register(TeleportManager::onServerTick);
+		ServerTickEvents.END_SERVER_TICK.register(BuyModeManager::onServerTick);
 
 		// 玩家进入服务器时：同步名字到数据库（首次进服自动建行），并发送红色公告。
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
