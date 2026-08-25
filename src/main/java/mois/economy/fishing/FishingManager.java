@@ -61,7 +61,16 @@ public final class FishingManager {
 				ItemStack fillStack = null;
 				for (JsonElement element : array) {
 					JsonObject obj = element.getAsJsonObject();
-					ItemStack stack = ItemStack.CODEC.parse(ops, obj.get("item")).getOrThrow();
+					JsonElement itemEl = obj.get("item");
+					ItemStack stack;
+					if (itemEl.isJsonObject() && itemEl.getAsJsonObject().has("id")
+							&& "minecraft:air".equals(itemEl.getAsJsonObject().get("id").getAsString())) {
+						// 26.3 的 ItemStack.CODEC 拒绝解析 minecraft:air（"Item must not be minecraft:air"），
+						// 空气补全项（钓到空气）特殊处理为 EMPTY
+						stack = ItemStack.EMPTY;
+					} else {
+						stack = ItemStack.CODEC.parse(ops, itemEl).getOrThrow();
+					}
 					JsonElement chanceEl = obj.get("chance");
 					if (chanceEl.isJsonPrimitive() && chanceEl.getAsJsonPrimitive().isString()) {
 						// 补全项：chance 为 "remaining"
