@@ -13,8 +13,8 @@
 - 家/死亡点 API：`setHome`/`getHome`/`getHomes`（按 created 倒序，第一项为最近设置）/`countHomes`，
   `setBackPoint`/`getBackPoint`/`clearBackPoint`；记录类型 `HomeEntry(name, world, x, y, z, created)`
   与 `BackPoint(world, x, y, z)`，world 为维度 ID 字符串（如 "minecraft:overworld"）。
-- **服务器资产账户**：`SERVER_ACCOUNT_UUID = new UUID(0L, 0L)`，`SERVER_ACCOUNT_NAME = "服务器资产"`，
-  与玩家账户同表存储；商店收款、/peco、/pbal 使用。
+- 服务器公共账户已移除（只有玩家账户）；历史遗留的全零 UUID 账户行在排行榜/账户数/总资产统计中排除
+  （`LEGACY_SERVER_ACCOUNT_UUID`），`totalPlayerAssets()` 汇总所有玩家余额作为服务器总资产。
 - **API（全部 `synchronized`，未 open 时 `requireOpen()` 抛 `DatabaseException`）**：
   | 方法 | 说明 |
   |---|---|

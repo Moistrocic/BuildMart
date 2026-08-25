@@ -7,7 +7,7 @@
 
 - [README.md](README.md) — 项目总览、构建信息、全局约定（本文）
 - [package-root.md](package-root.md) — 根包：`Economy`（入口）、`Money`（金额工具）、`PriceLore`（价格标签）
-- [package-command.md](package-command.md) — `command` 包：全部指令（bal/pbal/pay/baltop/balhelp/eco/peco/shop/fly）
+- [package-command.md](package-command.md) — `command` 包：全部指令（balbal/pay/baltop/balhelp/eco/shop/fly）
 - [package-config.md](package-config.md) — `config` 包：三个 JSON 配置 + 物品初始定价表
 - [package-data.md](package-data.md) — `data` 包：SQLite 资金数据库
 - [package-shop.md](package-shop.md) — `shop` 包：箱子商店（创建/出售/保护/持久化）
@@ -51,7 +51,7 @@
 6. **会话级状态在内存**（`BuyModeManager`、`FlyManager`）：服务器重启即清空；飞行模式跨下线保留
    （不写存档，上线由 tick/onJoin 重新授予能力）。
 7. **数据库**：SQLite 存 `world/economy.db`（WAL）；所有 `EconomyDb` 方法 `synchronized`，
-   未 open 时 `requireOpen()` 抛运行时 `DatabaseException`；服务器资产 = 固定 UUID `new UUID(0,0)`。
+   未 open 时 `requireOpen()` 抛运行时 `DatabaseException`；服务器公共账户已移除；baltop 显示服务器总资产（玩家余额之和）。
 8. **配置**：`config/economy/` 下 `config.json`（主配置：itemPricesInLore / flyFeePerSecond /
    home / tpa / back 传送段）、`items.json`（物品价）、`enchantments.json`（附魔价），
    首次运行自动生成；商店数据 `world/economy-shops.json`；家与死亡点存数据库

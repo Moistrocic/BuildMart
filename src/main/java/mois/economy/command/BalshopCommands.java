@@ -84,8 +84,6 @@ public final class BalshopCommands {
 				.then(Commands.literal("setpayee")
 						.then(Commands.argument("player", GameProfileArgument.gameProfile())
 								.executes(BalshopCommands::setPayee)))
-				.then(Commands.literal("setpayeeserver")
-						.executes(BalshopCommands::setPayeeServer))
 				.then(Commands.literal("getprice")
 						.then(Commands.argument("item", ItemArgument.item(buildContext))
 								.executes(BalshopCommands::getPrice)))
@@ -141,16 +139,6 @@ public final class BalshopCommands {
 		return 1;
 	}
 
-	private static int setPayeeServer(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
-		CommandSourceStack source = ctx.getSource();
-		ServerPlayer player = requirePlayer(source);
-		ChestBlockEntity chest = targetedChest(source);
-		Shop shop = requireOwnedShop(source, player, chest);
-		ShopManager.setPayee(shop, EconomyDb.SERVER_ACCOUNT_UUID, EconomyDb.SERVER_ACCOUNT_NAME);
-		source.sendSuccess(() -> text("收款人已设置为 ", ChatFormatting.GREEN)
-				.append(EconomyDb.SERVER_ACCOUNT_NAME), false);
-		return 1;
-	}
 
 	// ---------- 价格与购买 ----------
 

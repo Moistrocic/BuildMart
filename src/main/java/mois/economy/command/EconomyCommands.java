@@ -41,8 +41,6 @@ public final class EconomyCommands {
 			new SimpleCommandExceptionType(Component.literal("数据库错误，请稍后再试"));
 	private static final SimpleCommandExceptionType PAYER_INSUFFICIENT =
 			new SimpleCommandExceptionType(Component.literal("你的资金不足"));
-	private static final SimpleCommandExceptionType SERVER_INSUFFICIENT =
-			new SimpleCommandExceptionType(Component.literal("服务器资产不足"));
 	private static final SimpleCommandExceptionType PAY_NO_TARGET =
 			new SimpleCommandExceptionType(Component.literal("没有可转账的玩家"));
 	private static final SimpleCommandExceptionType AMOUNT_TOO_LARGE =
@@ -52,15 +50,11 @@ public final class EconomyCommands {
 			"/balhelp 页码 -  查看资金帮助",
 			"/bal - 查看自己的资金",
 			"/bal 玩家 - 查看自己的资金",
-			"/pbal - 查看服务器公共资金",
-			"/pbal take 金额 - 取出服务器公共资金",
-			"/pbal save 金额 - 存入服务器公共资金",
 			"/pay 玩家 金额 - 向玩家支付",
 			"/baltop 页码 -  查看资金排行榜",
 			"/shop create - 创建出售商店",
 			"/shop remove - 移除出售商店",
 			"/shop setpayee 玩家 - 设置收款人",
-			"/shop setpayeeserver - 设置服务器账户为收款人",
 			"/price 物品 - 查看物品价格",
 			"/buy 物品 数量 - 购买物品",
 			"/bm - 进入快捷购买模式",
@@ -96,15 +90,6 @@ public final class EconomyCommands {
 				.then(Commands.argument("player", GameProfileArgument.gameProfile())
 						.executes(ctx -> showBalance(ctx, GameProfileArgument.getGameProfiles(ctx, "player")))));
 
-		dispatcher.register(Commands.literal("pbal")
-				.executes(ctx -> showServerAssets(ctx.getSource()))
-				.then(Commands.literal("take")
-						.then(Commands.argument("amount", StringArgumentType.word())
-								.executes(EconomyCommands::takeFromServer)))
-				.then(Commands.literal("save")
-						.then(Commands.argument("amount", StringArgumentType.word())
-								.executes(EconomyCommands::saveToServer))));
-
 		dispatcher.register(Commands.literal("pay")
 				.then(Commands.argument("targets", GameProfileArgument.gameProfile())
 						.then(Commands.argument("amount", StringArgumentType.word())
@@ -127,8 +112,6 @@ public final class EconomyCommands {
 				.then(Commands.literal("clear")
 						.executes(EconomyCommands::clearAnnouncement)));
 
-		// 管理员资金指令：给系统注入/回收资金，目标支持玩家名、选择器与 @server（服务器资产账户）。
-		// 目标用原版 word 参数承载并手动解析（见 EconomyTargets），保证纯净端兼容。
 		dispatcher.register(Commands.literal("eco")
 				.requires(Commands.hasPermission(Commands.LEVEL_ADMINS))
 				.then(Commands.literal("add")
@@ -150,18 +133,6 @@ public final class EconomyCommands {
 								.then(Commands.argument("amount", StringArgumentType.word())
 										.executes(EconomyCommands::ecoSet)))));
 
-		// 服务器资产专用管理员指令：/peco set|add|remove 金额。
-		dispatcher.register(Commands.literal("peco")
-				.requires(Commands.hasPermission(Commands.LEVEL_ADMINS))
-				.then(Commands.literal("add")
-						.then(Commands.argument("amount", StringArgumentType.word())
-								.executes(EconomyCommands::pecoAdd)))
-				.then(Commands.literal("remove")
-						.then(Commands.argument("amount", StringArgumentType.word())
-								.executes(EconomyCommands::pecoRemove)))
-				.then(Commands.literal("set")
-						.then(Commands.argument("amount", StringArgumentType.word())
-								.executes(EconomyCommands::pecoSet))));
 	}
 
 	// ---------- /suicide ----------
@@ -192,49 +163,6 @@ public final class EconomyCommands {
 					.append(Money.format(balance)).append(" 元"), false);
 		}
 		return targets.size();
-	}
-
-	// ---------- /pbal ----------
-
-	private static int showServerAssets(CommandSourceStack source) throws CommandSyntaxException {
-		long balance = readBalance(EconomyDb.SERVER_ACCOUNT_UUID);
-		source.sendSuccess(() -> text(EconomyDb.SERVER_ACCOUNT_NAME + "：", ChatFormatting.GOLD)
-				.append(Money.format(balance)).append(" 元"), false);
-		return 1;
-	}
-
-	/** /pbal take 金额 —— 从服务器资产取出给玩家。 */
-	private static int takeFromServer(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
-		CommandSourceStack source = ctx.getSource();
-		ServerPlayer player = requirePlayer(source);
-		long amount = parseAmount(ctx);
-		boolean ok = transferOrThrow(EconomyDb.SERVER_ACCOUNT_UUID, player.getUUID(),
-				player.getGameProfile().name(), amount, "pbal take");
-		if (!ok) {
-			throw SERVER_INSUFFICIENT.create();
-		}
-		long balance = readBalance(player.getUUID());
-		source.sendSuccess(() -> text("你从服务器资产取出了 ", ChatFormatting.GREEN)
-				.append(Money.format(amount)).append(" 元，当前资金：")
-				.append(Money.format(balance)).append(" 元"), false);
-		return 1;
-	}
-
-	/** /pbal save 金额 —— 把玩家资金存入服务器资产。 */
-	private static int saveToServer(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
-		CommandSourceStack source = ctx.getSource();
-		ServerPlayer player = requirePlayer(source);
-		long amount = parseAmount(ctx);
-		boolean ok = transferOrThrow(player.getUUID(), EconomyDb.SERVER_ACCOUNT_UUID,
-				EconomyDb.SERVER_ACCOUNT_NAME, amount, "pbal save");
-		if (!ok) {
-			throw PAYER_INSUFFICIENT.create();
-		}
-		long balance = readBalance(player.getUUID());
-		source.sendSuccess(() -> text("你向服务器资产存入了 ", ChatFormatting.GREEN)
-				.append(Money.format(amount)).append(" 元，当前资金：")
-				.append(Money.format(balance)).append(" 元"), false);
-		return 1;
 	}
 
 	// ---------- /pay ----------
@@ -300,6 +228,11 @@ public final class EconomyCommands {
 		}
 		List<EconomyDb.AccountEntry> entries = topOrThrow(page);
 		MutableComponent message = text("=== 资金排行榜 第 " + page + " 页 ===", ChatFormatting.GOLD).append("\n");
+		if (page == 1) {
+			// 首页顶部显示服务器总资产（所有玩家余额之和）
+			message.append(text("服务器总资产：", ChatFormatting.GOLD)
+					.append(Money.format(totalAssetsOrThrow())).append(" 元\n"));
+		}
 		int rank = (page - 1) * PAGE_SIZE + 1;
 		for (EconomyDb.AccountEntry entry : entries) {
 			message.append(String.valueOf(rank++)).append(". ")
@@ -437,64 +370,6 @@ public final class EconomyCommands {
 		}
 	}
 
-	// ---------- /peco ----------
-
-	/** /peco add 金额 —— 给服务器资产增加资金。 */
-	private static int pecoAdd(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
-		CommandSourceStack source = ctx.getSource();
-		long amount = parseAmount(ctx);
-		try {
-			EconomyDb.credit(EconomyDb.SERVER_ACCOUNT_UUID, EconomyDb.SERVER_ACCOUNT_NAME, amount);
-		} catch (EconomyDb.DatabaseException e) {
-			Economy.LOGGER.error("peco add 数据库错误", e);
-			throw DB_ERROR.create();
-		}
-		long balance = readBalance(EconomyDb.SERVER_ACCOUNT_UUID);
-		source.sendSuccess(() -> text("已向服务器资产增加 ", ChatFormatting.GREEN)
-				.append(Money.format(amount)).append(" 元，当前：")
-				.append(Money.format(balance)).append(" 元"), false);
-		return 1;
-	}
-
-	/** /peco remove 金额 —— 从服务器资产扣除资金。 */
-	private static int pecoRemove(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
-		CommandSourceStack source = ctx.getSource();
-		long amount = parseAmount(ctx);
-		long balance = readBalance(EconomyDb.SERVER_ACCOUNT_UUID);
-		if (balance < amount) {
-			throw new SimpleCommandExceptionType(Component.literal(
-					"服务器资产不足，当前资金：" + Money.format(balance) + " 元")).create();
-		}
-		try {
-			if (!EconomyDb.deductMany(List.of(EconomyDb.SERVER_ACCOUNT_UUID), amount)) {
-				throw DB_ERROR.create();
-			}
-		} catch (EconomyDb.DatabaseException e) {
-			Economy.LOGGER.error("peco remove 数据库错误", e);
-			throw DB_ERROR.create();
-		}
-		long balanceAfter = readBalance(EconomyDb.SERVER_ACCOUNT_UUID);
-		source.sendSuccess(() -> text("已从服务器资产扣除 ", ChatFormatting.GREEN)
-				.append(Money.format(amount)).append(" 元，当前：")
-				.append(Money.format(balanceAfter)).append(" 元"), false);
-		return 1;
-	}
-
-	/** /peco set 金额 —— 把服务器资产设置为指定值（允许 0）。 */
-	private static int pecoSet(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
-		CommandSourceStack source = ctx.getSource();
-		long amount = Money.parseCentsAllowZero(StringArgumentType.getString(ctx, "amount"));
-		try {
-			EconomyDb.setBalance(EconomyDb.SERVER_ACCOUNT_UUID, EconomyDb.SERVER_ACCOUNT_NAME, amount);
-		} catch (EconomyDb.DatabaseException e) {
-			Economy.LOGGER.error("peco set 数据库错误", e);
-			throw DB_ERROR.create();
-		}
-		source.sendSuccess(() -> text("已将服务器资产设置为 ", ChatFormatting.GREEN)
-				.append(Money.format(amount)).append(" 元"), false);
-		return 1;
-	}
-
 	// ---------- /announcement ----------
 
 	private static int setAnnouncement(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
@@ -562,6 +437,15 @@ public final class EconomyCommands {
 			return EconomyDb.topAccounts(PAGE_SIZE, (page - 1) * PAGE_SIZE);
 		} catch (EconomyDb.DatabaseException e) {
 			Economy.LOGGER.error("查询排行榜失败", e);
+			throw DB_ERROR.create();
+		}
+	}
+
+	private static long totalAssetsOrThrow() throws CommandSyntaxException {
+		try {
+			return EconomyDb.totalPlayerAssets();
+		} catch (EconomyDb.DatabaseException e) {
+			Economy.LOGGER.error("查询总资产失败", e);
 			throw DB_ERROR.create();
 		}
 	}

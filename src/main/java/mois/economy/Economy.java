@@ -96,7 +96,7 @@ public class Economy implements ModInitializer {
 
 		CommandRegistrationCallback.EVENT.register((dispatcher, buildContext, selection) -> {
 			EconomyCommands.register(dispatcher, buildContext);
-			LOGGER.info("命令注册完成（bal/pbal/pay/baltop/balhelp/announcement/eco/peco/shop/price/buy/bm/fly/home/sethome/delhome/listhome/tpa/tpahere/tpaccept/back/suicide/hongbao/config）");
+			LOGGER.info("命令注册完成（bal/pay/baltop/balhelp/announcement/eco/shop/price/buy/bm/fly/home/sethome/delhome/listhome/tpa/tpahere/tpaccept/back/suicide/hongbao/config）");
 		});
 
 		LOGGER.info("Economy Mod Loaded!");

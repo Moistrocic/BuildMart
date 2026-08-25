@@ -101,7 +101,7 @@
   sendInsufficient/sendUntradeable/sendInsufficientNet/sendModified`（聊天提示）、
   `balance/balanceOrMax/balanceOrMinusOne`（DB 异常兜底）、`deductQuietly/creditQuietly`（静默失败）、
   `hasForbiddenComponents`（危险组件黑名单，见上）、`satAdd`。
-- 设计原则：购买只扣玩家资金、不入服务器资产；一切以服务端权威槽位状态为准。
+- 设计原则：购买花费直接从玩家账户扣除、不进入任何账户；一切以服务端权威槽位状态为准。
 
 ## `ServerPlayerGameModeMixin`（目标 `ServerPlayerGameMode`）— 商店拆除保护 + buymode 禁挖
 

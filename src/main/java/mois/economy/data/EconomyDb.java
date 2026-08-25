@@ -15,13 +15,13 @@ import java.util.UUID;
 
 /**
  * SQLite 资金存储。余额一律以整数“分”存储（BIGINT），避免浮点误差。
- * 服务器资产是一个独立账户，用固定 UUID 标识，与玩家账户同表存储。
- * 所有命令均在服务端主线程执行，这里仍对每个操作加 synchronized 作为兜底。
+ * 只有玩家账户（服务器公共账户已移除；历史遗留的全零 UUID 账户行在
+ * 排行榜/总资产统计中排除）。所有命令均在服务端主线程执行，这里仍对
+ * 每个操作加 synchronized 作为兜底。
  */
 public final class EconomyDb {
-	/** 服务器资产独立账户的固定 UUID（全零）。 */
-	public static final UUID SERVER_ACCOUNT_UUID = new UUID(0L, 0L);
-	public static final String SERVER_ACCOUNT_NAME = "服务器资产";
+	/** 历史遗留的服务器公共账户 UUID（全零），统计与排行榜中排除。 */
+	private static final UUID LEGACY_SERVER_ACCOUNT_UUID = new UUID(0L, 0L);
 
 	private static final String KEY_ANNOUNCEMENT = "announcement";
 
@@ -107,7 +107,6 @@ public final class EconomyDb {
 						z REAL NOT NULL
 					)""");
 		}
-		ensureAccount(SERVER_ACCOUNT_UUID, SERVER_ACCOUNT_NAME);
 	}
 
 	/** 数据库自检：写入、读取、转账、余额不足拦截各验证一次，随后清理测试数据。 */
@@ -390,7 +389,8 @@ public final class EconomyDb {
 	public static synchronized int accountCount() {
 		requireOpen();
 		try (Statement statement = connection.createStatement();
-			 ResultSet rs = statement.executeQuery("SELECT COUNT(*) FROM economy_accounts")) {
+			 ResultSet rs = statement.executeQuery("SELECT COUNT(*) FROM economy_accounts WHERE uuid <> '"
+						+ LEGACY_SERVER_ACCOUNT_UUID + "'")) {
 			if (rs.next()) {
 				return rs.getInt(1);
 			}
@@ -405,11 +405,13 @@ public final class EconomyDb {
 		List<AccountEntry> result = new ArrayList<>();
 		try (PreparedStatement ps = connection.prepareStatement("""
 				SELECT uuid, name, balance FROM economy_accounts
+				WHERE uuid <> ?
 				ORDER BY balance DESC, name ASC
 				LIMIT ? OFFSET ?
 				""")) {
-			ps.setInt(1, limit);
-			ps.setInt(2, offset);
+			ps.setString(1, LEGACY_SERVER_ACCOUNT_UUID.toString());
+			ps.setInt(2, limit);
+			ps.setInt(3, offset);
 			try (ResultSet rs = ps.executeQuery()) {
 				while (rs.next()) {
 					result.add(new AccountEntry(
@@ -422,6 +424,23 @@ public final class EconomyDb {
 			throw new DatabaseException("查询排行榜失败", e);
 		}
 		return result;
+	}
+
+	/** 服务器总资产（分）：所有玩家账户余额之和（排除历史遗留的服务器公共账户行）。 */
+	public static synchronized long totalPlayerAssets() {
+		requireOpen();
+		try (PreparedStatement ps = connection.prepareStatement(
+				"SELECT COALESCE(SUM(balance), 0) FROM economy_accounts WHERE uuid <> ?")) {
+			ps.setString(1, LEGACY_SERVER_ACCOUNT_UUID.toString());
+			try (ResultSet rs = ps.executeQuery()) {
+				if (rs.next()) {
+					return rs.getLong(1);
+				}
+			}
+		} catch (SQLException e) {
+			throw new DatabaseException("查询总资产失败", e);
+		}
+		return 0;
 	}
 
 	// ---------- 家（homes） ----------
