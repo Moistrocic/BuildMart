@@ -62,6 +62,15 @@
 - `toggleWarn`：切换 `FlyManager.toggleWarn`，提示“飞行余额不足提醒已开启/关闭”。
 - 扣费本体不在命令里，在 `FlyManager.onServerTick`（命令只切换状态与提示）。
 
+## `ConfigCommands.java` — 局内配置修改（/config）
+
+- 注册：`/config 配置项 [参数]`（管理员 `LEVEL_ADMINS`，不在 /balhelp 帮助列表）。
+- 配置项 key 按 Tab 自动补全（`EconomyConfig.configKeys()`，21 项：itemPricesInLore /
+  flyFeePerSecond / home.* / tpa.* / back.*）；布尔项参数值补全 true/false，数值项补全当前值。
+- 执行：`EconomyConfig.apply(key, value)` 热重载内存配置（所有消费方按次读取 getter，即时生效；
+  itemPricesInLore 会同步 `PriceLore.enabled`）→ `EconomyConfig.save(configDir)` 写回 config.json
+  持久化，无需重启。`/config key`（无参数）查询当前值。
+
 ## `EconomyTargets.java` — /eco 目标解析（规则书 3.1 的纯净端兼容核心）
 
 - `resolve(String input, CommandSourceStack source)`：

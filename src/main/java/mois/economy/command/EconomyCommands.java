@@ -87,6 +87,7 @@ public final class EconomyCommands {
 		FlyCommands.register(dispatcher, buildContext);
 		TeleportCommands.register(dispatcher, buildContext);
 		HongbaoCommands.register(dispatcher, buildContext);
+		ConfigCommands.register(dispatcher, buildContext);
 
 		dispatcher.register(Commands.literal("suicide")
 				.executes(EconomyCommands::suicide));

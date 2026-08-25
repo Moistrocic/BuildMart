@@ -1,15 +1,22 @@
 package mois.economy.config;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import mois.economy.Economy;
 import mois.economy.Money;
+import mois.economy.PriceLore;
 
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * 主配置：config/economy/config.json。
@@ -69,6 +76,396 @@ public final class EconomyConfig {
 	private static HomeSettings homeSettings = new HomeSettings(DEFAULT_HOME_MAX, DEFAULT_FEES);
 	private static TpaSettings tpaSettings = new TpaSettings(false, DEFAULT_FEES, DEFAULT_TPA_TIMEOUT_SECONDS);
 	private static BackSettings backSettings = new BackSettings(false, DEFAULT_FEES);
+
+	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+
+	/** 配置项描述：类型（bool/int/money）与说明（用于 /config 补全与校验）。 */
+	private record Entry(String type, String description) {
+	}
+
+	/** /config 可修改的全部配置项（key -> 类型/说明）。 */
+	private static final Map<String, Entry> ENTRIES = buildEntries();
+
+	private static Map<String, Entry> buildEntries() {
+		Map<String, Entry> map = new HashMap<>(24);
+		map.put("itemPricesInLore", new Entry("bool", "物品价格 lore 显示开关"));
+		map.put("flyFeePerSecond", new Entry("money", "付费飞行每秒扣费（元）"));
+		map.put("home.max", new Entry("int", "家数量上限（0 = 未开放）"));
+		map.put("home.cooldownSeconds", new Entry("int", "回家冷却（秒）"));
+		map.put("home.fixedFee", new Entry("bool", "回家固定收费开关"));
+		map.put("home.fixedFeeAmount", new Entry("money", "回家固定收费金额（元）"));
+		map.put("home.perDistanceFee", new Entry("money", "回家按距离单价（元/距离）"));
+		map.put("home.crossDimensionFee", new Entry("money", "回家跨维度附加费（元）"));
+		map.put("tpa.enabled", new Entry("bool", "tpa 请求开关"));
+		map.put("tpa.cooldownSeconds", new Entry("int", "tpa 冷却（秒）"));
+		map.put("tpa.fixedFee", new Entry("bool", "tpa 固定收费开关"));
+		map.put("tpa.fixedFeeAmount", new Entry("money", "tpa 固定收费金额（元）"));
+		map.put("tpa.perDistanceFee", new Entry("money", "tpa 按距离单价（元/距离）"));
+		map.put("tpa.crossDimensionFee", new Entry("money", "tpa 跨维度附加费（元）"));
+		map.put("tpa.timeoutSeconds", new Entry("int", "tpa 请求超时（秒）"));
+		map.put("back.enabled", new Entry("bool", "/back 开关"));
+		map.put("back.cooldownSeconds", new Entry("int", "/back 冷却（秒）"));
+		map.put("back.fixedFee", new Entry("bool", "/back 固定收费开关"));
+		map.put("back.fixedFeeAmount", new Entry("money", "/back 固定收费金额（元）"));
+		map.put("back.perDistanceFee", new Entry("money", "/back 按距离单价（元/距离）"));
+		map.put("back.crossDimensionFee", new Entry("money", "/back 跨维度附加费（元）"));
+		return map;
+	}
+
+	// ---------- /config 热重载支持 ----------
+
+	/** 全部配置项 key（补全用）。 */
+	public static List<String> configKeys() {
+		return new ArrayList<>(ENTRIES.keySet());
+	}
+
+	/** 配置项类型（bool/int/money），未知 key 返回 null（值补全用）。 */
+	public static String configType(String key) {
+		Entry entry = ENTRIES.get(key);
+		return entry != null ? entry.type() : null;
+	}
+
+	/** 当前值（字符串形式），未知 key 返回 null。 */
+	public static String getValue(String key) {
+		switch (key) {
+			case "itemPricesInLore" -> {
+				return Boolean.toString(itemPricesInLore);
+			}
+			case "flyFeePerSecond" -> {
+				return Money.format(flyFeeCents);
+			}
+			case "home.max" -> {
+				return String.valueOf(homeSettings.max());
+			}
+			case "home.cooldownSeconds" -> {
+				return String.valueOf(homeSettings.fees().cooldownSeconds());
+			}
+			case "home.fixedFee" -> {
+				return Boolean.toString(homeSettings.fees().fixedFee());
+			}
+			case "home.fixedFeeAmount" -> {
+				return Money.format(homeSettings.fees().fixedFeeAmountCents());
+			}
+			case "home.perDistanceFee" -> {
+				return Money.format(homeSettings.fees().perDistanceFeeCents());
+			}
+			case "home.crossDimensionFee" -> {
+				return Money.format(homeSettings.fees().crossDimensionFeeCents());
+			}
+			case "tpa.enabled" -> {
+				return Boolean.toString(tpaSettings.enabled());
+			}
+			case "tpa.cooldownSeconds" -> {
+				return String.valueOf(tpaSettings.fees().cooldownSeconds());
+			}
+			case "tpa.fixedFee" -> {
+				return Boolean.toString(tpaSettings.fees().fixedFee());
+			}
+			case "tpa.fixedFeeAmount" -> {
+				return Money.format(tpaSettings.fees().fixedFeeAmountCents());
+			}
+			case "tpa.perDistanceFee" -> {
+				return Money.format(tpaSettings.fees().perDistanceFeeCents());
+			}
+			case "tpa.crossDimensionFee" -> {
+				return Money.format(tpaSettings.fees().crossDimensionFeeCents());
+			}
+			case "tpa.timeoutSeconds" -> {
+				return String.valueOf(tpaSettings.timeoutSeconds());
+			}
+			case "back.enabled" -> {
+				return Boolean.toString(backSettings.enabled());
+			}
+			case "back.cooldownSeconds" -> {
+				return String.valueOf(backSettings.fees().cooldownSeconds());
+			}
+			case "back.fixedFee" -> {
+				return Boolean.toString(backSettings.fees().fixedFee());
+			}
+			case "back.fixedFeeAmount" -> {
+				return Money.format(backSettings.fees().fixedFeeAmountCents());
+			}
+			case "back.perDistanceFee" -> {
+				return Money.format(backSettings.fees().perDistanceFeeCents());
+			}
+			case "back.crossDimensionFee" -> {
+				return Money.format(backSettings.fees().crossDimensionFeeCents());
+			}
+			default -> {
+				return null;
+			}
+		}
+	}
+
+	/**
+	 * 热重载：按 key 修改内存配置（即时生效，需调用方保存到文件）。
+	 * 返回 null 表示成功；否则返回错误提示。
+	 */
+	public static String apply(String key, String value) {
+		switch (key) {
+			case "itemPricesInLore" -> {
+				Boolean b = parseBool(value);
+				if (b == null) {
+					return "itemPricesInLore 需要 true 或 false";
+				}
+				itemPricesInLore = b;
+				PriceLore.enabled = b;
+				return null;
+			}
+			case "flyFeePerSecond" -> {
+				Long cents = parseMoney(value);
+				if (cents == null) {
+					return "flyFeePerSecond 需要非负金额（如 500.00）";
+				}
+				flyFeeCents = cents;
+				return null;
+			}
+			case "home.max" -> {
+				Integer v = parseNonNegativeInt(value);
+				if (v == null) {
+					return "home.max 需要非负整数";
+				}
+				homeSettings = new HomeSettings(v, homeSettings.fees());
+				return null;
+			}
+			case "home.cooldownSeconds" -> {
+				Integer v = parseNonNegativeInt(value);
+				if (v == null) {
+					return "home.cooldownSeconds 需要非负整数";
+				}
+				homeSettings = new HomeSettings(homeSettings.max(), withCooldown(homeSettings.fees(), v));
+				return null;
+			}
+			case "home.fixedFee" -> {
+				Boolean b = parseBool(value);
+				if (b == null) {
+					return "home.fixedFee 需要 true 或 false";
+				}
+				homeSettings = new HomeSettings(homeSettings.max(), withFixed(homeSettings.fees(), b));
+				return null;
+			}
+			case "home.fixedFeeAmount" -> {
+				Long cents = parseMoney(value);
+				if (cents == null) {
+					return "home.fixedFeeAmount 需要非负金额";
+				}
+				homeSettings = new HomeSettings(homeSettings.max(), withFixedAmount(homeSettings.fees(), cents));
+				return null;
+			}
+			case "home.perDistanceFee" -> {
+				Long cents = parseMoney(value);
+				if (cents == null) {
+					return "home.perDistanceFee 需要非负金额";
+				}
+				homeSettings = new HomeSettings(homeSettings.max(), withPerDistance(homeSettings.fees(), cents));
+				return null;
+			}
+			case "home.crossDimensionFee" -> {
+				Long cents = parseMoney(value);
+				if (cents == null) {
+					return "home.crossDimensionFee 需要非负金额";
+				}
+				homeSettings = new HomeSettings(homeSettings.max(), withCross(homeSettings.fees(), cents));
+				return null;
+			}
+			case "tpa.enabled" -> {
+				Boolean b = parseBool(value);
+				if (b == null) {
+					return "tpa.enabled 需要 true 或 false";
+				}
+				tpaSettings = new TpaSettings(b, tpaSettings.fees(), tpaSettings.timeoutSeconds());
+				return null;
+			}
+			case "tpa.cooldownSeconds" -> {
+				Integer v = parseNonNegativeInt(value);
+				if (v == null) {
+					return "tpa.cooldownSeconds 需要非负整数";
+				}
+				tpaSettings = new TpaSettings(tpaSettings.enabled(), withCooldown(tpaSettings.fees(), v),
+						tpaSettings.timeoutSeconds());
+				return null;
+			}
+			case "tpa.fixedFee" -> {
+				Boolean b = parseBool(value);
+				if (b == null) {
+					return "tpa.fixedFee 需要 true 或 false";
+				}
+				tpaSettings = new TpaSettings(tpaSettings.enabled(), withFixed(tpaSettings.fees(), b),
+						tpaSettings.timeoutSeconds());
+				return null;
+			}
+			case "tpa.fixedFeeAmount" -> {
+				Long cents = parseMoney(value);
+				if (cents == null) {
+					return "tpa.fixedFeeAmount 需要非负金额";
+				}
+				tpaSettings = new TpaSettings(tpaSettings.enabled(), withFixedAmount(tpaSettings.fees(), cents),
+						tpaSettings.timeoutSeconds());
+				return null;
+			}
+			case "tpa.perDistanceFee" -> {
+				Long cents = parseMoney(value);
+				if (cents == null) {
+					return "tpa.perDistanceFee 需要非负金额";
+				}
+				tpaSettings = new TpaSettings(tpaSettings.enabled(), withPerDistance(tpaSettings.fees(), cents),
+						tpaSettings.timeoutSeconds());
+				return null;
+			}
+			case "tpa.crossDimensionFee" -> {
+				Long cents = parseMoney(value);
+				if (cents == null) {
+					return "tpa.crossDimensionFee 需要非负金额";
+				}
+				tpaSettings = new TpaSettings(tpaSettings.enabled(), withCross(tpaSettings.fees(), cents),
+						tpaSettings.timeoutSeconds());
+				return null;
+			}
+			case "tpa.timeoutSeconds" -> {
+				Integer v = parseNonNegativeInt(value);
+				if (v == null) {
+					return "tpa.timeoutSeconds 需要非负整数";
+				}
+				tpaSettings = new TpaSettings(tpaSettings.enabled(), tpaSettings.fees(), v);
+				return null;
+			}
+			case "back.enabled" -> {
+				Boolean b = parseBool(value);
+				if (b == null) {
+					return "back.enabled 需要 true 或 false";
+				}
+				backSettings = new BackSettings(b, backSettings.fees());
+				return null;
+			}
+			case "back.cooldownSeconds" -> {
+				Integer v = parseNonNegativeInt(value);
+				if (v == null) {
+					return "back.cooldownSeconds 需要非负整数";
+				}
+				backSettings = new BackSettings(backSettings.enabled(), withCooldown(backSettings.fees(), v));
+				return null;
+			}
+			case "back.fixedFee" -> {
+				Boolean b = parseBool(value);
+				if (b == null) {
+					return "back.fixedFee 需要 true 或 false";
+				}
+				backSettings = new BackSettings(backSettings.enabled(), withFixed(backSettings.fees(), b));
+				return null;
+			}
+			case "back.fixedFeeAmount" -> {
+				Long cents = parseMoney(value);
+				if (cents == null) {
+					return "back.fixedFeeAmount 需要非负金额";
+				}
+				backSettings = new BackSettings(backSettings.enabled(), withFixedAmount(backSettings.fees(), cents));
+				return null;
+			}
+			case "back.perDistanceFee" -> {
+				Long cents = parseMoney(value);
+				if (cents == null) {
+					return "back.perDistanceFee 需要非负金额";
+				}
+				backSettings = new BackSettings(backSettings.enabled(), withPerDistance(backSettings.fees(), cents));
+				return null;
+			}
+			case "back.crossDimensionFee" -> {
+				Long cents = parseMoney(value);
+				if (cents == null) {
+					return "back.crossDimensionFee 需要非负金额";
+				}
+				backSettings = new BackSettings(backSettings.enabled(), withCross(backSettings.fees(), cents));
+				return null;
+			}
+			default -> {
+				return "未知配置项：" + key;
+			}
+		}
+	}
+
+	/** 把当前内存配置写回 config.json（/config 修改后持久化）。 */
+	public static void save(Path configDir) throws IOException {
+		Path file = configDir.resolve("economy").resolve("config.json");
+		Files.createDirectories(file.getParent());
+		JsonObject root = new JsonObject();
+		root.addProperty("itemPricesInLore", itemPricesInLore);
+		root.addProperty("flyFeePerSecond", Money.format(flyFeeCents));
+		root.add("home", sectionJson(homeSettings.max(), null, homeSettings.fees()));
+		root.add("tpa", sectionJson(-1, tpaSettings, tpaSettings.fees()));
+		root.add("back", sectionJson(-1, backSettings, backSettings.fees()));
+		Files.writeString(file, GSON.toJson(root), StandardCharsets.UTF_8);
+	}
+
+	private static JsonObject sectionJson(int homeMax, Object extra, TpFees fees) {
+		JsonObject section = new JsonObject();
+		if (homeMax >= 0) {
+			section.addProperty("max", homeMax);
+		}
+		if (extra instanceof TpaSettings tpa) {
+			section.addProperty("enabled", tpa.enabled());
+			section.addProperty("timeoutSeconds", tpa.timeoutSeconds());
+		} else if (extra instanceof BackSettings back) {
+			section.addProperty("enabled", back.enabled());
+		}
+		section.addProperty("cooldownSeconds", fees.cooldownSeconds());
+		section.addProperty("fixedFee", fees.fixedFee());
+		section.addProperty("fixedFeeAmount", Money.format(fees.fixedFeeAmountCents()));
+		section.addProperty("perDistanceFee", Money.format(fees.perDistanceFeeCents()));
+		section.addProperty("crossDimensionFee", Money.format(fees.crossDimensionFeeCents()));
+		return section;
+	}
+
+	private static TpFees withCooldown(TpFees fees, int v) {
+		return new TpFees(v, fees.fixedFee(), fees.fixedFeeAmountCents(), fees.perDistanceFeeCents(),
+				fees.crossDimensionFeeCents());
+	}
+
+	private static TpFees withFixed(TpFees fees, boolean v) {
+		return new TpFees(fees.cooldownSeconds(), v, fees.fixedFeeAmountCents(), fees.perDistanceFeeCents(),
+				fees.crossDimensionFeeCents());
+	}
+
+	private static TpFees withFixedAmount(TpFees fees, long v) {
+		return new TpFees(fees.cooldownSeconds(), fees.fixedFee(), v, fees.perDistanceFeeCents(),
+				fees.crossDimensionFeeCents());
+	}
+
+	private static TpFees withPerDistance(TpFees fees, long v) {
+		return new TpFees(fees.cooldownSeconds(), fees.fixedFee(), fees.fixedFeeAmountCents(), v,
+				fees.crossDimensionFeeCents());
+	}
+
+	private static TpFees withCross(TpFees fees, long v) {
+		return new TpFees(fees.cooldownSeconds(), fees.fixedFee(), fees.fixedFeeAmountCents(),
+				fees.perDistanceFeeCents(), v);
+	}
+
+	private static Boolean parseBool(String input) {
+		if ("true".equalsIgnoreCase(input)) {
+			return Boolean.TRUE;
+		}
+		if ("false".equalsIgnoreCase(input)) {
+			return Boolean.FALSE;
+		}
+		return null;
+	}
+
+	private static Integer parseNonNegativeInt(String input) {
+		try {
+			int v = Integer.parseInt(input.trim());
+			return v >= 0 ? v : null;
+		} catch (NumberFormatException e) {
+			return null;
+		}
+	}
+
+	private static Long parseMoney(String input) {
+		try {
+			return parseCents(input);
+		} catch (RuntimeException e) {
+			return null;
+		}
+	}
 
 	private EconomyConfig() {
 	}
