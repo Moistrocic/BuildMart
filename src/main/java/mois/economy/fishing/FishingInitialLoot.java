@@ -8,14 +8,15 @@ import com.google.gson.JsonObject;
  * 首次启动时写入 config/economy/fishing.json，之后修改直接改配置文件。
  * <p>
  * 配置格式为 JSON 数组，每项为 {"item": {物品信息（ItemStack.CODEC 格式，
- * 可含 count/components）}, "chance": 概率}，全部概率之和应为 1。
+ * 可含 count/components）}, "chance": 概率}；普通项概率之和 ≤ 1（不能大于 1），
+ * 可含至多一个补全项（"chance": "remaining"）补足剩余概率。
  */
 public final class FishingInitialLoot {
-	/** 初始战利品：鳕鱼 50% + 绿宝石 50%。 */
+	/** 初始战利品：鳕鱼 50% + 补全项（绿宝石）补足剩余 50%。 */
 	public static final String INITIAL_JSON = """
 			[
 			  {"item": {"id": "minecraft:cod"}, "chance": 0.5},
-			  {"item": {"id": "minecraft:emerald"}, "chance": 0.5}
+			  {"item": {"id": "minecraft:emerald"}, "chance": "remaining"}
 			]
 			""";
 

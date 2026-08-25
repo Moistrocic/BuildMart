@@ -53,24 +53,26 @@ public abstract class FishingHookMixin {
 		cir.cancel();
 		ServerLevel level = (ServerLevel) hook.level();
 		Player player = hook.getPlayerOwner();
-		// 与 FISHING_ROD_HOOKED 成就触发保持一致（原版在生成战利品前触发）
-		if (player instanceof ServerPlayer serverPlayer) {
-			CriteriaTriggers.FISHING_ROD_HOOKED.trigger(serverPlayer, rod, hook, List.of(loot));
+		if (!loot.isEmpty()) {
+			// 命中战利品：成就触发 + 生成（沿用原版方式：鱼钩位置、朝玩家方向的速度（原版双重 sqrt 公式）、经验球）
+			if (player instanceof ServerPlayer serverPlayer) {
+				CriteriaTriggers.FISHING_ROD_HOOKED.trigger(serverPlayer, rod, hook, List.of(loot));
+			}
+			ItemEntity itemEntity = new ItemEntity(level, hook.getX(), hook.getY(), hook.getZ(), loot);
+			double dx = player.getX() - hook.getX();
+			double dy = player.getY() - hook.getY();
+			double dz = player.getZ() - hook.getZ();
+			itemEntity.setDeltaMovement(dx * 0.1, dy * 0.1 + Math.sqrt(Math.sqrt(dx * dx + dy * dy + dz * dz)) * 0.08, dz * 0.1);
+			level.addFreshEntity(itemEntity);
+			level.addFreshEntity(new ExperienceOrb(level, player.getX(), player.getY() + 0.5, player.getZ(),
+					level.getRandom().nextInt(6) + 1));
+			// 鱼标签物品计 FISH_CAUGHT 统计（与原版一致）
+			if (loot.is(ItemTags.FISHES)) {
+				player.awardStat(Stats.FISH_CAUGHT, 1);
+			}
 		}
-		// 沿用原版生成方式：鱼钩位置、朝玩家方向的速度（原版双重 sqrt 公式）、经验球
-		ItemEntity itemEntity = new ItemEntity(level, hook.getX(), hook.getY(), hook.getZ(), loot);
-		double dx = player.getX() - hook.getX();
-		double dy = player.getY() - hook.getY();
-		double dz = player.getZ() - hook.getZ();
-		itemEntity.setDeltaMovement(dx * 0.1, dy * 0.1 + Math.sqrt(Math.sqrt(dx * dx + dy * dy + dz * dz)) * 0.08, dz * 0.1);
-		level.addFreshEntity(itemEntity);
-		level.addFreshEntity(new ExperienceOrb(level, player.getX(), player.getY() + 0.5, player.getZ(),
-				level.getRandom().nextInt(6) + 1));
 		// 原版战利品路径的收尾（cancel 后必须补做，否则鱼钩不销毁会重复收竿）：
-		// 鱼标签物品计 FISH_CAUGHT 统计；销毁鱼钩；返回值 1（鱼上钩），落地时 2
-		if (loot.is(ItemTags.FISHES)) {
-			player.awardStat(Stats.FISH_CAUGHT, 1);
-		}
+		// 销毁鱼钩；返回值 1（鱼上钩），落地时 2。未命中战利品时同样正常收竿。
 		int result = hook.onGround() ? 2 : 1;
 		hook.discard();
 		cir.setReturnValue(result);

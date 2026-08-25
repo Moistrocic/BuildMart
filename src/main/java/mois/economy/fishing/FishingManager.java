@@ -19,14 +19,20 @@ import java.util.List;
 
 /**
  * 趣味钓鱼战利品：config/economy/fishing.json（JSON 数组，每项
- * {"item": 物品信息（ItemStack.CODEC 格式，可含 count/components）, "chance": 概率}，
- * 概率之和应为 1）。首次启动由 {@link FishingInitialLoot} 生成默认配置。
+ * {"item": 物品信息（ItemStack.CODEC 格式，可含 count/components）, "chance": 概率}）。
+ * <p>
+ * 概率规则：普通项概率为 (0, 1] 的数字，全部普通项之和 ≤ 1（不能大于 1）；
+ * 可含至多一个补全项（"chance": "remaining"），其概率 = 1 - 普通项之和，
+ * 用于把剩余概率补全给某个物品。无补全项且概率和 < 1 时，剩余概率 = 钓不到东西。
  * <p>
  * 开关见 {@link mois.economy.config.EconomyConfig#funFishing()}（/config 可热重载）：
  * 关闭时钓鱼走原版战利品表，开启时由 FishingHookMixin 替换为按概率随机选取的配置战利品。
- * 配置概率和非法或加载失败时视为未配置，回退原版。
+ * 配置非法（概率和 > 1、概率 ≤ 0、多个补全项等）或加载失败时视为未配置，回退原版。
  */
 public final class FishingManager {
+	/** 补全项标记：概率 = 1 - 普通项概率之和。 */
+	private static final String FILL_MARKER = "remaining";
+
 	private record Entry(ItemStack stack, double chance) {
 	}
 
@@ -52,23 +58,42 @@ public final class FishingManager {
 				JsonArray array = JsonParser.parseString(Files.readString(file, StandardCharsets.UTF_8)).getAsJsonArray();
 				com.mojang.serialization.DynamicOps<JsonElement> ops = registryAccess.createSerializationContext(JsonOps.INSTANCE);
 				double sum = 0;
+				ItemStack fillStack = null;
 				for (JsonElement element : array) {
 					JsonObject obj = element.getAsJsonObject();
 					ItemStack stack = ItemStack.CODEC.parse(ops, obj.get("item")).getOrThrow();
-					double chance = obj.get("chance").getAsDouble();
-					if (chance <= 0) {
-						throw new IllegalArgumentException("概率必须大于 0：" + chance);
+					JsonElement chanceEl = obj.get("chance");
+					if (chanceEl.isJsonPrimitive() && chanceEl.getAsJsonPrimitive().isString()) {
+						// 补全项：chance 为 "remaining"
+						if (!FILL_MARKER.equals(chanceEl.getAsString())) {
+							throw new IllegalArgumentException("无法识别的概率值：" + chanceEl.getAsString());
+						}
+						if (fillStack != null) {
+							throw new IllegalArgumentException("补全项（chance: \"remaining\"）只能有一个");
+						}
+						fillStack = stack;
+						continue;
+					}
+					double chance = chanceEl.getAsDouble();
+					if (chance <= 0 || chance > 1) {
+						throw new IllegalArgumentException("概率必须在 (0, 1] 之间：" + chance);
 					}
 					ENTRIES.add(new Entry(stack, chance));
 					sum += chance;
 				}
-				if (Math.abs(sum - 1.0) > 0.001) {
-					Economy.LOGGER.error("趣味钓鱼配置概率之和为 {}，应为 1（共 {} 项），本次回退原版钓鱼", sum, ENTRIES.size());
-					ENTRIES.clear();
-					return;
+				if (sum > 1.0) {
+					throw new IllegalArgumentException("普通项概率之和为 " + sum + "，不能大于 1");
+				}
+				if (fillStack != null) {
+					// 补全项补足剩余概率；普通项之和已为 1 时补全项概率为 0（忽略）
+					double fillChance = 1.0 - sum;
+					if (fillChance > 0) {
+						ENTRIES.add(new Entry(fillStack, fillChance));
+						sum = 1.0;
+					}
 				}
 				loaded = true;
-				Economy.LOGGER.info("趣味钓鱼战利品已加载：{}（{} 项，概率和 {}）", file, ENTRIES.size(), sum);
+				Economy.LOGGER.info("趣味钓鱼战利品已加载：{}（{} 项，总概率 {}）", file, ENTRIES.size(), sum);
 			} catch (IOException | RuntimeException e) {
 				Economy.LOGGER.error("趣味钓鱼配置加载失败，回退原版钓鱼", e);
 				ENTRIES.clear();
@@ -76,7 +101,11 @@ public final class FishingManager {
 		}
 	}
 
-	/** 按概率随机选取一个战利品（副本）；未配置/加载失败返回 null（调用方回退原版）。 */
+	/**
+	 * 按概率随机选取一个战利品（副本）。
+	 * 返回 null = 配置未加载/非法（调用方回退原版）；
+	 * 返回 ItemStack.EMPTY = 本次未命中任何战利品（正常收竿，无掉落）。
+	 */
 	public static ItemStack roll(RandomSource random) {
 		synchronized (ENTRIES) {
 			if (!loaded || ENTRIES.isEmpty()) {
@@ -90,7 +119,7 @@ public final class FishingManager {
 					return entry.stack().copy();
 				}
 			}
-			return ENTRIES.get(ENTRIES.size() - 1).stack().copy();
+			return ItemStack.EMPTY;
 		}
 	}
 }
