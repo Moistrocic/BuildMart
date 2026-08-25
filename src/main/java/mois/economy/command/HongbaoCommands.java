@@ -23,11 +23,13 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 红包指令：/hongbao 总金额 数量 口令（发红包，全员广播）与 /hongbao 口令（领取）。
+ * 红包指令：/hongbao 总金额 数量 口令（发红包，全员广播）。
  * <p>
+ * 领取不走指令：玩家在聊天中说出口令（消息与口令完全一致）即自动领取
+ * （聊天监听见 {@code ServerGamePacketListenerImplMixin.economy$hongbaoChat}）。
  * 领取金额在 1 分 ~ (总金额 / 数量) × 2 之间随机波动；最后一个红包领取剩余全部
  * （保证总额守恒）。每次领取后向全体玩家广播领取金额与剩余个数。
- * 红包存于内存：服务器重启后未领取的红包作废。
+ * 红包存于内存：服务器停机或同口令覆盖时，未领取部分返还给发红包人。
  */
 public final class HongbaoCommands {
 	private static final SimpleCommandExceptionType PLAYER_ONLY =
@@ -40,10 +42,6 @@ public final class HongbaoCommands {
 			new SimpleCommandExceptionType(Component.literal("红包总金额必须大于 0"));
 	private static final SimpleCommandExceptionType AMOUNT_TOO_SMALL =
 			new SimpleCommandExceptionType(Component.literal("总金额不足以分成该数量的红包（每个至少 0.01 元）"));
-	private static final SimpleCommandExceptionType NOT_FOUND =
-			new SimpleCommandExceptionType(Component.literal("红包不存在或已领完"));
-	private static final SimpleCommandExceptionType FINISHED =
-			new SimpleCommandExceptionType(Component.literal("该红包已被领完"));
 
 	/** 口令 -> 红包（内存存储，重启作废）。 */
 	private static final Map<String, Hongbao> HONGBAOS = new ConcurrentHashMap<>();
@@ -71,15 +69,12 @@ public final class HongbaoCommands {
 	}
 
 	public static void register(CommandDispatcher<CommandSourceStack> dispatcher, CommandBuildContext buildContext) {
+		// 发红包：/hongbao 总金额 数量 口令（领取通过聊天发言，见 economy$hongbaoChat）
 		dispatcher.register(Commands.literal("hongbao")
-				// 发红包：/hongbao 总金额 数量 口令
 				.then(Commands.argument("amount", StringArgumentType.word())
 						.then(Commands.argument("count", IntegerArgumentType.integer(1))
 								.then(Commands.argument("口令", StringArgumentType.word())
-										.executes(HongbaoCommands::create))))
-				// 领红包：/hongbao 口令
-				.then(Commands.argument("口令", StringArgumentType.word())
-						.executes(HongbaoCommands::claim)));
+										.executes(HongbaoCommands::create)))));
 	}
 
 	// ---------- 发红包 ----------
@@ -117,22 +112,37 @@ public final class HongbaoCommands {
 		return 1;
 	}
 
-	// ---------- 领红包 ----------
+	// ---------- 领取（聊天发言触发） ----------
 
-	private static int claim(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
-		CommandSourceStack source = ctx.getSource();
-		ServerPlayer player = requirePlayer(source);
-		String pass = StringArgumentType.getString(ctx, "口令");
+	/** 发言是否与某个红包口令完全一致（trim 后精确匹配）。 */
+	public static boolean isPass(String message) {
+		if (message == null) {
+			return false;
+		}
+		String trimmed = message.trim();
+		for (String pass : HONGBAOS.keySet()) {
+			if (pass.equals(trimmed)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * 按口令领取红包（聊天监听调用）。返回 null 表示领取成功；
+	 * 否则返回错误提示（红包不存在/已领完/入账失败）。
+	 */
+	public static String claimByPass(ServerPlayer player, String pass, MinecraftServer server) {
 		Hongbao hb = HONGBAOS.get(pass);
 		if (hb == null) {
-			throw NOT_FOUND.create();
+			return "红包不存在或已领完";
 		}
 		long amount;
 		int remain;
 		synchronized (hb) {
 			if (hb.remainingCount <= 0) {
 				HONGBAOS.remove(pass);
-				throw FINISHED.create();
+				return "该红包已被领完";
 			}
 			if (hb.remainingCount == 1) {
 				// 最后一个红包：领取剩余全部，保证总额守恒
@@ -154,12 +164,12 @@ public final class HongbaoCommands {
 			EconomyDb.credit(player.getUUID(), player.getGameProfile().name(), amount);
 		} catch (EconomyDb.DatabaseException e) {
 			Economy.LOGGER.error("hongbao 入账数据库错误", e);
-			throw DB_ERROR.create();
+			return "红包入账失败，请稍后再试";
 		}
 		String suffix = remain > 0 ? "，红包剩余 " + remain + " 个" : "，红包已领完";
-		broadcast(source.getServer(), Component.literal("[红包] " + player.getGameProfile().name()
+		broadcast(server, Component.literal("[红包] " + player.getGameProfile().name()
 				+ " 领到 " + Money.format(amount) + " 元" + suffix).withStyle(ChatFormatting.GOLD));
-		return 1;
+		return null;
 	}
 
 	// ---------- 工具 ----------

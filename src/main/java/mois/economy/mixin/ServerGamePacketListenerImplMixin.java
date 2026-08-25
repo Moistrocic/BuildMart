@@ -16,6 +16,7 @@ import mois.economy.Money;
 import mois.economy.PriceLore;
 import mois.economy.buymode.BuyModeManager;
 import mois.economy.buymode.BuyModeSession;
+import mois.economy.command.HongbaoCommands;
 import mois.economy.config.ItemValues;
 import mois.economy.data.EconomyDb;
 import net.minecraft.ChatFormatting;
@@ -23,6 +24,7 @@ import net.minecraft.core.NonNullList;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundContainerSetSlotPacket;
+import net.minecraft.network.protocol.game.ServerboundChatPacket;
 import net.minecraft.network.protocol.game.ServerboundContainerClickPacket;
 import net.minecraft.network.protocol.game.ServerboundSetCreativeModeSlotPacket;
 import net.minecraft.server.MinecraftServer;
@@ -417,6 +419,30 @@ public abstract class ServerGamePacketListenerImplMixin {
 	/** 一次点击包结算中单个槽位的价值变化。 */
 	@Unique
 	private record SlotDelta(int slot, ItemStack before, ItemStack after, long delta) {
+	}
+
+	// ---------- 红包聊天领取 ----------
+
+	/**
+	 * 聊天发言与红包口令完全一致（trim 后精确匹配）时自动领取红包：
+	 * 口令发言不进入公屏（取消原版广播），领取结果私聊反馈，领取成功由
+	 * HongbaoCommands 全服广播；非口令发言放行原版处理。
+	 */
+	@Inject(method = "handleChat", at = @At("HEAD"), cancellable = true)
+	private void economy$hongbaoChat(ServerboundChatPacket packet, CallbackInfo ci) {
+		ServerPlayer player = ((ServerGamePacketListenerImpl) (Object) this).player;
+		if (player == null) {
+			return;
+		}
+		String message = packet.message();
+		if (!HongbaoCommands.isPass(message)) {
+			return; // 非口令发言：原版正常处理
+		}
+		ci.cancel(); // 口令发言不广播到公屏
+		String error = HongbaoCommands.claimByPass(player, message.trim(), player.level().getServer());
+		if (error != null) {
+			player.sendSystemMessage(Component.literal(error).withStyle(ChatFormatting.RED), false);
+		}
 	}
 
 	// ---------- 工具 ----------

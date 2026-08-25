@@ -75,8 +75,7 @@ public final class EconomyCommands {
 			"/tpaccept - 接受最近的传送请求",
 			"/back - 回到最近死亡点",
 			"/suicide - 自杀",
-			"/hongbao 总金额 数量 口令 - 发红包",
-			"/hongbao 口令 - 领取红包"
+			"/hongbao 总金额 数量 口令 - 发红包（聊天说出口令即可领取）"
 	};
 
 	private EconomyCommands() {
