@@ -5,6 +5,8 @@ import mois.economy.fishing.FishingManager;
 import net.minecraft.advancements.triggers.CriteriaTriggers;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.stats.Stats;
+import net.minecraft.tags.ItemTags;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.ExperienceOrb;
 import net.minecraft.world.entity.item.ItemEntity;
@@ -64,6 +66,13 @@ public abstract class FishingHookMixin {
 		level.addFreshEntity(itemEntity);
 		level.addFreshEntity(new ExperienceOrb(level, player.getX(), player.getY() + 0.5, player.getZ(),
 				level.getRandom().nextInt(6) + 1));
-		cir.setReturnValue(0);
+		// 原版战利品路径的收尾（cancel 后必须补做，否则鱼钩不销毁会重复收竿）：
+		// 鱼标签物品计 FISH_CAUGHT 统计；销毁鱼钩；返回值 1（鱼上钩），落地时 2
+		if (loot.is(ItemTags.FISHES)) {
+			player.awardStat(Stats.FISH_CAUGHT, 1);
+		}
+		int result = hook.onGround() ? 2 : 1;
+		hook.discard();
+		cir.setReturnValue(result);
 	}
 }
