@@ -105,7 +105,7 @@ public final class HongbaoCommands {
 		Hongbao prev = HONGBAOS.put(pass, new Hongbao(player.getUUID(), player.getGameProfile().name(), total, count));
 		broadcast(source.getServer(), Component.literal("[红包] " + player.getGameProfile().name()
 				+ " 发出红包：共 " + Money.format(total) + " 元，共 " + count + " 个！"
-				+ "输入 /hongbao " + pass + " 领取").withStyle(ChatFormatting.GOLD));
+				+ "口令「 " + pass + " 」").withStyle(ChatFormatting.GOLD));
 		if (prev != null) {
 			refund(source.getServer(), prev, "被新的红包覆盖");
 		}
