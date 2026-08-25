@@ -106,10 +106,14 @@ public final class HongbaoCommands {
 		if (!ok) {
 			throw PAYER_INSUFFICIENT.create();
 		}
-		HONGBAOS.put(pass, new Hongbao(player.getUUID(), player.getGameProfile().name(), total, count));
+		// 同口令覆盖：旧红包失效，剩余金额返还给原发红包人
+		Hongbao prev = HONGBAOS.put(pass, new Hongbao(player.getUUID(), player.getGameProfile().name(), total, count));
 		broadcast(source.getServer(), Component.literal("[红包] " + player.getGameProfile().name()
 				+ " 发出红包：共 " + Money.format(total) + " 元，共 " + count + " 个！"
 				+ "输入 /hongbao " + pass + " 领取").withStyle(ChatFormatting.GOLD));
+		if (prev != null) {
+			refund(source.getServer(), prev, "被新的红包覆盖");
+		}
 		return 1;
 	}
 
@@ -159,6 +163,33 @@ public final class HongbaoCommands {
 	}
 
 	// ---------- 工具 ----------
+
+	/** 红包失效：剩余金额返还给发红包人（在线时通知），并记录日志。 */
+	private static void refund(MinecraftServer server, Hongbao hb, String reason) {
+		long remaining = hb.remainingCents;
+		if (remaining <= 0) {
+			return;
+		}
+		try {
+			EconomyDb.credit(hb.ownerUuid, hb.ownerName, remaining);
+		} catch (EconomyDb.DatabaseException e) {
+			Economy.LOGGER.error("hongbao 返还数据库错误", e);
+			return;
+		}
+		ServerPlayer owner = server.getPlayerList().getPlayer(hb.ownerUuid);
+		if (owner != null) {
+			owner.sendSystemMessage(Component.literal("[红包] 你的红包已失效（" + reason + "），剩余 "
+					+ Money.format(remaining) + " 元已返还").withStyle(ChatFormatting.YELLOW), false);
+		}
+	}
+
+	/** 服务器停机：所有未领取红包作废，剩余金额统一返还给发红包人。 */
+	public static void refundAll(MinecraftServer server) {
+		for (Hongbao hb : HONGBAOS.values()) {
+			refund(server, hb, "服务器关闭");
+		}
+		HONGBAOS.clear();
+	}
 
 	private static void broadcast(MinecraftServer server, Component message) {
 		server.getPlayerList().broadcastSystemMessage(message, false);

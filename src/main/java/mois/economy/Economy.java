@@ -56,6 +56,8 @@ public class Economy implements ModInitializer {
 		});
 		ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
 			ShopManager.save();
+			// 未领取的红包作废并返还剩余金额（需在数据库关闭前执行）
+			mois.economy.command.HongbaoCommands.refundAll(server);
 			EconomyDb.close();
 		});
 		ServerTickEvents.END_SERVER_TICK.register(ShopManager::onServerTick);
