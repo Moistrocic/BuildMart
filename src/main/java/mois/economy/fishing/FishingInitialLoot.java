@@ -38,37 +38,39 @@ public final class FishingInitialLoot {
 	private static String buildInitialJson() {
 		List<Map<String, Object>> loot = new ArrayList<>();
 		// ---- 鱼类共享 40%（4 种 × 10%）----
-		for (String id : List.of("minecraft:cod", "minecraft:salmon", "minecraft:pufferfish", "minecraft:tropical_fish")) {
-			loot.add(lootEntry(item(id, 1, lore("小鱼，不值钱。")), 0.10));
-		}
-		// ---- 矿物共享 40%（11 种平均：10 × 0.03636 + 1 × 0.0364 = 40%）----
-		List<String> ores = List.of("minecraft:diamond", "minecraft:emerald", "minecraft:iron_ingot",
-				"minecraft:gold_ingot", "minecraft:copper_ingot", "minecraft:redstone", "minecraft:lapis_lazuli",
-				"minecraft:quartz", "minecraft:coal", "minecraft:netherite_scrap", "minecraft:netherite_ingot");
-		for (int i = 0; i < ores.size(); i++) {
-			double chance = (i == ores.size() - 1) ? 0.0364 : 0.03636;
-			loot.add(lootEntry(item(ores.get(i), 1, lore("水里生矿了？有点神秘。")), chance));
-		}
+		loot.add(lootEntry(item("minecraft:cod", 1, lore("小鱼，不值钱。")), 0.10));
+		loot.add(lootEntry(item("minecraft:salmon", 1, lore("小鱼，不值钱。")), 0.10));
+		loot.add(lootEntry(item("minecraft:pufferfish", 1, lore("小鱼，不值钱。")), 0.10));
+		loot.add(lootEntry(item("minecraft:tropical_fish", 1, lore("小鱼，不值钱。")), 0.10));
+		// ---- 矿物共享 40%（11 种：10 × 0.03636 + 1 × 0.0364）----
+		loot.add(lootEntry(item("minecraft:diamond", 1, lore("水里生矿了？有点神秘。")), 0.03636));
+		loot.add(lootEntry(item("minecraft:emerald", 1, lore("水里生矿了？有点神秘。")), 0.03636));
+		loot.add(lootEntry(item("minecraft:iron_ingot", 1, lore("水里生矿了？有点神秘。")), 0.03636));
+		loot.add(lootEntry(item("minecraft:gold_ingot", 1, lore("水里生矿了？有点神秘。")), 0.03636));
+		loot.add(lootEntry(item("minecraft:copper_ingot", 1, lore("水里生矿了？有点神秘。")), 0.03636));
+		loot.add(lootEntry(item("minecraft:redstone", 1, lore("水里生矿了？有点神秘。")), 0.03636));
+		loot.add(lootEntry(item("minecraft:lapis_lazuli", 1, lore("水里生矿了？有点神秘。")), 0.03636));
+		loot.add(lootEntry(item("minecraft:quartz", 1, lore("水里生矿了？有点神秘。")), 0.03636));
+		loot.add(lootEntry(item("minecraft:coal", 1, lore("水里生矿了？有点神秘。")), 0.03636));
+		loot.add(lootEntry(item("minecraft:netherite_scrap", 1, lore("水里生矿了？有点神秘。")), 0.03636));
+		loot.add(lootEntry(item("minecraft:netherite_ingot", 1, lore("水里生矿了？有点神秘。")), 0.0364));
 		// ---- 稀有组共享 10%（5 种 × 2%，不详之瓶为五级）----
-		for (String id : List.of("minecraft:ominous_bottle", "minecraft:echo_shard", "minecraft:iron_nautilus_armor",
-				"minecraft:creeper_head", "minecraft:ominous_trial_key")) {
-			Map<String, Object> components = lore("没见过的东西，仔细瞧瞧？");
-			if (id.equals("minecraft:ominous_bottle")) {
-				components.put("minecraft:ominous_bottle_amplifier", 4); // 五级不详之瓶（amplifier 0-4）
-			}
-			loot.add(lootEntry(item(id, 1, components), 0.02));
-		}
+		Map<String, Object> ominous = lore("没见过的东西，仔细瞧瞧？");
+		ominous.put("minecraft:ominous_bottle_amplifier", 4); // 五级不详之瓶（amplifier 0-4）
+		loot.add(lootEntry(item("minecraft:ominous_bottle", 1, ominous), 0.02));
+		loot.add(lootEntry(item("minecraft:echo_shard", 1, lore("没见过的东西，仔细瞧瞧？")), 0.02));
+		loot.add(lootEntry(item("minecraft:iron_nautilus_armor", 1, lore("没见过的东西，仔细瞧瞧？")), 0.02));
+		loot.add(lootEntry(item("minecraft:creeper_head", 1, lore("没见过的东西，仔细瞧瞧？")), 0.02));
+		loot.add(lootEntry(item("minecraft:ominous_trial_key", 1, lore("没见过的东西，仔细瞧瞧？")), 0.02));
 		// ---- 高级组共享 5%（凋零骷髅头/附魔金苹果/三叉戟：0.0167+0.0167+0.0166）----
-		String[] epic = {"minecraft:wither_skeleton_skull", "minecraft:enchanted_golden_apple", "minecraft:trident"};
-		double[] epicChance = {0.0167, 0.0167, 0.0166};
-		for (int i = 0; i < epic.length; i++) {
-			loot.add(lootEntry(item(epic[i], 1, lore("hello！")), epicChance[i]));
-		}
+		loot.add(lootEntry(item("minecraft:wither_skeleton_skull", 1, lore("hello！")), 0.0167));
+		loot.add(lootEntry(item("minecraft:enchanted_golden_apple", 1, lore("hello！")), 0.0167));
+		loot.add(lootEntry(item("minecraft:trident", 1, lore("hello！")), 0.0166));
 		// ---- 传说组共享 4%（4 种 × 1%）----
-		for (String id : List.of("minecraft:elytra", "minecraft:dragon_head", "minecraft:heart_of_the_sea",
-				"minecraft:conduit")) {
-			loot.add(lootEntry(item(id, 1, lore("有点高级！")), 0.01));
-		}
+		loot.add(lootEntry(item("minecraft:elytra", 1, lore("有点高级！")), 0.01));
+		loot.add(lootEntry(item("minecraft:dragon_head", 1, lore("有点高级！")), 0.01));
+		loot.add(lootEntry(item("minecraft:heart_of_the_sea", 1, lore("有点高级！")), 0.01));
+		loot.add(lootEntry(item("minecraft:conduit", 1, lore("有点高级！")), 0.01));
 		// ---- 0.5%：下界合金斧 ----
 		loot.add(lootEntry(item("minecraft:netherite_axe", 1, lore("这是你掉的吗？")), 0.005));
 		// ---- 0.3%：下界之星 + 下界合金鹦鹉螺铠（各 0.15%）----
