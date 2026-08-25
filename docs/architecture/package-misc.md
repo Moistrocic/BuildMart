@@ -27,9 +27,10 @@
 
 - `required: true`，`package: "mois.economy.mixin"`，`compatibilityLevel: "JAVA_21"`，
   `injectors.defaultRequire: 1`。
-- mixins 列表（11 个）：ServerPlayerMixin、PlayerMixin、LivingEntityMixin、InventoryMixin、
+- mixins 列表（12 个）：ServerPlayerMixin、PlayerMixin、LivingEntityMixin、InventoryMixin、
   AbstractContainerMenuMixin、CraftingMenuMixin、ServerGamePacketListenerImplMixin、
-  ServerPlayerGameModeMixin、ExplosionDamageCalculatorMixin、ServerExplosionMixin、LevelMixin。
+  ServerPlayerGameModeMixin、FishingHookMixin、ExplosionDamageCalculatorMixin、
+  ServerExplosionMixin、LevelMixin。
 
 ### `assets/economy/icon.png`
 
@@ -39,5 +40,4 @@
 
 - `docs/spec/RULES.md` — 项目开发规则书：提交粒度（规则 1）、Fabric API 优先（规则 2）、
   纯净端兼容与单人游戏（规则 3，其中 3.1 禁止自定义命令参数类型）、
-  启动验证规范（规则 4：后台启动 + 日志监视，成功标记以模组初始化标记为准）。
-  ⚠️ 规则 4.2 中的旧成功标记 `Hello Fabric world!` 已过时，当前源码标记为 `Economy Mod Loaded!`。
+  启动验证规范（规则 4：后台启动 + 日志监视，成功标记以模组初始化标记 `Economy Mod Loaded!` 为准）。

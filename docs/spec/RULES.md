@@ -56,7 +56,7 @@
 
 - 监视器启动前记录 `run/logs/latest.log` 的 LastWriteTime 作为基线；只有日志 mtime 超过基线后才检查其内容，防止把上一次运行的旧日志误判为本次成功。
 - 每 5 秒轮询一次。
-- 成功判定：日志中出现本模组的初始化标记（当前为 `Hello Fabric world!`；后续模组应维护自己的唯一初始化标记）。
+- 成功判定：日志中出现本模组的初始化标记（当前为 `Economy Mod Loaded!`；后续模组应维护自己的唯一初始化标记）。
 - 失败判定：出现致命标记（如 `Mixin apply for mod economy failed`、`Failed to start the minecraft server`）；普通 `ERROR` 行可能来自良性事件（见 4.4），不能单独作为失败依据。
 - 崩溃判定（最高优先级，一经命中立即停止轮询并汇报，禁止继续等到超时）：
   - 日志出现崩溃签名：`Game crashed!`、`Crash report saved`、`StackOverflowError`、`Unexpected error`（配合堆栈）等；

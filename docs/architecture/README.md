@@ -7,14 +7,15 @@
 
 - [README.md](README.md) — 项目总览、构建信息、全局约定（本文）
 - [package-root.md](package-root.md) — 根包：`Economy`（入口）、`Money`（金额工具）、`PriceLore`（价格标签）
-- [package-command.md](package-command.md) — `command` 包：全部指令（balbal/pay/baltop/balhelp/eco/shop/fly）
-- [package-config.md](package-config.md) — `config` 包：三个 JSON 配置 + 物品初始定价表
+- [package-command.md](package-command.md) — `command` 包：全部指令（bal/pay/baltop/balhelp/eco/shop/price/buy/bm/fly/home/sethome/tpa/tpahere/tpaccept/back/suicide/hongbao/config）
+- [package-config.md](package-config.md) — `config` 包：主配置 / 物品价 / 附魔价 JSON + 初始定价表
 - [package-data.md](package-data.md) — `data` 包：SQLite 资金数据库
 - [package-shop.md](package-shop.md) — `shop` 包：箱子商店（创建/出售/保护/持久化）
 - [package-buymode.md](package-buymode.md) — `buymode` 包：/bm 便捷购买
 - [package-fly.md](package-fly.md) — `fly` 包：/fly 付费飞行
+- [package-fishing.md](package-fishing.md) — `fishing` 包：趣味钓鱼（自定义战利品 + 概率/补全项 + lore 故事）
 - [package-teleport.md](package-teleport.md) — `teleport` 包：/home /sethome /tpa /tpahere /tpaccept /back
-- [package-mixin.md](package-mixin.md) — 全部 9 个 Mixin（注入点、原因、注意事项）
+- [package-mixin.md](package-mixin.md) — 全部 12 个 Mixin（注入点、原因、注意事项）
 - [package-misc.md](package-misc.md) — util/AdminUtil、client 源集、资源文件（fabric.mod.json、economy.mixins.json）
 
 ## 项目总览
@@ -22,14 +23,13 @@
 - **类型**：Fabric 模组（`net.fabricmc.fabric-loom`），服务端经济系统 + 少量客户端无关代码。
 - **版本链**（`gradle.properties`）：Minecraft `26.3-snapshot-9`（mojmap 命名），Loader `0.19.3`，
   Fabric API `0.158.0+26.3`，Loom `1.17-SNAPSHOT`，Java 25（`it.options.release = 25`）。
-  当前模组版本见 `version=`（最近一次为 `2.0`）。
+   当前模组版本见 `version=`（最近一次为 `3.1`）。
 - **依赖打包**：sqlite-jdbc 以 `include(...)` 打入 jar（排除其 slf4j-api，Minecraft 自带 slf4j）。
 - **SourceSet**：`splitEnvironmentSourceSets()` —— `src/main` 两端共用（**所有服务端逻辑必须放这里**，
   保证单人游戏内置服务器也加载，见规则书 3.3）；`src/client` 仅客户端（目前只有空的 `EconomyClient`）。
 - **入口**：`fabric.mod.json` → main `mois.economy.Economy`，client `mois.economy.client.EconomyClient`；
-  mixin 配置 `economy.mixins.json`（9 个 mixin，`defaultRequire: 1`，包 `mois.economy.mixin`）。
-- **启动标记**：`Economy Mod Loaded!`（Economy.onInitialize 末尾打印）。
-  ⚠️ 规则书 RULES.md 4.2 里写的 `Hello Fabric world!` 已过时，以源码为准。
+  mixin 配置 `economy.mixins.json`（12 个 mixin，`defaultRequire: 1`，包 `mois.economy.mixin`）。
+- **启动标记**：`Economy Mod Loaded!`（Economy.onInitialize 末尾打印；规则书 RULES.md 4.2 以此为准）。
 
 ## 全局约定（改动代码前必读）
 
@@ -52,16 +52,16 @@
    （不写存档，上线由 tick/onJoin 重新授予能力）。
 7. **数据库**：SQLite 存 `world/economy.db`（WAL）；所有 `EconomyDb` 方法 `synchronized`，
    未 open 时 `requireOpen()` 抛运行时 `DatabaseException`；服务器公共账户已移除；baltop 显示服务器总资产（玩家余额之和）。
-8. **配置**：`config/economy/` 下 `config.json`（主配置：itemPricesInLore / flyFeePerSecond /
-   home / tpa / back 传送段）、`items.json`（物品价）、`enchantments.json`（附魔价），
-   首次运行自动生成；商店数据 `world/economy-shops.json`；家与死亡点存数据库
+8. **配置**：`config/economy/` 下 `config.json`（主配置：itemPricesInLore / flyFeePerSecond / funFishing /
+   home / tpa / back 传送段，`/config` 可热重载）、`items.json`（物品价）、`enchantments.json`（附魔价）、
+   `fishing.json`（趣味钓鱼战利品），首次运行自动生成；商店数据 `world/economy-shops.json`；家与死亡点存数据库
    （`homes` / `back_points` 表）。
 9. **自检**：启动时 `PriceLore.selfCheck()`（仅开启时）与 `EconomyDb.runSelfTest()`（open 时）自动执行，
    改动相关逻辑后这两处自检若失败会直接报错，务必保证通过。
 10. **指令注册中枢**：`EconomyCommands.register`（由 `Economy.onInitialize` 的
     `CommandRegistrationCallback` 调用），内部再委托 `BalshopCommands`、`FlyCommands`、
-    `TeleportCommands`；新增指令要同步更新 `Economy.java` 的“命令注册完成”日志与
-    `/balhelp` 的 `HELP_LINES`。
+    `TeleportCommands`、`HongbaoCommands`、`ConfigCommands`；新增指令要同步更新
+    `Economy.java` 的“命令注册完成”日志与 `/balhelp` 的 `HELP_LINES`（/config 除外）。
 11. **验证规范（规则书 4）**：启动验证用“后台启动 + 日志监视”，成功标记 = 模组初始化标记；
     run 开发服 `server.properties` 须 `online-mode=false`、`white-list=false`、`enforce-secure-profile=false`。
 12. **buymode 安全性**：购买判定 = 「背包消失物品暂存追踪（`BuyModeSession`）+ 出现不匹配
@@ -89,9 +89,11 @@
 | `/eco` 目标解析 | word 参数手动解析选择器 | `EconomyTargets.resolve` 复用 `EntitySelectorParser` |
 | 商店物品误删 | `clearContent` 会删掉不可交易物品 | `ShopManager.sell` 逐格清除只清可交易 |
 | 创造界面丢弃白嫖 | slotNum<0 的原版掉落包 | buymode 拦截取消该包 |
+| 钓鱼战利品加载失败回退原版 | `ItemStack.CODEC` 拒绝解析 `minecraft:air`（补全项） | `FishingManager` 对 air 特殊处理为 EMPTY |
+| 钓鱼收竿重复刷战利品 | mixin cancel 后未销毁鱼钩 | `FishingHookMixin` 补做 `discard()` 等原版收尾 |
 
 ## 版本与提交历史要点
 
-- 版本号在 `gradle.properties` 的 `version=`，历史上以独立 `chore:` 提交推进（1.0 → 1.1 → 1.2 → 1.3 → 2.0）。
+- 版本号在 `gradle.properties` 的 `version=`，历史上以独立 `chore:` 提交推进（1.0 → 1.1 → 1.2 → 1.3 → 2.0 → 2.1 → 3.0 → 3.1）。
 - 功能提交惯例：`feat:`（新功能）、`fix:`（缺陷）、`chore:`（版本/杂项），中文描述（见 `git log`）。
 - 规则书 `docs/spec/RULES.md` 约束提交粒度、Fabric API 优先、纯净端兼容与启动验证流程。

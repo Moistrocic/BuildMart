@@ -4,19 +4,22 @@
 
 `implements ModInitializer`；`MOD_ID = "economy"`；`LOGGER = LoggerFactory.getLogger("economy")`。
 
-- `onInitialize()` 注册三类回调：
+- `onInitialize()` 注册回调：
   - `ServerLifecycleEvents.SERVER_STARTED`：
     `ItemValues.load` → `EnchantmentValues.load` → `EconomyConfig.load`（均读 `FabricLoader.getConfigDir()`），
     `PriceLore.enabled = EconomyConfig.itemPricesInLore()`，开启时 `PriceLore.selfCheck()`；
-    `EconomyDb.open(worldDir/economy.db)`；`ShopManager.init(worldDir)`。
-  - `ServerLifecycleEvents.SERVER_STOPPING`：`ShopManager.save()` + `EconomyDb.close()`。
-  - `ServerTickEvents.END_SERVER_TICK`：`ShopManager::onServerTick`、`FlyManager::onServerTick`。
+    `EconomyDb.open(worldDir/economy.db)`；`ShopManager.init(worldDir)`；
+    `FishingManager.load(configDir, server.registryAccess())`（趣味钓鱼战利品配置）。
+  - `ServerLifecycleEvents.SERVER_STOPPING`：`ShopManager.save()` + `HongbaoCommands.refundAll(server)`
+    （未领取红包作废返还，需在数据库关闭前）+ `EconomyDb.close()`。
+  - `ServerTickEvents.END_SERVER_TICK`：`ShopManager::onServerTick`、`FlyManager::onServerTick`、
+    `TeleportManager::onServerTick`、`BuyModeManager::onServerTick`（结算挂起的面板 ctrl+q 购买）。
   - `ServerPlayConnectionEvents.JOIN`：`EconomyDb.ensureAccount`（同步玩家名，首次自动建行）、
     发送红色公告（`EconomyDb.getAnnouncement`）、`FlyManager.onJoin`（恢复飞行）。
   - `ServerPlayConnectionEvents.DISCONNECT`：`PriceLore.untagPlayerAndMenu`、`FlyManager.onDisconnect`
     （收回能力但不退出模式）、`BuyModeManager.exit`。
   - `CommandRegistrationCallback`：`EconomyCommands.register`，日志“命令注册完成
-    （balbal/pay/baltop/balhelp/announcement/eco/shop/fly）”。
+    （bal/pay/baltop/balhelp/announcement/eco/shop/price/buy/bm/fly/home/sethome/delhome/listhome/tpa/tpahere/tpaccept/back/suicide/hongbao/config）”。
 - 末尾打印启动标记 `Economy Mod Loaded!`。
 - `id(String path)` → `Identifier.fromNamespaceAndPath("economy", path)`（当前未被使用，预留）。
 

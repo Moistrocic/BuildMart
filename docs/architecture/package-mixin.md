@@ -1,4 +1,4 @@
-# `mois.economy.mixin` 包 — 全部 9 个 Mixin
+# `mois.economy.mixin` 包 — 全部 12 个 Mixin
 
 注册表：`src/main/resources/economy.mixins.json`（`required: true`，`compatibilityLevel: JAVA_21`，
 `defaultRequire: 1`）。全部位于 `src/main`（两端加载，单人游戏内置服务器同样生效；
@@ -53,7 +53,7 @@
 
 ## `ServerGamePacketListenerImplMixin`（目标 `ServerGamePacketListenerImpl`）— buymode 结算 + 创造标签补发
 
-本类最复杂，共 4 个注入点：
+本类最复杂，共 5 个注入点：
 
 1. `handleSetCreativeModeSlot` @HEAD（cancellable）`economy$handleBuyMode` — **buymode 主结算**：
    - 非 buymode 直接放行（原版处理）。
@@ -61,6 +61,9 @@
      匹配会话暂存（先拿起再丢）→ **卖出**（按丢弃数量退款，不生成实体）；
      不匹配 → 挂起 `session.pendingDrop`，由下一个槽位包用「槽位原内容」判定
      （匹配 = 背包 ctrl+q 直接丢 → 卖出；不匹配 = 面板 ctrl+q → **购买** + 生成实体）；
+     **挂起 ≥2 tick 仍无槽位包认领（面板 ctrl+q 无后续包）→ 服务端 tick 直接结算为购买**
+     （`Economy.java` END_SERVER_TICK → `BuyModeManager.onServerTick` →
+     `BuyModeSettlement.settlePendingDrop`，避免滞后一拍）；
      不可交易物品丢弃 → 作废。挂起的旧 pendingDrop 被新丢弃包触发时按面板购买结算。
    - `slotNum > 45` 放行（原版同样忽略）。
    - 接管后按**暂存模型**判定（详见 package-buymode.md 的 `BuyModeSession`）：
@@ -97,10 +100,14 @@
      余额不足回滚 + 全量同步；
    - 结算完成后对每个变化槽位 `PriceLore.tag` + 补发 `ClientboundContainerSetSlotPacket`
      （结算发生在原版 `broadcastChanges` 之后，补发保证界面内标签立即刷新）。
-- 辅助：`gainedName`/`lostName`（物品名×数量展示）、`sendBuy/sendRefund/sendBuyNet/sendRefundNet/
-  sendInsufficient/sendUntradeable/sendInsufficientNet/sendModified`（聊天提示）、
-  `balance/balanceOrMax/balanceOrMinusOne`（DB 异常兜底）、`deductQuietly/creditQuietly`（静默失败）、
-  `hasForbiddenComponents`（危险组件黑名单，见上）、`satAdd`。
+5. `handleChat` @HEAD（cancellable）`economy$hongbaoChat` — **红包聊天领取**：
+   发言与某红包口令完全一致（trim 精确匹配）→ `HongbaoCommands.claimByPass` 自动领取，
+   **发言照常进入公屏**（不取消原版处理）；领取失败私聊红字；非口令发言完全不受影响。
+- **结算工具已提取到 `BuyModeSettlement`**（mixin 不允许非 private 方法，会被合并进 target
+  导致启动崩溃）：创造索引与严格比对（`isVanillaCreativeItem`）、面板购买链（`buyDrop`/
+  `approveBuy`/`settlePendingDrop`）、买卖提示（`sendBuy/sendSell/sendRefund/sendModified` 等）、
+  资金操作（`balance*`/`deductQuietly`/`creditQuietly`/`satAdd`）都在该独立类，mixin 只保留
+  private 方法并通过 `BuyModeSettlement.xxx` 调用。
 - 设计原则：购买花费直接从玩家账户扣除、不进入任何账户；一切以服务端权威槽位状态为准。
 
 ## `ServerPlayerGameModeMixin`（目标 `ServerPlayerGameMode`）— 商店拆除保护 + buymode 禁挖
@@ -128,6 +135,16 @@
   外部破坏（如末影龙等不走爆炸路径的途径）命中商店箱子时返回 false。
   玩家破坏不经过此方法（ServerPlayerGameMode 自行处理）；实体引起的破坏不受影响。
 
+## `FishingHookMixin`（目标 `FishingHook`）— 趣味钓鱼战利品替换
+
+- `retrieve(ItemStack)` @HEAD（cancellable）`economy$customFishingLoot`：`funFishing` 开关开启 +
+  服务端 + 战利品路径（`hookedIn == null && nibble > 0`，@Shadow 字段）→
+  `FishingManager.roll` 按概率取战利品替换原版战利品表。
+- 命中：触发 `FISHING_ROD_HOOKED` 成就 + 生成 `ItemEntity`（原版双重 sqrt 速度公式）+ 经验球 +
+  鱼标签物品计 `FISH_CAUGHT`；未命中（EMPTY）无掉落。
+- ⚠️ **cancel 后必须补做原版收尾**：`hook.discard()`（否则鱼钩不销毁可重复收竿刷战利品）、
+  返回值 `onGround() ? 2 : 1`。详见 package-fishing.md。
+
 ## 引用关系一览
 
 - 商店保护：`ServerPlayerGameModeMixin` / `ExplosionDamageCalculatorMixin` /
@@ -136,5 +153,7 @@
   `AbstractContainerMenuMixin`（快捷移动合并前兜底）、`ServerPlayerMixin`（开关容器）、
   `LivingEntityMixin`（掉落清除）、`ServerGamePacketListenerImplMixin`（创造/buymode 补发）。
 - buymode：`ServerGamePacketListenerImplMixin` + `ServerPlayerMixin.doCloseContainer` +
-  `Economy.java` DISCONNECT → `BuyModeManager`。
+  `Economy.java` DISCONNECT → `BuyModeManager`；结算工具在 `BuyModeSettlement`。
+- 红包：`ServerGamePacketListenerImplMixin.economy$hongbaoChat`（聊天领取）→ `HongbaoCommands`。
+- 钓鱼：`FishingHookMixin` → `FishingManager` / `EconomyConfig.funFishing`。
 - 红名：`ServerPlayerMixin.getTabListDisplayName` + `PlayerMixin.getDisplayName` → `AdminUtil`。
