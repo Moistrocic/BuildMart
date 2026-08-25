@@ -82,3 +82,20 @@
 - 同时必须关闭白名单与安全档案强制校验：`white-list=false`、`enforce-secure-profile=false`（26.3 的 `white-list` 默认值为 true；离线开发端没有正版会话与安全档案，任一项开启都会导致开发端无法进入服务器）。
 - 验证用临时服务器（如 `run-verify` 独立运行目录）同样需要先写入上述三项，再启动服务器与客户端连接验证。
 - 管理员权限验证需要预先准备 `world/ops.json`（26.3 格式：`{"uuid","name","level","bypassesPlayerLimit"}`，`level` 为整数 3=ADMINS）。
+
+## 5. 代码地图（新会话接续开发前必读）
+
+- 本仓库的架构文档位于 `docs/architecture/`：**`README.md` 是代码地图总览**——按包组织，包含构建信息、全局约定（金额单位、纯净端兼容、价格标签生命周期、26.3 同步协议等）与“已知坑位速查”表。新会话接续开发前**必须先读 `docs/architecture/README.md`**，再按需查阅对应 `package-*.md`。
+- 包文档清单：
+  - `package-root.md` — 根包：Economy 入口、Money 金额工具、PriceLore 价格标签
+  - `package-command.md` — 全部指令（bal/pay/baltop/eco/shop/price/buy/bm/fly/传送/suicide/hongbao/config）
+  - `package-config.md` — 配置与定价（config.json / items.json / enchantments.json + 初始定价表）
+  - `package-data.md` — SQLite 资金数据库
+  - `package-shop.md` — 箱子商店
+  - `package-buymode.md` — 便捷购买（暂存模型判定）
+  - `package-fly.md` — 付费飞行
+  - `package-fishing.md` — 趣味钓鱼（自定义战利品 + 概率/补全项 + lore 故事）
+  - `package-teleport.md` — 传送系统
+  - `package-mixin.md` — 全部 12 个 Mixin（注入点、原因、注意事项）
+  - `package-misc.md` — util/AdminUtil、client 源集、资源文件
+- 修改代码或文档后，相关 `package-*.md` 必须同步更新，保持与代码一致。
