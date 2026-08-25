@@ -41,11 +41,13 @@ public final class FishingInitialLoot {
 		for (String id : List.of("minecraft:cod", "minecraft:salmon", "minecraft:pufferfish", "minecraft:tropical_fish")) {
 			loot.add(lootEntry(item(id, 1, lore("小鱼，不值钱。")), 0.10));
 		}
-		// ---- 矿物共享 40%（10 种 × 4%）----
-		for (String id : List.of("minecraft:diamond", "minecraft:emerald", "minecraft:iron_ingot",
+		// ---- 矿物共享 40%（11 种平均：10 × 0.03636 + 1 × 0.0364 = 40%）----
+		List<String> ores = List.of("minecraft:diamond", "minecraft:emerald", "minecraft:iron_ingot",
 				"minecraft:gold_ingot", "minecraft:copper_ingot", "minecraft:redstone", "minecraft:lapis_lazuli",
-				"minecraft:quartz", "minecraft:coal", "minecraft:netherite_scrap")) {
-			loot.add(lootEntry(item(id, 1, lore("水里生矿了？有点神秘。")), 0.04));
+				"minecraft:quartz", "minecraft:coal", "minecraft:netherite_scrap", "minecraft:netherite_ingot");
+		for (int i = 0; i < ores.size(); i++) {
+			double chance = (i == ores.size() - 1) ? 0.0364 : 0.03636;
+			loot.add(lootEntry(item(ores.get(i), 1, lore("水里生矿了？有点神秘。")), chance));
 		}
 		// ---- 稀有组共享 10%（5 种 × 2%，不详之瓶为五级）----
 		for (String id : List.of("minecraft:ominous_bottle", "minecraft:echo_shard", "minecraft:iron_nautilus_armor",
