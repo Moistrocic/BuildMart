@@ -1,6 +1,5 @@
 package mois.economy.buymode;
 
-import mois.economy.mixin.ServerGamePacketListenerImplMixin;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 
@@ -52,7 +51,7 @@ public final class BuyModeManager {
 			}
 			BuyModeSession session = SESSIONS.get(uuid);
 			if (session != null) {
-				ServerGamePacketListenerImplMixin.settlePendingDrop(player, session);
+				BuyModeSettlement.settlePendingDrop(player, session);
 			}
 		}
 	}
