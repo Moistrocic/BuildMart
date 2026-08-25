@@ -425,8 +425,8 @@ public abstract class ServerGamePacketListenerImplMixin {
 
 	/**
 	 * 聊天发言与红包口令完全一致（trim 后精确匹配）时自动领取红包：
-	 * 口令发言不进入公屏（取消原版广播），领取结果私聊反馈，领取成功由
-	 * HongbaoCommands 全服广播；非口令发言放行原版处理。
+	 * 发言照常进入公屏（不取消原版处理），领取结果私聊反馈，领取成功由
+	 * HongbaoCommands 全服广播；非口令发言完全不受影响。
 	 */
 	@Inject(method = "handleChat", at = @At("HEAD"), cancellable = true)
 	private void economy$hongbaoChat(ServerboundChatPacket packet, CallbackInfo ci) {
@@ -438,7 +438,7 @@ public abstract class ServerGamePacketListenerImplMixin {
 		if (!HongbaoCommands.isPass(message)) {
 			return; // 非口令发言：原版正常处理
 		}
-		ci.cancel(); // 口令发言不广播到公屏
+		// 口令发言：照常进入公屏，同时触发领取
 		String error = HongbaoCommands.claimByPass(player, message.trim(), player.level().getServer());
 		if (error != null) {
 			player.sendSystemMessage(Component.literal(error).withStyle(ChatFormatting.RED), false);
