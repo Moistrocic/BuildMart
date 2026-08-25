@@ -1,12 +1,12 @@
 # `mois.economy.command` 包 — 全部指令
 
 注册中枢：`EconomyCommands.register(dispatcher, buildContext)`（由 `Economy.onInitialize` 调用），
-内部再委托 `BalshopCommands.register`、`FlyCommands.register` 与 `TeleportCommands.register`
-（传送指令见 package-teleport.md）。
+内部再委托 `BalshopCommands.register`、`FlyCommands.register`、`TeleportCommands.register`
+与 `HongbaoCommands.register`（传送指令见 package-teleport.md；红包指令见下）。
 
 ## `EconomyCommands.java` — 资金指令 + /balhelp
 
-- `PAGE_SIZE = 10`；`HELP_LINES`（String[]，27 行）包含全部 /bal*、/balshop*、/fly、传送指令帮助行。
+- `PAGE_SIZE = 10`；`HELP_LINES`（String[]，29 行）包含全部 /bal*、/shop*、/fly、传送、/suicide、/hongbao 帮助行。
 - 注册的指令与执行方法：
   | 指令 | 方法 | 说明 |
   |---|---|---|
@@ -28,14 +28,26 @@
 ## `BalshopCommands.java` — 箱子商店与购买
 
 - 常量 `MAX_BUY_COUNT = 17280`。
-- `/balshop create|remove` — 对准箱子（`targetedChest` 用 `player.pick(5.0, 1.0F, false)` 射线），
+- `/shop create|remove` — 对准箱子（`targetedChest` 用 `player.pick(5.0, 1.0F, false)` 射线），
   仅主人/管理员可 remove（`requireOwnedShop` + `isAdmin`）。
-- `/balshop setpayee 玩家|setpayeeserver` — 设置收款人（`NameAndId.createOffline` 回退）。
-- `/balshop getprice 物品` — 查基础价（`ItemValues.get`），提示完整价值 = 基础价 + 附魔 + 容器内容物。
-- `/balshop buy 物品 数量` — `ItemArgument.item` 解析 → `ItemValues.price` 计价 →
+- `/shop setpayee 玩家|setpayeeserver` — 设置收款人（`NameAndId.createOffline` 回退）。
+- `/price 物品` — 查基础价（`ItemValues.get`），提示完整价值 = 基础价 + 附魔 + 容器内容物。
+- `/buy 物品 数量` — `ItemArgument.item` 解析 → `ItemValues.price` 计价 →
   `EconomyDb.deduct` 只扣玩家资金（不入服务器资产）→ `inventory.add`，放不下掉落脚下。
-- `/balshop buymode` — 切换 `BuyModeManager`（见 package-buymode.md）。
+- `/bm` — 切换 `BuyModeManager`（见 package-buymode.md）。
 - 异常：NOT_CHEST / NOT_SHOP / ALREADY_SHOP / NOT_OWNER / PLAYER_ONLY / DB_ERROR / PAYER_INSUFFICIENT。
+- 注册：`/shop` 为商店主命令（原 /balshop 已移除）；`/price`、`/buy`、`/bm` 为顶层简化入口，
+  `/shop getprice|buy|buymode` 仍保留作为子命令。
+
+## `HongbaoCommands.java` — 红包
+
+- 注册：`/hongbao 总金额 数量 口令`（发红包）与 `/hongbao 口令`（领取），按参数个数区分。
+- 发红包：`Money.parseCents` 解析金额 → 校验 总金额 ≥ 数量（每个至少 0.01 元）→
+  `EconomyDb.deduct` 扣发红包者余额 → 存入内存表（口令 → 红包，同口令覆盖）→ 全员广播。
+- 领取：命中口令且有余量 → 金额 = 随机 1 ~ (总金额 / 数量) × 2 分（最后一个红包领剩余全部，
+  保证总额守恒；随机时给后续红包至少留 1 分）→ `EconomyDb.credit` 入账 → 全员广播
+  「领到 X 元，红包剩余 N 个」。
+- 内存存储：服务器重启后未领取的红包作废。
 
 ## `FlyCommands.java` — 付费飞行
 

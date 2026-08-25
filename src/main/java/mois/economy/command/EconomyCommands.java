@@ -75,7 +75,8 @@ public final class EconomyCommands {
 			"/tpaccept - 接受最近的传送请求",
 			"/back - 回到最近死亡点",
 			"/suicide - 自杀",
-			"/hongbao 总金额 数量 口令 - 发红包"
+			"/hongbao 总金额 数量 口令 - 发红包",
+			"/hongbao 口令 - 领取红包"
 	};
 
 	private EconomyCommands() {
@@ -85,6 +86,11 @@ public final class EconomyCommands {
 		BalshopCommands.register(dispatcher, buildContext);
 		FlyCommands.register(dispatcher, buildContext);
 		TeleportCommands.register(dispatcher, buildContext);
+		HongbaoCommands.register(dispatcher, buildContext);
+
+		dispatcher.register(Commands.literal("suicide")
+				.executes(EconomyCommands::suicide));
+
 		dispatcher.register(Commands.literal("bal")
 				.executes(ctx -> showBalance(ctx, null))
 				.then(Commands.argument("player", GameProfileArgument.gameProfile())
@@ -156,6 +162,15 @@ public final class EconomyCommands {
 				.then(Commands.literal("set")
 						.then(Commands.argument("amount", StringArgumentType.word())
 								.executes(EconomyCommands::pecoSet))));
+	}
+
+	// ---------- /suicide ----------
+
+	/** /suicide —— 直接自杀（致命伤害；死亡点由 /back 自动记录）。 */
+	private static int suicide(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+		ServerPlayer player = requirePlayer(ctx.getSource());
+		player.hurtServer(player.level(), player.damageSources().genericKill(), Float.MAX_VALUE);
+		return 1;
 	}
 
 	// ---------- /bal ----------

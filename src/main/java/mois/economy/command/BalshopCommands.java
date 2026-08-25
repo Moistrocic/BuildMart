@@ -61,7 +61,22 @@ public final class BalshopCommands {
 	}
 
 	public static void register(CommandDispatcher<CommandSourceStack> dispatcher, CommandBuildContext buildContext) {
-		dispatcher.register(Commands.literal("balshop")
+		// 简化命令：/shop 为商店主命令，/price /buy /bm 为顶层简化入口
+		registerShop(dispatcher, buildContext, "shop");
+		dispatcher.register(Commands.literal("price")
+				.then(Commands.argument("item", ItemArgument.item(buildContext))
+						.executes(BalshopCommands::getPrice)));
+		dispatcher.register(Commands.literal("buy")
+				.then(Commands.argument("item", ItemArgument.item(buildContext))
+						.then(Commands.argument("count", IntegerArgumentType.integer(1, MAX_BUY_COUNT))
+								.executes(BalshopCommands::buy))));
+		dispatcher.register(Commands.literal("bm")
+				.executes(BalshopCommands::buyMode));
+	}
+
+	private static void registerShop(CommandDispatcher<CommandSourceStack> dispatcher,
+			CommandBuildContext buildContext, String name) {
+		dispatcher.register(Commands.literal(name)
 				.then(Commands.literal("create")
 						.executes(BalshopCommands::create))
 				.then(Commands.literal("remove")

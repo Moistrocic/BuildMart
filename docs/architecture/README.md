@@ -7,11 +7,11 @@
 
 - [README.md](README.md) — 项目总览、构建信息、全局约定（本文）
 - [package-root.md](package-root.md) — 根包：`Economy`（入口）、`Money`（金额工具）、`PriceLore`（价格标签）
-- [package-command.md](package-command.md) — `command` 包：全部指令（bal/pbal/pay/baltop/balhelp/eco/peco/balshop/fly）
+- [package-command.md](package-command.md) — `command` 包：全部指令（bal/pbal/pay/baltop/balhelp/eco/peco/shop/fly）
 - [package-config.md](package-config.md) — `config` 包：三个 JSON 配置 + 物品初始定价表
 - [package-data.md](package-data.md) — `data` 包：SQLite 资金数据库
 - [package-shop.md](package-shop.md) — `shop` 包：箱子商店（创建/出售/保护/持久化）
-- [package-buymode.md](package-buymode.md) — `buymode` 包：/balshop buymode 便捷购买
+- [package-buymode.md](package-buymode.md) — `buymode` 包：/bm 便捷购买
 - [package-fly.md](package-fly.md) — `fly` 包：/fly 付费飞行
 - [package-teleport.md](package-teleport.md) — `teleport` 包：/home /sethome /tpa /tpahere /tpaccept /back
 - [package-mixin.md](package-mixin.md) — 全部 9 个 Mixin（注入点、原因、注意事项）
