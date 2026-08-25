@@ -81,7 +81,7 @@ public final class FishingManager {
 					ENTRIES.add(new Entry(stack, chance));
 					sum += chance;
 				}
-				if (sum > 1.0) {
+				if (sum > 1.0 + 1e-9) {
 					throw new IllegalArgumentException("普通项概率之和为 " + sum + "，不能大于 1");
 				}
 				if (fillStack != null) {
