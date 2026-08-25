@@ -80,6 +80,9 @@ public final class FishingInitialLoot {
 		loot.add(lootEntry(item("minecraft:dragon_egg", 1, lore("谁家的蛋？")), 0.0019));
 		// ---- 0.01%：刷怪笼 ----
 		loot.add(lootEntry(item("minecraft:spawner", 1, lore("不是哥们？")), 0.0001));
+		// ---- 补全项：剩余概率 = 空气（钓到空气）。当前各组合计正好 100%，
+		// 因此该项概率为 0、不会触发；如需留概率给空气，需调低其它组概率 ----
+		loot.add(lootEntry(item("minecraft:air"), "remaining"));
 		return GSON.toJson(loot);
 	}
 
