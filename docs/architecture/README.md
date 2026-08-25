@@ -29,7 +29,7 @@
   保证单人游戏内置服务器也加载，见规则书 3.3）；`src/client` 仅客户端（目前只有空的 `EconomyClient`）。
 - **入口**：`fabric.mod.json` → main `mois.economy.Economy`，client `mois.economy.client.EconomyClient`；
   mixin 配置 `economy.mixins.json`（12 个 mixin，`defaultRequire: 1`，包 `mois.economy.mixin`）。
-- **启动标记**：`Economy Mod Loaded!`（Economy.onInitialize 末尾打印；规则书 RULES.md 4.2 以此为准）。
+- **启动标记**：`Economy Mod Loaded!`（Economy.onInitialize 末尾打印；规则书 AGENTS.md 4.2 以此为准）。
 
 ## 全局约定（改动代码前必读）
 
@@ -96,4 +96,4 @@
 
 - 版本号在 `gradle.properties` 的 `version=`，历史上以独立 `chore:` 提交推进（1.0 → 1.1 → 1.2 → 1.3 → 2.0 → 2.1 → 3.0 → 3.1）。
 - 功能提交惯例：`feat:`（新功能）、`fix:`（缺陷）、`chore:`（版本/杂项），中文描述（见 `git log`）。
-- 规则书 `docs/spec/RULES.md` 约束提交粒度、Fabric API 优先、纯净端兼容与启动验证流程。
+- 规则书 `AGENTS.md` 约束提交粒度、Fabric API 优先、纯净端兼容与启动验证流程。
