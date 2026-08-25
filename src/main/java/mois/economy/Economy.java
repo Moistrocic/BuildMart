@@ -53,6 +53,9 @@ public class Economy implements ModInitializer {
 			Path worldDir = server.getWorldPath(LevelResource.ROOT);
 			EconomyDb.open(worldDir.resolve("economy.db"));
 			ShopManager.init(worldDir);
+			// 趣味钓鱼战利品配置（需要已就绪的 RegistryAccess 解析物品）
+			mois.economy.fishing.FishingManager.load(
+					FabricLoader.getInstance().getConfigDir(), server.registryAccess());
 		});
 		ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
 			ShopManager.save();

@@ -11,6 +11,7 @@
 		"CraftingMenuMixin",
 		"ServerGamePacketListenerImplMixin",
 		"ServerPlayerGameModeMixin",
+		"FishingHookMixin",
 		"ExplosionDamageCalculatorMixin",
 		"ServerExplosionMixin",
 		"LevelMixin"

@@ -34,6 +34,8 @@ public final class EconomyConfig {
 	public static final boolean DEFAULT_ITEM_PRICES_IN_LORE = true;
 	/** 默认飞行扣费：500.00 元/秒（50000 分/秒）。 */
 	public static final long DEFAULT_FLY_FEE_CENTS = 50000L;
+	/** 默认趣味钓鱼开关：关闭（使用原版钓鱼战利品）。 */
+	public static final boolean DEFAULT_FUN_FISHING = false;
 
 	// ---------- 传送默认值 ----------
 	/** 默认家数量上限：0 = 未开放。 */
@@ -73,6 +75,7 @@ public final class EconomyConfig {
 
 	private static boolean itemPricesInLore = DEFAULT_ITEM_PRICES_IN_LORE;
 	private static long flyFeeCents = DEFAULT_FLY_FEE_CENTS;
+	private static boolean funFishing = DEFAULT_FUN_FISHING;
 	private static HomeSettings homeSettings = new HomeSettings(DEFAULT_HOME_MAX, DEFAULT_FEES);
 	private static TpaSettings tpaSettings = new TpaSettings(false, DEFAULT_FEES, DEFAULT_TPA_TIMEOUT_SECONDS);
 	private static BackSettings backSettings = new BackSettings(false, DEFAULT_FEES);
@@ -90,6 +93,7 @@ public final class EconomyConfig {
 		Map<String, Entry> map = new HashMap<>(24);
 		map.put("itemPricesInLore", new Entry("bool", "物品价格 lore 显示开关"));
 		map.put("flyFeePerSecond", new Entry("money", "付费飞行每秒扣费（元）"));
+		map.put("funFishing", new Entry("bool", "趣味钓鱼开关（关闭=原版钓鱼战利品）"));
 		map.put("home.max", new Entry("int", "家数量上限（0 = 未开放）"));
 		map.put("home.cooldownSeconds", new Entry("int", "回家冷却（秒）"));
 		map.put("home.fixedFee", new Entry("bool", "回家固定收费开关"));
@@ -133,6 +137,9 @@ public final class EconomyConfig {
 			}
 			case "flyFeePerSecond" -> {
 				return Money.format(flyFeeCents);
+			}
+			case "funFishing" -> {
+				return Boolean.toString(funFishing);
 			}
 			case "home.max" -> {
 				return String.valueOf(homeSettings.max());
@@ -218,6 +225,14 @@ public final class EconomyConfig {
 					return "flyFeePerSecond 需要非负金额（如 500.00）";
 				}
 				flyFeeCents = cents;
+				return null;
+			}
+			case "funFishing" -> {
+				Boolean b = parseBool(value);
+				if (b == null) {
+					return "funFishing 需要 true 或 false";
+				}
+				funFishing = b;
 				return null;
 			}
 			case "home.max" -> {
@@ -390,6 +405,7 @@ public final class EconomyConfig {
 		JsonObject root = new JsonObject();
 		root.addProperty("itemPricesInLore", itemPricesInLore);
 		root.addProperty("flyFeePerSecond", Money.format(flyFeeCents));
+		root.addProperty("funFishing", funFishing);
 		root.add("home", sectionJson(homeSettings.max(), null, homeSettings.fees()));
 		root.add("tpa", sectionJson(-1, tpaSettings, tpaSettings.fees()));
 		root.add("back", sectionJson(-1, backSettings, backSettings.fees()));
@@ -489,6 +505,9 @@ public final class EconomyConfig {
 					flyFeeCents = DEFAULT_FLY_FEE_CENTS;
 				}
 			}
+			if (root.has("funFishing")) {
+				funFishing = root.get("funFishing").getAsBoolean();
+			}
 			homeSettings = readHome(root.getAsJsonObject("home"));
 			tpaSettings = readTpa(root.getAsJsonObject("tpa"));
 			backSettings = readBack(root.getAsJsonObject("back"));
@@ -508,6 +527,11 @@ public final class EconomyConfig {
 	/** 付费飞行每秒扣费（分）。 */
 	public static long flyFeeCents() {
 		return flyFeeCents;
+	}
+
+	/** 趣味钓鱼开关（开启时用自定义钓鱼战利品，关闭时用原版）。 */
+	public static boolean funFishing() {
+		return funFishing;
 	}
 
 	public static HomeSettings homeSettings() {
