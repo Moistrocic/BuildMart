@@ -100,6 +100,8 @@ public final class EconomyConfig {
 		map.put("itemPricesInLore", new Entry("bool", "物品价格 lore 显示开关"));
 		map.put("flyFeePerSecond", new Entry("money", "付费飞行每秒扣费（元）"));
 		map.put("funFishing", new Entry("bool", "趣味钓鱼开关（关闭=原版钓鱼战利品）"));
+		map.put("balop.host", new Entry("string", "数据库管理前端监听地址（/balop 重启后生效）"));
+		map.put("balop.port", new Entry("int", "数据库管理前端端口 1-65535（/balop 重启后生效）"));
 		map.put("home.max", new Entry("int", "家数量上限（0 = 未开放）"));
 		map.put("home.cooldownSeconds", new Entry("int", "回家冷却（秒）"));
 		map.put("home.fixedFee", new Entry("bool", "回家固定收费开关"));
@@ -146,6 +148,12 @@ public final class EconomyConfig {
 			}
 			case "funFishing" -> {
 				return Boolean.toString(funFishing);
+			}
+			case "balop.host" -> {
+				return balopHost;
+			}
+			case "balop.port" -> {
+				return String.valueOf(balopPort);
 			}
 			case "home.max" -> {
 				return String.valueOf(homeSettings.max());
@@ -239,6 +247,21 @@ public final class EconomyConfig {
 					return "funFishing 需要 true 或 false";
 				}
 				funFishing = b;
+				return null;
+			}
+			case "balop.host" -> {
+				if (value == null || value.trim().isEmpty()) {
+					return "balop.host 不能为空";
+				}
+				balopHost = value.trim();
+				return null;
+			}
+			case "balop.port" -> {
+				Integer v = parseNonNegativeInt(value);
+				if (v == null || v < 1 || v > 65535) {
+					return "balop.port 需要 1-65535 的整数";
+				}
+				balopPort = v;
 				return null;
 			}
 			case "home.max" -> {

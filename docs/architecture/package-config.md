@@ -10,6 +10,8 @@
   - `funFishing`（boolean，默认 false）——趣味钓鱼开关（开启用 fishing.json 战利品，关闭用原版）。
   - `balop`（数据库管理前端段）——`host`（默认 "localhost"，改绑外部地址无鉴权请自担风险）、
     `port`（默认 8899，范围 1-65535）；由 `/balop start` 时读取。
+    **同时是 /config 动态项**：`balop.host`（string）、`balop.port`（int），
+    修改后需 `/balop stop` + `/balop start` 生效。
   - `home` / `tpa` / `back`（传送配置段，见下）。
 - 传送配置段字段（`home` 无 enabled；`tpa`/`back` 有 enabled；`tpa` 另有 timeoutSeconds）：
   `max`（home，默认 0 = 未开放）、`enabled`（tpa/back，默认 false）、`cooldownSeconds`（默认 0）、

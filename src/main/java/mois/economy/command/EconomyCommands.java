@@ -156,9 +156,15 @@ public final class EconomyCommands {
 			ctx.getSource().sendFailure(Component.literal(error));
 			return 0;
 		}
-		ctx.getSource().sendSuccess(() -> Component.literal(
-				"数据库管理前端已启动：" + mois.economy.balop.BalopServer.address())
-				.withStyle(ChatFormatting.GREEN), true);
+		String url = mois.economy.balop.BalopServer.address();
+		ctx.getSource().sendSuccess(() -> Component.literal("数据库管理前端已启动：")
+				.withStyle(ChatFormatting.GREEN)
+				.append(Component.literal(url)
+						.withStyle(style -> style.withColor(ChatFormatting.AQUA)
+								.withClickEvent(new net.minecraft.network.chat.ClickEvent.OpenUrl(
+										java.net.URI.create(url)))
+								.withHoverEvent(new net.minecraft.network.chat.HoverEvent.ShowText(
+										Component.literal("点击打开管理面板"))))), true);
 		return 1;
 	}
 
