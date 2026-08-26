@@ -167,15 +167,20 @@ public abstract class ServerGamePacketListenerImplMixin {
 				player.level().getServer().getTickCount());
 	}
 
-	/** 挂起的槽位出现与本包是否构成对称交换（数字键 SWAP：两槽内容互换）。 */
+	/**
+	 * 挂起的槽位出现与本包是否构成对称交换（数字键 SWAP：两槽内容互换）。
+	 * 锚点用「挂起原内容 prev」而非「消失记录 vanished」：空槽交换（悬停空槽
+	 * 按数字键把快捷栏物品移到空槽）时 vanished 为空，只有 prev 才是配对锚点；
+	 * 非空交换时两者等价（prev 与 vanished 同物）。允许一方/双方为空槽。
+	 */
 	@Unique
 	private static boolean isSwapPair(BuyModeSession.PendingSlot pending,
 			ItemStack prev, ItemStack newStack) {
-		return !pending.next().isEmpty() && !pending.vanished().isEmpty()
+		return !pending.next().isEmpty()
 				&& BuyModeSession.sameItemAndComponents(pending.next(), prev)
 				&& pending.next().getCount() == prev.getCount()
-				&& BuyModeSession.sameItemAndComponents(pending.vanished(), newStack)
-				&& pending.vanished().getCount() == newStack.getCount();
+				&& BuyModeSession.sameItemAndComponents(pending.prev(), newStack)
+				&& pending.prev().getCount() == newStack.getCount();
 	}
 
 	/**

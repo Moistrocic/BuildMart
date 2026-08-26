@@ -71,8 +71,9 @@
      - 槽位出现物品：增量匹配暂存（同 item+组件，untag 归一比较）→ 中性放回；
      - **增量超出暂存（面板叠放）或与暂存完全不同 → 一律先挂起 `session.pendingSlot`**
        （槽位暂不修改，记录 prev/next/vanished/unbought），不再立即购买：
-       - 下一个槽位包构成**对称交换**（本包原内容 = 挂起 next 且本包出现 = 挂起 vanished，
-         同 item+组件+数量，`isSwapPair`）→ **数字键/槽间交换**（26.3 创造界面数字键 1-9
+       - 下一个槽位包构成**对称交换**（本包原内容 = 挂起 next 且本包出现 = 挂起 prev，
+         同 item+组件+数量，`isSwapPair`；锚点用 prev 而非 vanished——**空槽交换**时
+         vanished 为空，prev 才是配对锚点）→ **数字键/槽间交换**（26.3 创造界面数字键 1-9
          对悬停物品执行 SWAP，客户端本地交换后经 `broadcastChanges` 把两个变化槽逐槽上报）：
          双槽中性放回，不扣款、不提示、无暂存残留；
        - 配对失败 / **挂起 ≥2 tick 无配对包**（服务端 tick → `BuyModeSettlement.settlePendingSlot`）：

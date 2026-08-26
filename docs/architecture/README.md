@@ -87,7 +87,7 @@
 | 打开熔炉后烧制停止 | tagMenu 给机器输出槽打标 → `canBurn` 组件比对失败 | `PriceLore.tagMenu` 跳过熔炉/酿造容器槽 |
 | buymode 秒破方块无掉落 | instabuild 使客户端走创造破坏 | `ServerPlayerGameModeMixin.destroyBlock` buymode 取消 |
 | buymode 拿到改造 NBT 物品 | 保存的快捷栏（标签页/热键）加载客户端本地数据 | buymode 购买方向严格比对原版创造物品栏 `isVanillaCreativeItem` |
-| buymode 数字键 1-9 交换背包物品 | 创造界面数字键对悬停槽执行 SWAP，客户端本地交换后两个槽位包逐槽上报，逐包购买判定误判交换 | 「出现不匹配暂存」先挂起 pendingSlot，下一包构成对称交换（`isSwapPair`）→ 中性双槽放回；否则/超时才按面板购买或拒绝（拒绝撤销消失记录，杜绝残留白嫖/复制） |
+| buymode 数字键 1-9 交换背包物品 | 创造界面数字键对悬停槽执行 SWAP，客户端本地交换后两个槽位包逐槽上报，逐包购买判定误判交换 | 「出现不匹配暂存」先挂起 pendingSlot，下一包构成对称交换（`isSwapPair`，锚点用挂起 prev 允许空槽）→ 中性双槽放回；否则/超时才按面板购买或拒绝（拒绝撤销消失记录，杜绝残留白嫖/复制） |
 | 纯净端被踢 | 自定义命令参数类型进同步注册表 | 只用原版参数类型（规则书 3.1） |
 | 管理员红名递归 | `createCommandSourceStack()` 会调 `getDisplayName()`（被 PlayerMixin 注入） | `AdminUtil` 用 `player.level().getServer()` |
 | `/eco` 目标解析 | word 参数手动解析选择器 | `EconomyTargets.resolve` 复用 `EntitySelectorParser` |
