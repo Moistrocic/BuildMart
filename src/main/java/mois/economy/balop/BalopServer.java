@@ -86,10 +86,26 @@ public final class BalopServer {
 	private static ScheduledExecutorService sweeper;
 	private static String host;
 	private static int port;
-	/** token -> 会话（多管理员独立会话）。 */
+	/** token -> 会话（请求验证用）。 */
 	private static final Map<String, Session> SESSIONS = new ConcurrentHashMap<>();
+	/** 管理员 UUID -> 当前会话 token（显式绑定：判断是否已开启会话 O(1)；
+	 *  会话失效（超时/stop/服务器关闭）时自动清空对应绑定）。 */
+	private static final Map<UUID, String> OWNER_SESSIONS = new ConcurrentHashMap<>();
 
 	private BalopServer() {
+	}
+
+	/** 登记新会话：写入 token 索引并绑定到管理员。 */
+	private static void putSession(Session session) {
+		SESSIONS.put(session.token, session);
+		OWNER_SESSIONS.put(session.ownerUuid, session.token);
+	}
+
+	/** 移除会话并自动清空管理员绑定（条件移除：仅当绑定仍指向该会话时才清，
+	 *  防止旧会话超时清理误删同一管理员新会话的绑定）。 */
+	private static void removeSession(Session session) {
+		SESSIONS.remove(session.token);
+		OWNER_SESSIONS.remove(session.ownerUuid, session.token);
 	}
 
 	public static boolean isRunning() {
@@ -102,23 +118,21 @@ public final class BalopServer {
 	}
 
 	/**
-	 * 管理员开启管理会话：**一个管理员同时只能有一个会话**——已有活跃会话时拒绝
-	 * （提示先 /balop stop 再 /balop start）；会话丢失（超时被清理/stop 后）可重新开启。
-	 * 创建独立 token 会话；HTTP 服务器未运行时按给定 host/port 启动（已运行则复用）。
-	 * 返回带 token 的访问地址；失败返回错误信息。
+	 * 管理员开启管理会话：**一个管理员同时只能有一个会话**（UUID ↔ token 显式绑定）——
+	 * 已绑定会话时拒绝（提示先 /balop stop 再 /balop start）；会话失效（超时被清理/
+	 * stop 后绑定已清空）可重新开启。创建独立 token 会话；HTTP 服务器未运行时按给定
+	 * host/port 启动（已运行则复用）。返回带 token 的访问地址；失败返回错误信息。
 	 */
 	public static synchronized String start(UUID ownerUuid, String ownerName, String listenHost, int listenPort) {
-		for (Session s : SESSIONS.values()) {
-			if (s.ownerUuid.equals(ownerUuid)) {
-				return "你已有开启中的管理前端会话，请先执行 /balop stop 再 /balop start";
-			}
+		if (OWNER_SESSIONS.containsKey(ownerUuid)) {
+			return "你已有开启中的管理前端会话，请先执行 /balop stop 再 /balop start";
 		}
 		String startError = ensureServer(listenHost, listenPort);
 		if (startError != null) {
 			return startError;
 		}
 		Session session = new Session(ownerUuid, ownerName);
-		SESSIONS.put(session.token, session);
+		putSession(session);
 		LOGGER.info("管理前端会话已创建：{}（{}），当前 {} 个会话", ownerName, session.token.substring(0, 8),
 				SESSIONS.size());
 		return address() + "/?token=" + session.token;
@@ -164,7 +178,7 @@ public final class BalopServer {
 			long now = System.currentTimeMillis();
 			for (Session s : SESSIONS.values()) {
 				if (now - s.lastAccess > SESSION_IDLE_TIMEOUT_MS) {
-					SESSIONS.remove(s.token);
+					removeSession(s); // 会话失效：自动清空 UUID -> token 绑定
 					LOGGER.info("管理前端会话已超时关闭：{}（{}），剩余 {} 个会话", s.ownerName,
 							s.token.substring(0, 8), SESSIONS.size());
 				}
@@ -173,20 +187,19 @@ public final class BalopServer {
 	}
 
 	/**
-	 * 管理员关闭自己的全部会话（不影响其他管理员的会话）；
+	 * 管理员关闭自己的会话（经 UUID 绑定定位 token，不影响其他管理员的会话）；
 	 * 会话清空后 HTTP 服务器一并停止。
 	 */
 	public static synchronized int stop(UUID ownerUuid) {
 		int removed = 0;
-		for (Session s : SESSIONS.values()) {
-			if (s.ownerUuid.equals(ownerUuid)) {
-				SESSIONS.remove(s.token);
-				removed++;
+		String token = OWNER_SESSIONS.remove(ownerUuid);
+		if (token != null) {
+			Session s = SESSIONS.remove(token);
+			if (s != null) {
+				removed = 1;
+				LOGGER.info("管理前端会话已关闭：{}（{}），剩余 {} 个会话",
+						s.ownerName, s.token.substring(0, 8), SESSIONS.size());
 			}
-		}
-		if (removed > 0) {
-			LOGGER.info("管理前端会话已关闭：{}（{} 个），剩余 {} 个会话",
-					ownerUuid, removed, SESSIONS.size());
 		}
 		if (SESSIONS.isEmpty()) {
 			stopServer();
@@ -194,10 +207,11 @@ public final class BalopServer {
 		return removed;
 	}
 
-	/** 服务器关闭：关闭全部会话与 HTTP 服务（SERVER_STOPPING 调用）。 */
+	/** 服务器关闭：关闭全部会话（含 UUID 绑定）与 HTTP 服务（SERVER_STOPPING 调用）。 */
 	public static synchronized void shutdownAll() {
 		int count = SESSIONS.size();
 		SESSIONS.clear();
+		OWNER_SESSIONS.clear();
 		stopServer();
 		if (count > 0) {
 			LOGGER.info("管理前端已随服务器关闭（{} 个会话）", count);
