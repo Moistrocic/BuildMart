@@ -153,21 +153,22 @@ public final class EconomyCommands {
 	 */
 	private static int balopStart(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
 		ServerPlayer player = requirePlayer(ctx.getSource());
-		String url = mois.economy.balop.BalopServer.start(player.getUUID(),
+		String result = mois.economy.balop.BalopServer.start(player.getUUID(),
 				player.getGameProfile().name(),
 				mois.economy.config.EconomyConfig.balopHost(),
 				mois.economy.config.EconomyConfig.balopPort());
-		if (url == null || url.startsWith("启动管理前端失败")) {
-			ctx.getSource().sendFailure(Component.literal(url == null ? "未知错误" : url));
+		// 成功返回 http:// 开头的访问地址；其余一律为错误提示（直接展示给玩家）
+		if (result == null || !result.startsWith("http://")) {
+			ctx.getSource().sendFailure(Component.literal(result == null ? "未知错误" : result));
 			return 0;
 		}
-		String finalUrl = url;
+		String url = result;
 		ctx.getSource().sendSuccess(() -> Component.literal("数据库管理前端已启动：")
 				.withStyle(ChatFormatting.GREEN)
-				.append(Component.literal(finalUrl)
+				.append(Component.literal(url)
 						.withStyle(style -> style.withColor(ChatFormatting.AQUA)
 								.withClickEvent(new net.minecraft.network.chat.ClickEvent.OpenUrl(
-										java.net.URI.create(finalUrl)))
+										java.net.URI.create(url)))
 								.withHoverEvent(new net.minecraft.network.chat.HoverEvent.ShowText(
 										Component.literal("点击打开管理面板"))))), true);
 		return 1;
