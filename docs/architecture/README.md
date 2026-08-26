@@ -54,10 +54,9 @@
 7. **数据库**：SQLite 存 `world/economy.db`（WAL）；所有 `EconomyDb` 方法 `synchronized`，
    未 open 时 `requireOpen()` 抛运行时 `DatabaseException`；服务器公共账户已移除；baltop 显示服务器总资产（玩家余额之和）。
    **余额允许为负**（管理前端删除交易记录回滚造成；玩家侧 deduct/转账仍检查余额）。
-   买卖流水存 `economy_transactions`（type=BUY/SELL、channel=SHOP/BM、物品/数量/金额/交易后余额/时间
-   + `item_data` 完整物品组件数据），记录点：`ShopManager.sell`（商店每格出售）、
-   `BuyModeSettlement.sendBuy/sendSell/sendRefund` 与 `BuyModeSession.settleAndClear`（bm 买卖）；
-   记录失败静默不影响资金结算。旧库自动迁移（移除余额非负约束、补 item_data 列）。
+   **资金流水（强制约定，见 AGENTS.md 第 6 节）**：一切资金变化都写入 `economy_transactions`——
+   买卖（BUY/SELL，带 item_data 完整物品数据）与转账/管理/扣费/红包（recordMoneyLog，金额变化量）；
+   记录失败一律静默。旧库自动迁移（移除余额非负约束、补 item_data 列）。
 8. **配置**：`config/economy/` 下 `config.json`（主配置：itemPricesInLore / flyFeePerSecond / funFishing /
    home / tpa / back 传送段，`/config` 可热重载）、`items.json`（物品价）、`enchantments.json`（附魔价）、
    `fishing.json`（趣味钓鱼战利品），首次运行自动生成；商店数据 `world/economy-shops.json`；家与死亡点存数据库

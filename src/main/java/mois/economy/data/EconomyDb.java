@@ -27,14 +27,46 @@ public final class EconomyDb {
 
 	// ---------- 交易记录（买卖流水） ----------
 
-	/** 交易类型：购买。 */
+	/** 交易类型：购买（花钱获得物品，删除记录时退款收回 +price）。 */
 	public static final String TYPE_BUY = "BUY";
-	/** 交易类型：出售。 */
+	/** 交易类型：出售（物品消失换钱，删除记录时扣回所得 -price）。 */
 	public static final String TYPE_SELL = "SELL";
+	/** 交易类型：转账收入（/pay）。 */
+	public static final String TYPE_TRANSFER_IN = "TRANSFER_IN";
+	/** 交易类型：转账支出（/pay）。 */
+	public static final String TYPE_TRANSFER_OUT = "TRANSFER_OUT";
+	/** 交易类型：管理员加钱（/eco add、管理面板）。 */
+	public static final String TYPE_ADMIN_ADD = "ADMIN_ADD";
+	/** 交易类型：管理员扣钱（/eco remove、管理面板）。 */
+	public static final String TYPE_ADMIN_SUB = "ADMIN_SUB";
+	/** 交易类型：管理员设置余额（/eco set、管理面板）。 */
+	public static final String TYPE_ADMIN_SET = "ADMIN_SET";
+	/** 交易类型：系统扣费（飞行/传送等）。 */
+	public static final String TYPE_FEE = "FEE";
+	/** 交易类型：发出红包。 */
+	public static final String TYPE_REDPACKET_SEND = "REDPACKET_SEND";
+	/** 交易类型：领取红包。 */
+	public static final String TYPE_REDPACKET_CLAIM = "REDPACKET_CLAIM";
+	/** 交易类型：红包过期返还。 */
+	public static final String TYPE_REDPACKET_REFUND = "REDPACKET_REFUND";
 	/** 交易渠道：/bm 便捷购买。 */
 	public static final String CHANNEL_BM = "BM";
 	/** 交易渠道：/shop 箱子商店自动出售。 */
 	public static final String CHANNEL_SHOP = "SHOP";
+	/** 交易渠道：/pay 转账。 */
+	public static final String CHANNEL_PAY = "PAY";
+	/** 交易渠道：/eco 管理员指令。 */
+	public static final String CHANNEL_ECO = "ECO";
+	/** 交易渠道：管理前端（/balop）。 */
+	public static final String CHANNEL_BALOP = "BALOP";
+	/** 交易渠道：飞行扣费。 */
+	public static final String CHANNEL_FLY = "FLY";
+	/** 交易渠道：传送扣费。 */
+	public static final String CHANNEL_TP = "TP";
+	/** 交易渠道：/buy 指令购买。 */
+	public static final String CHANNEL_BUY = "BUY";
+	/** 交易渠道：红包。 */
+	public static final String CHANNEL_REDPACKET = "REDPACKET";
 
 	private static Connection connection;
 	private static Path dbPath;
@@ -282,6 +314,19 @@ public final class EconomyDb {
 				throw new IllegalStateException("删除交易记录后流水未清空");
 			}
 			setBalance(a, "自检A", 700L);
+			// 非买卖流水（转账/管理/扣费等）：记录 + 删除仅删记录、不回滚资金
+			recordMoneyLog(a, "自检A", TYPE_TRANSFER_OUT, CHANNEL_PAY, "转账测试", -100L);
+			List<TransactionEntry> logs = recentTransactions(a, 10);
+			TransactionEntry logEntry = logs.stream()
+					.filter(t -> t.type().equals(TYPE_TRANSFER_OUT)).findFirst().orElse(null);
+			if (logEntry == null || logEntry.price() != -100L) {
+				throw new IllegalStateException("非买卖流水写入/读取不一致");
+			}
+			long balanceBeforeDelete = getBalance(a);
+			rollbacks = deleteTransactionsWithRollback(List.of(logEntry.id()));
+			if (rollbacks.size() != 1 || getBalance(a) != balanceBeforeDelete) {
+				throw new IllegalStateException("非买卖流水删除不应回滚资金");
+			}
 		} finally {
 			deleteAccount(a);
 			deleteAccount(b);
@@ -854,7 +899,7 @@ public final class EconomyDb {
 			ps.setString(2, name);
 			ps.setString(3, type);
 			ps.setString(4, channel);
-			ps.setString(5, itemId);
+			ps.setString(5, itemId == null ? "" : itemId);
 			ps.setString(6, itemName);
 			ps.setString(7, itemData);
 			ps.setInt(8, count);
@@ -865,6 +910,16 @@ public final class EconomyDb {
 		} catch (SQLException e) {
 			throw new DatabaseException("记录交易失败", e);
 		}
+	}
+
+	/**
+	 * 记录非买卖类资金流水（转账/管理操作/系统扣费/红包等）：item 字段用描述占位，
+	 * price 为资金变化量（分，入账为正、扣款为负）。**约定：一切资金变化行为
+	 * 都必须经此记录**（后续新功能同样遵守，见 docs/architecture/README.md 全局约定）。
+	 */
+	public static synchronized void recordMoneyLog(UUID uuid, String name, String type, String channel,
+			String description, long price) {
+		recordTransaction(uuid, name, type, channel, "", description, null, 0, price);
 	}
 
 	/** 查询玩家最近的交易流水（按时间倒序，limit 条）。 */
@@ -988,7 +1043,9 @@ public final class EconomyDb {
 	/**
 	 * 删除交易记录并同步回滚玩家资金（原子事务）：删除一条 BUY 记录 = 撤销
 	 * 该笔购买 → 退款收回（余额 +price）；删除一条 SELL 记录 = 撤销该笔卖出 →
-	 * 卖出所得扣回（余额 -price）。回滚后余额可能为负（账户表已允许）。
+	 * 卖出所得扣回（余额 -price）。**仅 BUY/SELL（有物品成交的交易）回滚资金**；
+	 * 其他类型（转账/管理/扣费/红包）删除时仅删记录、不动资金（撤销它们需要
+	 * 复杂的多方调整，超出「删除交易」语义）。回滚后余额可能为负（账户表已允许）。
 	 * 返回每条记录的处理结果；不存在的 id 跳过。
 	 */
 	public static synchronized List<RollbackResult> deleteTransactionsWithRollback(List<Long> ids) {
@@ -1027,15 +1084,22 @@ public final class EconomyDb {
 					ps.setLong(1, id);
 					ps.executeUpdate();
 				}
-				// 回滚资金：BUY 退款收回、SELL 所得扣回（允许余额为负）
-				long delta = TYPE_BUY.equals(tx.type()) ? tx.price() : -tx.price();
+				// 回滚资金（仅 BUY/SELL）：BUY 退款收回、SELL 所得扣回（允许余额为负）
+				long delta = 0;
+				if (TYPE_BUY.equals(tx.type())) {
+					delta = tx.price();
+				} else if (TYPE_SELL.equals(tx.type())) {
+					delta = -tx.price();
+				}
 				long newBalance;
-				try (PreparedStatement ps = connection.prepareStatement("""
-						UPDATE economy_accounts SET balance = balance + ? WHERE uuid = ?
-						""")) {
-					ps.setLong(1, delta);
-					ps.setString(2, tx.uuid().toString());
-					ps.executeUpdate();
+				if (delta != 0) {
+					try (PreparedStatement ps = connection.prepareStatement("""
+							UPDATE economy_accounts SET balance = balance + ? WHERE uuid = ?
+							""")) {
+						ps.setLong(1, delta);
+						ps.setString(2, tx.uuid().toString());
+						ps.executeUpdate();
+					}
 				}
 				try (PreparedStatement ps = connection.prepareStatement(
 						"SELECT balance FROM economy_accounts WHERE uuid = ?")) {

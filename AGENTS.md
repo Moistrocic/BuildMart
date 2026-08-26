@@ -83,7 +83,18 @@
 - 验证用临时服务器（如 `run-verify` 独立运行目录）同样需要先写入上述三项，再启动服务器与客户端连接验证。
 - 管理员权限验证需要预先准备 `world/ops.json`（26.3 格式：`{"uuid","name","level","bypassesPlayerLimit"}`，`level` 为整数 3=ADMINS）。
 
-## 5. 代码地图（新会话接续开发前必读）
+## 6. 资金变化必须记录流水（后续开发强制约定）
+
+- **任何改变玩家资金的行为都必须写入 `economy_transactions` 流水**（用户明确要求，永久有效）：
+  - 买卖（BUY/SELL）用 `EconomyDb.recordTransaction`（带物品完整组件数据 item_data）；
+  - 转账/管理操作/系统扣费/红包等用 `EconomyDb.recordMoneyLog`（描述 + 金额变化量，
+    入账为正、扣款为负）；
+  - type/channel 枚举见 `EconomyDb` 常量与 `docs/architecture/package-data.md`；
+    新增资金行为时先检查是否已有对应 type/channel，没有则补充常量并同步文档。
+- 记录失败必须静默（try-catch `DatabaseException`），**绝不能影响资金操作主流程**。
+- 删除记录的回滚资金仅适用于 BUY/SELL（见 `deleteTransactionsWithRollback`）。
+
+## 7. 代码地图（新会话接续开发前必读）
 
 - 本仓库的架构文档位于 `docs/architecture/`：**`README.md` 是代码地图总览**——按包组织，包含构建信息、全局约定（金额单位、纯净端兼容、价格标签生命周期、26.3 同步协议等）与“已知坑位速查”表。新会话接续开发前**必须先读 `docs/architecture/README.md`**，再按需查阅对应 `package-*.md`。
 - 包文档清单：

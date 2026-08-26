@@ -20,7 +20,8 @@
   | `recordDeath(player)` | 死亡点记录（back 配置关闭时不记录） |
   | `teleportAndCharge(mover, payerUuid, payerName, toLevel, toPos, fees, cooldownMap, server)` | 核心执行 |
 - **执行流程**（teleportAndCharge）：冷却检查（剩余秒数提示）→ 费用计算 → 读余额/扣款
-  （不足或 DB 错误返回失败）→ `mover.teleportTo(toLevel, x, y, z, Set.of(), yaw, pitch, false)` →
+  （不足或 DB 错误返回失败；扣款成功写资金流水 FEE，channel=TP，记录失败静默）→
+  `mover.teleportTo(toLevel, x, y, z, Set.of(), yaw, pitch, false)` →
   记录冷却 → 成功消息（含费用）。
 - **费用规则**：fixedFee 开启 → 固定 fixedFeeAmount；否则同维度 → `ceil(距离) × perDistanceFee`；
   跨维度 → 仅收 crossDimensionFee（额外，不计距离）。

@@ -202,6 +202,7 @@ public final class BalopServer {
 							return;
 						}
 						newBalance = EconomyDb.adjustBalance(uuid, name, amount);
+						recordAdminLog(uuid, name, EconomyDb.TYPE_ADMIN_ADD, "管理面板加钱", amount);
 					}
 					case "deduct" -> {
 						if (amount < 0) {
@@ -210,10 +211,13 @@ public final class BalopServer {
 						}
 						// 管理扣款允许扣成负数（回滚场景），与玩家侧 deduct 的余额检查不同
 						newBalance = EconomyDb.adjustBalance(uuid, name, -amount);
+						recordAdminLog(uuid, name, EconomyDb.TYPE_ADMIN_SUB, "管理面板扣钱", -amount);
 					}
 					case "balance" -> {
+						long oldBalance = EconomyDb.getBalance(uuid);
 						EconomyDb.setBalance(uuid, name, amount);
 						newBalance = EconomyDb.getBalance(uuid);
+						recordAdminLog(uuid, name, EconomyDb.TYPE_ADMIN_SET, "管理面板设置余额", amount - oldBalance);
 					}
 					default -> {
 						json(exchange, 404, Map.of("error", "未知操作"));
@@ -311,6 +315,15 @@ public final class BalopServer {
 		o.addProperty("price", r.price());
 		o.addProperty("balance", r.newBalance());
 		return o;
+	}
+
+	/** 记录管理面板资金操作流水（channel=BALOP）；失败静默，不影响操作结果。 */
+	private static void recordAdminLog(UUID uuid, String name, String type, String description, long price) {
+		try {
+			EconomyDb.recordMoneyLog(uuid, name, type, EconomyDb.CHANNEL_BALOP, description, price);
+		} catch (EconomyDb.DatabaseException ignored) {
+			// 记录失败静默。
+		}
 	}
 
 	private static JsonObject transactionJson(EconomyDb.TransactionEntry tx) {
@@ -442,7 +455,9 @@ public final class BalopServer {
 			  .badge { display:inline-block; padding:1px 8px; border-radius:10px; font-size:12px; font-weight:600; }
 			  .badge.buy { background:rgba(63,185,80,.15); color:var(--buy); }
 			  .badge.sell { background:rgba(240,136,62,.15); color:var(--sell); }
+			  .badge.other { background:rgba(79,140,255,.15); color:var(--accent); }
 			  .badge.neg { background:rgba(248,81,73,.15); color:var(--danger); }
+			  .good { color:var(--buy); }
 			  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
 			  .grow { flex:1; }
 			  .pager { display:flex; gap:6px; align-items:center; margin-top:10px; }
@@ -518,6 +533,13 @@ public final class BalopServer {
 			  return (neg?-1:1)*(parseInt(p[0]||'0',10)*100+(p[1]?parseInt(p[1].padEnd(2,'0'),10):0)); }
 			function fmtTime(t){ const d=new Date(t); const p=n=>String(n).padStart(2,'0');
 			  return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds()); }
+			function typeBadge(t){ if(t==='BUY') return '<span class="badge buy">BUY</span>';
+			  if(t==='SELL') return '<span class="badge sell">SELL</span>';
+			  return '<span class="badge other">'+esc(t)+'</span>'; }
+			function priceHtml(tx){ if(tx.type==='BUY'||tx.type==='SELL') return esc(yuan(tx.price))+' 元';
+			  const neg=tx.price<0; const s=(neg?'-':'+')+yuan(Math.abs(tx.price));
+			  return neg?'<span class="badge neg">'+s+' 元</span>':'<span class="good">'+s+' 元</span>'; }
+			function isTrade(t){ return t==='BUY'||t==='SELL'; }
 			async function api(path, opts){ const res=await fetch(path, opts); let data=null;
 			  try{ data=await res.json(); }catch(e){}
 			  if(!res.ok) throw new Error((data&&data.error)||('HTTP '+res.status)); return data; }
@@ -561,11 +583,11 @@ public final class BalopServer {
 			    tr.innerHTML='<td><input type="checkbox" data-id="'+tx.id+'" '+(state.selected.has(tx.id)?'checked':'')+
 			      ' onchange="toggleOne('+tx.id+', this.checked)"></td>'+
 			      '<td>'+tx.id+'</td><td class="muted">'+fmtTime(tx.time)+'</td>'+
-			      '<td><span class="badge '+(tx.type==='BUY'?'buy':'sell')+'">'+tx.type+'</span></td>'+
+			      '<td>'+typeBadge(tx.type)+'</td>'+
 			      '<td>'+esc(tx.channel)+'</td>'+
-			      '<td>'+esc(tx.itemName)+'<details><summary>物品数据 (NBT/组件)</summary><pre>'+esc(tx.itemData||'(旧记录无完整数据)')+'</pre></details></td>'+
-			      '<td class="right">'+tx.count+'</td>'+
-			      '<td class="right">'+esc(yuan(tx.price))+' 元</td>'+
+			      '<td>'+esc(tx.itemName)+(tx.itemData?'<details><summary>物品数据 (NBT/组件)</summary><pre>'+esc(tx.itemData)+'</pre></details>':'')+'</td>'+
+			      '<td class="right">'+(tx.count>0?tx.count:'-')+'</td>'+
+			      '<td class="right">'+priceHtml(tx)+'</td>'+
 			      '<td class="right">'+(tx.balance<0?'<span class="badge neg">':'')+esc(yuan(tx.balance))+(tx.balance<0?'</span>':'')+'</td>'+
 			      '<td><button class="danger" onclick="delOne('+tx.id+')">删除</button></td>';
 			    rows.appendChild(tr); });
@@ -579,17 +601,22 @@ public final class BalopServer {
 			    el.checked=checked; toggleOne(Number(el.dataset.id), checked); }); }
 			function selectAll(){ const ids=[]; document.querySelectorAll('#txRows input[data-id]').forEach(el=>ids.push(Number(el.dataset.id)));
 			  ids.forEach(id=>state.selected.add(id)); document.querySelectorAll('#txRows input[data-id]').forEach(el=>el.checked=true); }
-			function rollbackMsg(r){ const dir = r.type==='BUY' ? '退款收回 +'+yuan(r.price) : '扣回所得 -'+yuan(r.price);
-			  return '已删除 #'+r.id+'（'+r.type+' '+esc(r.name)+'），'+dir+' 元，新余额 '+yuan(r.balance)+' 元'; }
-			async function delOne(id){ if(!confirm('删除交易记录 #'+id+' 并回滚资金？')) return; try{
+			function rollbackMsg(r){ if(r.type==='BUY') return '已删除 #'+r.id+'（BUY '+esc(r.name)+'），退款收回 +'+yuan(r.price)+' 元，新余额 '+yuan(r.balance)+' 元';
+			  if(r.type==='SELL') return '已删除 #'+r.id+'（SELL '+esc(r.name)+'），扣回所得 -'+yuan(r.price)+' 元，新余额 '+yuan(r.balance)+' 元';
+			  return '已删除 #'+r.id+'（'+r.type+' '+esc(r.name)+'），仅删除记录，不回滚资金'; }
+			async function delOne(id){ const row=document.querySelector('#txRows input[data-id="'+id+'"]');
+			  const type=row?row.closest('tr').querySelector('.badge').textContent:'';
+			  const tip=isTrade(type)?'删除交易记录 #'+id+' 并回滚资金？':'删除记录 #'+id+'？（'+type+' 类型仅删除记录，不回滚资金）';
+			  if(!confirm(tip)) return; try{
 			  const r=await api('/api/transactions/'+id, {method:'DELETE'});
 			  toast(rollbackMsg(r), true); state.selected.delete(id); loadTx(); loadPlayers(); refreshBalance(); }
 			  catch(e){ toast(e.message,false); } }
 			async function batchDelete(){ if(state.selected.size===0){ toast('请先勾选要删除的记录', false); return; }
-			  if(!confirm('批量删除 '+state.selected.size+' 条交易记录并回滚资金？')) return; try{
+			  if(!confirm('批量删除 '+state.selected.size+' 条记录？（仅 BUY/SELL 交易回滚资金，其他类型仅删除）')) return; try{
 			  const d=await api('/api/transactions/delete', {method:'POST', headers:{'Content-Type':'application/json'},
 			    body:JSON.stringify({ids:[...state.selected]})});
-			  toast('已删除 '+d.deleted+' 条，其中 '+d.results.map(r=>esc(r.name)+' '+(r.type==='BUY'?'+':'')+yuan(r.price)+' 元').join('；'), true);
+			  const parts=d.results.map(r=>esc(r.name)+' '+(r.type==='BUY'?'+':r.type==='SELL'?'-':'±')+yuan(r.price)+' 元');
+			  toast('已删除 '+d.deleted+' 条：'+parts.join('；'), true);
 			  state.selected.clear(); $('checkAll').checked=false; loadTx(); loadPlayers(); refreshBalance(); }
 			  catch(e){ toast(e.message,false); } }
 			async function refreshBalance(){ if(state.currentUuid){ try{

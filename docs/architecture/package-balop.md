@@ -7,6 +7,8 @@
   仅本机可访问；**改绑局域网/公网地址时任何能访问该端口的人都能改资金，无鉴权，请自担风险**），
   也可用 `/config balop.host` / `/config balop.port` 热修改（改后需 `/balop stop` + start 生效）。
   `/balop start` 的提示中地址为**可点击聊天链接**（`ClickEvent.OpenUrl`，点击弹确认后打开浏览器）。
+- **资金操作全部写流水**（channel=BALOP）：加钱 ADMIN_ADD、扣钱 ADMIN_SUB、设余额 ADMIN_SET
+  （price = 余额变化量；`recordAdminLog` 静默），与 `/eco` 同属管理员操作可追溯。
 - 实现：JDK 自带 `com.sun.net.httpserver.HttpServer`（无新增依赖）+ 独立 slf4j Logger
   （daemon 线程池）；所有数据库操作走 `EconomyDb`（synchronized，WAL + busy_timeout，
   与服务器主线程并发安全）。

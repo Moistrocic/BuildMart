@@ -181,6 +181,17 @@ public final class BalshopCommands {
 			Economy.LOGGER.error("balshop buy 数据库错误", e);
 			throw DB_ERROR.create();
 		}
+		// 资金流水：BUY 交易记录（含物品完整组件数据）；记录失败静默
+		try {
+			EconomyDb.recordTransaction(player.getUUID(), player.getGameProfile().name(),
+					EconomyDb.TYPE_BUY, EconomyDb.CHANNEL_BUY,
+					BuiltInRegistries.ITEM.getKey(stack.getItem()).toString(),
+					stack.getHoverName().getString(),
+					mois.economy.ItemCodec.encode(stack, player.level().registryAccess()),
+					stack.getCount(), total);
+		} catch (EconomyDb.DatabaseException ignored) {
+			// 记录失败静默。
+		}
 
 		Inventory inventory = player.getInventory();
 		if (!inventory.add(stack)) {

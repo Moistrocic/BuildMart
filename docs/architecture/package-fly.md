@@ -27,7 +27,8 @@
   4. 余额 < fee → `disable` + 红字“资金不足（每秒扣费 X 元），飞行模式已自动关闭，剩余资产 X 元”；
   5. `checkLowBalanceWarn`：余额 ≤ fee×60 → 按提醒开关提醒一次（黄字，含 1 分钟约需金额）；
      余额 > 阈值 → 移除 LOW_WARNED 标记；
-  6. `EconomyDb.deduct(uuid, fee)`（失败仅记日志）。
+  6. `EconomyDb.deduct(uuid, fee)`（失败仅记日志）+ 资金流水 FEE（channel=FLY，
+     每秒一条；记录失败静默）。
 - **能力管理**：`revokeAbilities` 跳过创造/旁观玩家（其能力由游戏模式管理）；
   飞行能力不写存档——下线时收回，上线/tick 重新授予。
 - `FlyCommands` 是唯一外部入口（命令只切换状态与提示，扣费全在本类）。

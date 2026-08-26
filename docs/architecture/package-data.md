@@ -13,17 +13,23 @@
   - `homes(uuid, name, world, x, y, z, created, PRIMARY KEY(uuid, name))` —— /sethome 的家。
   - `back_points(uuid PRIMARY KEY, world, x, y, z)` —— /back 的最近死亡点。
   - `economy_transactions(id INTEGER PRIMARY KEY AUTOINCREMENT, uuid, name, type, channel,
-    item_id, item_name, item_data, count, price, balance, time)` —— **买卖流水**：type 为 `BUY`（花钱获得
-    物品）/`SELL`（物品消失换钱），channel 为 `SHOP`（箱子商店自动出售）/`BM`（便捷购买）；
-    item_id 为注册表 ID（如 `minecraft:diamond`），item_name 为显示名（含自定义名），
-    **item_data 为物品完整组件数据（ItemStack.CODEC 编码的 JSON 字符串，含 NBT/附魔/自定义名，
-    旧记录为 NULL，由 `migrateSchema` 补列）**，price 为本次交易金额（分），balance 为交易后
-    余额（分），time 为毫秒时间戳；索引 `idx_transactions_uuid_time (uuid, time DESC)`；
-    `deleteAccount` 级联删除流水。
-    记录点：`ShopManager.sell`（商店每格出售，收款人 payee）、`BuyModeSettlement.sendBuy/
-    sendSell/sendRefund`（bm 槽位购买/-1 卖出/点击包退款）、`BuyModeSession.settleAndClear`
-    （bm 关闭界面统一卖出）。记录失败一律静默（`recordTrade` 捕获 DatabaseException），
-    不影响资金结算。
+    item_id, item_name, item_data, count, price, balance, time)` —— **资金流水（一切资金变化）**：
+    - **type**：`BUY`（购买，删除记录回滚退款 +price）/ `SELL`（出售，删除记录回滚扣回 -price）/
+      `TRANSFER_IN`/`TRANSFER_OUT`（/pay 转账）/ `ADMIN_ADD`/`ADMIN_SUB`/`ADMIN_SET`
+      （/eco 与管理面板）/ `FEE`（飞行/传送扣费）/ `REDPACKET_SEND`/`REDPACKET_CLAIM`/
+      `REDPACKET_REFUND`（红包）；
+    - **channel**：`SHOP`/`BM`/`BUY`（买卖）/ `PAY` / `ECO` / `BALOP` / `FLY` / `TP` / `REDPACKET`；
+    - **price 语义**：BUY/SELL 为交易金额（正数）；其他类型为资金变化量（分，入账为正、扣款为负）；
+    - item_id/item_name 为注册表 ID 与显示名（非买卖记录 item_id 为空串、item_name 为描述、
+      count 为 0），**item_data 为物品完整组件数据（ItemStack.CODEC 编码的 JSON 字符串，
+      含 NBT/附魔/自定义名；旧记录为 NULL，由 `migrateSchema` 补列）**；
+    - balance 为变化后余额（分），time 为毫秒时间戳；索引 `idx_transactions_uuid_time (uuid, time DESC)`；
+      `deleteAccount` 级联删除流水。
+    - 记录点（**全部资金变化，强制约定见 AGENTS.md 第 6 节**）：`ShopManager.sell`、`BalshopCommands.buy`、
+      `BuyModeSettlement.sendBuy/sendSell/sendRefund`、`BuyModeSession.settleAndClear`（买卖，
+      带 item_data）；`EconomyCommands`（/pay 转账、/eco add/remove/set）、`BalopServer`
+      （管理面板加钱/扣钱/设余额）、`HongbaoCommands`（发/领/过期返还）、`FlyManager`（飞行扣费）、
+      `TeleportManager`（传送扣费）。记录失败一律静默，不影响资金结算。
 - 家/死亡点 API：`setHome`/`getHome`/`getHomes`（按 created 倒序，第一项为最近设置）/`countHomes`，
   `setBackPoint`/`getBackPoint`/`clearBackPoint`；记录类型 `HomeEntry(name, world, x, y, z, created)`
   与 `BackPoint(world, x, y, z)`，world 为维度 ID 字符串（如 "minecraft:overworld"）。
@@ -46,7 +52,8 @@
   | `topAccounts(limit, offset)` | 排行榜：`ORDER BY balance DESC, name ASC`，返回 `AccountEntry(uuid, name, balance)` |
   | `getAnnouncement()` | 读公告（连接未开时返回 null 而非抛错，供 JOIN 阶段使用） |
   | `setAnnouncement(String)` | 写公告；null/空 → 删除记录 |
-  | `recordTransaction(uuid, name, type, channel, itemId, itemName, itemData, count, price)` | 写一条买卖流水（内部 ensureAccount + 附交易后余额；itemData 可空） |
+  | `recordTransaction(uuid, name, type, channel, itemId, itemName, itemData, count, price)` | 写一条买卖流水（内部 ensureAccount + 附变化后余额；itemData 可空） |
+  | `recordMoneyLog(uuid, name, type, channel, description, price)` | 写非买卖资金流水（转账/管理/扣费/红包等；item 字段用描述占位，price 为变化量可负） |
   | `recentTransactions(uuid, limit)` | 玩家最近流水（time DESC, id DESC），返回 `TransactionEntry(id, uuid, name, type, channel, itemId, itemName, itemData, count, price, balance, time)` |
   | `transactionCount(uuid)` | 玩家流水总数 |
   | `queryTransactions(uuid, type, channel, limit, offset)` | 分页查询流水（uuid 可空=全部、type/channel 可空=不过滤），返回 `TransactionPage(total, list)` |
@@ -54,7 +61,7 @@
   | `accountName(uuid)` | 查询账户名（不存在返回“未知玩家”） |
   | `setBalance(uuid, name, balance)` | 设置余额（**允许负数**） |
   | `adjustBalance(uuid, name, delta)` | 直接增减余额（delta 可负，允许余额为负），返回新余额（管理前端用） |
-  | `deleteTransactionsWithRollback(ids)` | **删除流水并同步回滚资金**（原子事务）：删 BUY = 余额 +price（退款收回），删 SELL = 余额 -price（所得扣回）；返回 `List<RollbackResult(id, uuid, name, type, price, newBalance)>`，不存在的 id 跳过 |
+  | `deleteTransactionsWithRollback(ids)` | **删除流水并同步回滚资金**（原子事务）：删 BUY = 余额 +price（退款收回），删 SELL = 余额 -price（所得扣回）；**其他类型仅删记录、不回滚资金**；返回 `List<RollbackResult(id, uuid, name, type, price, newBalance)>`，不存在的 id 跳过 |
 - **`DatabaseException extends RuntimeException`**：数据层不可恢复错误，命令层 catch 后向玩家返回可读提示。
 - **`runSelfTest()`**（open 时自动）：随机账户验证写入/读取/转账/余额不足拦截/名字存储/扣款边界，
   用后清理（`deleteAccount`），失败抛 `IllegalStateException` 使 open 的 catch 里 `close()`。

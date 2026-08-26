@@ -122,6 +122,13 @@ public final class FlyManager {
 			} catch (EconomyDb.DatabaseException e) {
 				Economy.LOGGER.error("飞行扣费失败", e);
 			}
+			// 资金流水（每秒扣费一条）；记录失败静默
+			try {
+				EconomyDb.recordMoneyLog(uuid, player.getGameProfile().name(),
+						EconomyDb.TYPE_FEE, EconomyDb.CHANNEL_FLY, "飞行扣费", -fee);
+			} catch (EconomyDb.DatabaseException ignored) {
+				// 记录失败静默。
+			}
 		}
 	}
 

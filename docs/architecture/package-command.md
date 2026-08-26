@@ -15,7 +15,7 @@
   | `/baltop [页码]` | `showTop` | 排行榜（`EconomyDb.topAccounts`），首页顶部显示服务器总资产（`totalPlayerAssets`） |
   | `/balhelp [页码]` | `showHelp` | 帮助分页 |
   | `/announcement 内容` / `clear` | `setAnnouncement`/`clearAnnouncement` | 进服红色公告（管理员 `LEVEL_ADMINS`） |
-  | `/eco add\|remove\|set 目标 金额` | `ecoAdd`/`ecoRemove`/`ecoSet` | 管理员资金注入/回收；目标 = word 参数手动解析 |
+  | `/eco add\|remove\|set 目标 金额` | `ecoAdd`/`ecoRemove`/`ecoSet` | 管理员资金注入/回收；目标 = word 参数手动解析；每次操作写资金流水（ADMIN_ADD/ADMIN_SUB/ADMIN_SET，channel=ECO，`logQuietly` 静默） |
   | `/balop start\|stop` | `balopStart`/`balopStop` | 启动/关闭数据库管理前端（管理员；监听地址/端口见 config 的 balop 段，默认 localhost:8899；详见 package-balop.md） |
 - 工具方法（同类指令复用）：`requirePlayer`（PLAYER_ONLY）、`parseAmount`、
   `resolveUuid`（离线 UUID 回退）、`readBalance`、`countOrThrow`、`topOrThrow`、
@@ -42,14 +42,16 @@
 
 - 注册：`/hongbao 总金额 数量 口令`（发红包，管理员不限，任何玩家可发）。
 - 发红包：`Money.parseCents` 解析金额 → 校验 总金额 ≥ 数量（每个至少 0.01 元）→
-  `EconomyDb.deduct` 扣发红包者余额 → 存入内存表（口令 → 红包，同口令覆盖）→ 全员广播。
+  `EconomyDb.deduct` 扣发红包者余额 → 存入内存表（口令 → 红包，同口令覆盖）→ 全员广播；
+  资金流水 REDPACKET_SEND（channel=REDPACKET，`logQuietly` 静默）。
 - **领取走聊天**：`ServerGamePacketListenerImplMixin.economy$hongbaoChat` 拦截
   `handleChat`——发言与某口令完全一致（trim 精确匹配）即自动领取，**口令发言照常进入公屏**；
   领取金额 = 随机 1 ~ (总金额 / 数量) × 2 分（最后一个红包领剩余全部，保证总额守恒；
   随机时给后续红包至少留 1 分）→ `EconomyDb.credit` 入账 → 全员广播
-  「领到 X 元，红包剩余 N 个」。无 `/hongbao 口令` 领取指令。
+  「领到 X 元，红包剩余 N 个」。无 `/hongbao 口令` 领取指令；资金流水 REDPACKET_CLAIM。
 - 内存存储：服务器停机时（`SERVER_STOPPING`）所有未领取红包作废并**返还剩余金额**给发红包人
-  （`refundAll`）；同口令新红包覆盖旧红包时同样返还旧红包剩余。崩溃强杀场景无法返还。
+  （`refundAll`）；同口令新红包覆盖旧红包时同样返还旧红包剩余。崩溃强杀场景无法返还；
+  返还写资金流水 REDPACKET_REFUND。
 
 ## `FlyCommands.java` — 付费飞行
 

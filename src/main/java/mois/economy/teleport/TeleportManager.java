@@ -219,6 +219,13 @@ public final class TeleportManager {
 				Economy.LOGGER.error("传送扣费失败", e);
 				return new TpOutcome(false, "数据库错误，请稍后再试", 0);
 			}
+			// 资金流水；记录失败静默
+			try {
+				EconomyDb.recordMoneyLog(payerUuid, EconomyDb.accountName(payerUuid),
+						EconomyDb.TYPE_FEE, EconomyDb.CHANNEL_TP, "传送费用", -cost);
+			} catch (EconomyDb.DatabaseException ignored) {
+				// 记录失败静默。
+			}
 		}
 		mover.teleportTo(toLevel, toPos.x(), toPos.y(), toPos.z(), Set.of(),
 				mover.getYRot(), mover.getXRot(), false);

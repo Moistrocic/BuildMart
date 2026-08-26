@@ -101,6 +101,8 @@ public final class HongbaoCommands {
 		if (!ok) {
 			throw PAYER_INSUFFICIENT.create();
 		}
+		logQuietly(player.getUUID(), player.getGameProfile().name(),
+				EconomyDb.TYPE_REDPACKET_SEND, EconomyDb.CHANNEL_REDPACKET, "发出红包", -total);
 		// 同口令覆盖：旧红包失效，剩余金额返还给原发红包人
 		Hongbao prev = HONGBAOS.put(pass, new Hongbao(player.getUUID(), player.getGameProfile().name(), total, count));
 		broadcast(source.getServer(), Component.literal("[红包] " + player.getGameProfile().name()
@@ -166,6 +168,8 @@ public final class HongbaoCommands {
 			Economy.LOGGER.error("hongbao 入账数据库错误", e);
 			return "红包入账失败，请稍后再试";
 		}
+		logQuietly(player.getUUID(), player.getGameProfile().name(),
+				EconomyDb.TYPE_REDPACKET_CLAIM, EconomyDb.CHANNEL_REDPACKET, "领取红包", amount);
 		String suffix = remain > 0 ? "，红包剩余 " + remain + " 个" : "，红包已领完";
 		broadcast(server, Component.literal("[红包] " + player.getGameProfile().name()
 				+ " 领到 " + Money.format(amount) + " 元" + suffix).withStyle(ChatFormatting.GOLD));
@@ -186,6 +190,9 @@ public final class HongbaoCommands {
 			Economy.LOGGER.error("hongbao 返还数据库错误", e);
 			return;
 		}
+		logQuietly(hb.ownerUuid, hb.ownerName,
+				EconomyDb.TYPE_REDPACKET_REFUND, EconomyDb.CHANNEL_REDPACKET,
+				"红包过期返还（" + reason + "）", remaining);
 		ServerPlayer owner = server.getPlayerList().getPlayer(hb.ownerUuid);
 		if (owner != null) {
 			owner.sendSystemMessage(Component.literal("[红包] 你的红包已失效（" + reason + "），剩余 "
@@ -211,5 +218,15 @@ public final class HongbaoCommands {
 			throw PLAYER_ONLY.create();
 		}
 		return player;
+	}
+
+	/** 记录资金流水；失败静默（记录不应影响红包结算）。 */
+	private static void logQuietly(UUID uuid, String name, String type, String channel,
+			String description, long price) {
+		try {
+			EconomyDb.recordMoneyLog(uuid, name, type, channel, description, price);
+		} catch (EconomyDb.DatabaseException ignored) {
+			// 记录失败静默。
+		}
 	}
 }

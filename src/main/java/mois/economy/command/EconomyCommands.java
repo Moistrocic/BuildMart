@@ -240,6 +240,20 @@ public final class EconomyCommands {
 		if (!ok) {
 			throw PAYER_INSUFFICIENT.create();
 		}
+		// 资金流水：转出方一条（总额）、每个目标一条（单份金额）
+		try {
+			long total = Math.multiplyExact(amount, targets.size());
+			EconomyDb.recordMoneyLog(sender.getUUID(), sender.getGameProfile().name(),
+					EconomyDb.TYPE_TRANSFER_OUT, EconomyDb.CHANNEL_PAY,
+					"转账给 " + String.join("、", names), -total);
+			for (int i = 0; i < uuids.size(); i++) {
+				EconomyDb.recordMoneyLog(uuids.get(i), names.get(i),
+						EconomyDb.TYPE_TRANSFER_IN, EconomyDb.CHANNEL_PAY,
+						"收到 " + sender.getGameProfile().name() + " 的转账", amount);
+			}
+		} catch (RuntimeException ignored) {
+			// 记录失败静默，不影响转账结果。
+		}
 
 		MutableComponent summary;
 		if (targets.size() == 1) {
@@ -319,6 +333,8 @@ public final class EconomyCommands {
 		try {
 			for (EconomyTargets.ResolvedTarget target : targets) {
 				EconomyDb.credit(target.uuid(), target.displayName(), amount);
+				logQuietly(target.uuid(), target.displayName(),
+						EconomyDb.TYPE_ADMIN_ADD, EconomyDb.CHANNEL_ECO, "管理员加钱", amount);
 			}
 		} catch (EconomyDb.DatabaseException e) {
 			Economy.LOGGER.error("eco add 数据库错误", e);
@@ -363,6 +379,10 @@ public final class EconomyCommands {
 		if (!ok) {
 			throw DB_ERROR.create();
 		}
+		for (EconomyTargets.ResolvedTarget target : targets) {
+			logQuietly(target.uuid(), target.displayName(),
+					EconomyDb.TYPE_ADMIN_SUB, EconomyDb.CHANNEL_ECO, "管理员扣钱", -amount);
+		}
 		MutableComponent summary;
 		if (targets.size() == 1) {
 			summary = text("已从 ", ChatFormatting.GREEN)
@@ -385,7 +405,10 @@ public final class EconomyCommands {
 		List<EconomyTargets.ResolvedTarget> targets = EconomyTargets.resolve(StringArgumentType.getString(ctx, "target"), ctx.getSource());
 		try {
 			for (EconomyTargets.ResolvedTarget target : targets) {
+				long oldBalance = EconomyDb.getBalance(target.uuid());
 				EconomyDb.setBalance(target.uuid(), target.displayName(), amount);
+				logQuietly(target.uuid(), target.displayName(),
+						EconomyDb.TYPE_ADMIN_SET, EconomyDb.CHANNEL_ECO, "管理员设置余额", amount - oldBalance);
 			}
 		} catch (EconomyDb.DatabaseException e) {
 			Economy.LOGGER.error("eco set 数据库错误", e);
@@ -517,5 +540,15 @@ public final class EconomyCommands {
 
 	private static MutableComponent text(String content, ChatFormatting color) {
 		return Component.literal(content).withStyle(color);
+	}
+
+	/** 记录资金流水；失败静默（记录不应影响资金操作结果）。 */
+	private static void logQuietly(UUID uuid, String name, String type, String channel,
+			String description, long price) {
+		try {
+			EconomyDb.recordMoneyLog(uuid, name, type, channel, description, price);
+		} catch (EconomyDb.DatabaseException ignored) {
+			// 记录失败静默。
+		}
 	}
 }
