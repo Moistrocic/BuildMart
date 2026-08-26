@@ -25,6 +25,17 @@ public final class EconomyDb {
 
 	private static final String KEY_ANNOUNCEMENT = "announcement";
 
+	// ---------- 交易记录（买卖流水） ----------
+
+	/** 交易类型：购买。 */
+	public static final String TYPE_BUY = "BUY";
+	/** 交易类型：出售。 */
+	public static final String TYPE_SELL = "SELL";
+	/** 交易渠道：/bm 便捷购买。 */
+	public static final String CHANNEL_BM = "BM";
+	/** 交易渠道：/shop 箱子商店自动出售。 */
+	public static final String CHANNEL_SHOP = "SHOP";
+
 	private static Connection connection;
 	private static Path dbPath;
 
@@ -106,6 +117,24 @@ public final class EconomyDb {
 						y REAL NOT NULL,
 						z REAL NOT NULL
 					)""");
+			statement.execute("""
+					CREATE TABLE IF NOT EXISTS economy_transactions (
+						id INTEGER PRIMARY KEY AUTOINCREMENT,
+						uuid TEXT NOT NULL,
+						name TEXT NOT NULL,
+						type TEXT NOT NULL,
+						channel TEXT NOT NULL,
+						item_id TEXT NOT NULL,
+						item_name TEXT NOT NULL,
+						count INTEGER NOT NULL,
+						price INTEGER NOT NULL,
+						balance INTEGER NOT NULL,
+						time INTEGER NOT NULL
+					)""");
+			statement.execute("""
+					CREATE INDEX IF NOT EXISTS idx_transactions_uuid_time
+						ON economy_transactions (uuid, time DESC)
+					""");
 		}
 	}
 
@@ -155,6 +184,19 @@ public final class EconomyDb {
 			}
 			if (deduct(a, 701L)) {
 				throw new IllegalStateException("余额不足的扣款未被拦截");
+			}
+			// 交易流水：写入后按时间倒序可查回，且余额字段为写入时余额
+			recordTransaction(a, "自检A", TYPE_SELL, CHANNEL_SHOP, "minecraft:diamond", "钻石", 3, 1500L);
+			recordTransaction(a, "自检A", TYPE_BUY, CHANNEL_BM, "minecraft:stone", "石头", 10, 200L);
+			List<TransactionEntry> tx = recentTransactions(a, 10);
+			if (tx.size() != 2 || !tx.get(0).type().equals(TYPE_BUY)
+					|| tx.get(0).count() != 10 || tx.get(0).price() != 200L
+					|| tx.get(0).balance() != getBalance(a)
+					|| !tx.get(1).channel().equals(CHANNEL_SHOP)) {
+				throw new IllegalStateException("交易流水写入/读取不一致");
+			}
+			if (transactionCount(a) != 2) {
+				throw new IllegalStateException("交易流水计数不一致");
 			}
 		} finally {
 			deleteAccount(a);
@@ -382,6 +424,12 @@ public final class EconomyDb {
 			ps.setString(1, uuid.toString());
 			ps.executeUpdate();
 		}
+		// 级联清理交易流水（自检数据清理与账户删除保持一致性）
+		try (PreparedStatement ps = connection.prepareStatement(
+				"DELETE FROM economy_transactions WHERE uuid = ?")) {
+			ps.setString(1, uuid.toString());
+			ps.executeUpdate();
+		}
 	}
 
 	// ---------- 排行榜 ----------
@@ -593,6 +641,89 @@ public final class EconomyDb {
 		} catch (SQLException e) {
 			throw new DatabaseException("清除死亡点失败", e);
 		}
+	}
+
+	// ---------- 交易记录（买卖流水） ----------
+
+	/**
+	 * 一笔买卖流水。item_id 为注册表 ID（如 "minecraft:diamond"），
+	 * item_name 为显示名（含自定义名），price 为本次交易金额（分），
+	 * balance 为交易后账户余额（分），time 为毫秒时间戳。
+	 */
+	public record TransactionEntry(long id, String type, String channel,
+			String itemId, String itemName, int count, long price, long balance, long time) {
+	}
+
+	/**
+	 * 记录一笔购买/出售流水（BUY=花钱获得物品，SELL=物品消失换钱）。
+	 * 调用方负责传入正确的类型/渠道/物品与金额；失败抛 {@link DatabaseException}，
+	 * 调用方按需静默（记录失败不应阻断资金结算）。
+	 */
+	public static synchronized void recordTransaction(UUID uuid, String name, String type, String channel,
+			String itemId, String itemName, int count, long price) {
+		requireOpen();
+		ensureAccount(uuid, name);
+		long balance = getBalance(uuid);
+		try (PreparedStatement ps = connection.prepareStatement("""
+				INSERT INTO economy_transactions
+					(uuid, name, type, channel, item_id, item_name, count, price, balance, time)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+				""")) {
+			ps.setString(1, uuid.toString());
+			ps.setString(2, name);
+			ps.setString(3, type);
+			ps.setString(4, channel);
+			ps.setString(5, itemId);
+			ps.setString(6, itemName);
+			ps.setInt(7, count);
+			ps.setLong(8, price);
+			ps.setLong(9, balance);
+			ps.setLong(10, System.currentTimeMillis());
+			ps.executeUpdate();
+		} catch (SQLException e) {
+			throw new DatabaseException("记录交易失败", e);
+		}
+	}
+
+	/** 查询玩家最近的交易流水（按时间倒序，limit 条）。 */
+	public static synchronized List<TransactionEntry> recentTransactions(UUID uuid, int limit) {
+		requireOpen();
+		List<TransactionEntry> result = new ArrayList<>();
+		try (PreparedStatement ps = connection.prepareStatement("""
+				SELECT id, type, channel, item_id, item_name, count, price, balance, time
+				FROM economy_transactions WHERE uuid = ?
+				ORDER BY time DESC, id DESC LIMIT ?
+				""")) {
+			ps.setString(1, uuid.toString());
+			ps.setInt(2, limit);
+			try (ResultSet rs = ps.executeQuery()) {
+				while (rs.next()) {
+					result.add(new TransactionEntry(rs.getLong(1), rs.getString(2), rs.getString(3),
+							rs.getString(4), rs.getString(5), rs.getInt(6),
+							rs.getLong(7), rs.getLong(8), rs.getLong(9)));
+				}
+			}
+		} catch (SQLException e) {
+			throw new DatabaseException("查询交易流水失败", e);
+		}
+		return result;
+	}
+
+	/** 玩家的交易流水总数。 */
+	public static synchronized int transactionCount(UUID uuid) {
+		requireOpen();
+		try (PreparedStatement ps = connection.prepareStatement(
+				"SELECT COUNT(*) FROM economy_transactions WHERE uuid = ?")) {
+			ps.setString(1, uuid.toString());
+			try (ResultSet rs = ps.executeQuery()) {
+				if (rs.next()) {
+					return rs.getInt(1);
+				}
+			}
+		} catch (SQLException e) {
+			throw new DatabaseException("统计交易流水失败", e);
+		}
+		return 0;
 	}
 
 	// ---------- 公告 ----------

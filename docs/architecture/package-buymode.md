@@ -47,4 +47,8 @@
 - 为什么拿起不立即退款：拿起可能是中性重组（放回匹配）或卖出（丢弃/关闭），
   统一延迟到「确认去向」再结算；数量守恒兜底同物品混叠（面板增量必然造成
   放回增量 > 暂存剩余 → 按购买处理）。
+- **买卖流水**：真实成交（购买成功/卖出退款/关闭界面统一卖出）经
+  `BuyModeSettlement.recordTrade` 写入 `economy_transactions`（type=BUY/SELL，
+  channel=BM，数量与扣款/退款增量一致）；记录失败静默，不影响资金结算。
+  槽间交换（数字键）不产生流水（无成交）。
 - 结算与标签补发见 package-mixin.md 的 `ServerGamePacketListenerImplMixin`。

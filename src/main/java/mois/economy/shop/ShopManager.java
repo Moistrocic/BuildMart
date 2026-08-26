@@ -14,6 +14,7 @@ import mois.economy.data.EconomyDb;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
@@ -143,7 +144,17 @@ public final class ShopManager {
 				if (!ItemValues.isTradable(stack)) {
 					continue;
 				}
-				total = satAdd(total, ItemValues.price(stack));
+				long value = ItemValues.price(stack);
+				total = satAdd(total, value);
+				// 每格出售写入交易流水（记录失败静默，不影响出售主流程）
+				try {
+					EconomyDb.recordTransaction(shop.payee(), shop.payeeName(), EconomyDb.TYPE_SELL,
+							EconomyDb.CHANNEL_SHOP,
+							BuiltInRegistries.ITEM.getKey(stack.getItem()).toString(),
+							stack.getHoverName().getString(), stack.getCount(), value);
+				} catch (EconomyDb.DatabaseException ignored) {
+					// 记录失败静默。
+				}
 				container.setItem(i, ItemStack.EMPTY);
 			}
 		}

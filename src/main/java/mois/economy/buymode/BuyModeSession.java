@@ -220,6 +220,7 @@ public final class BuyModeSession {
 				continue; // 防御：不可交易物品不应出现在暂存中
 			}
 			total += value;
+			BuyModeSettlement.recordTrade(player, EconomyDb.TYPE_SELL, stack, stack.getCount(), value);
 			sold.add(stack.getHoverName().getString() + " ×" + stack.getCount());
 		}
 		pendingStacks.clear();

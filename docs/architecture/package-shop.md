@@ -31,7 +31,9 @@
   5. 否则倒计时 -20，≤0 时 `sell`；最后刷新悬浮字。
 - **`sell(level, shop)`**：取本箱 + 水平相邻同类型箱的 `Container` 列表，逐格清空**可交易**物品
   （不可交易物品留下——不能整箱 `clearContent`，会误删留下的物品），累计
-  `ItemValues.price` 入账收款人（`EconomyDb.credit`，不通知），倒计时重置、save、记日志。
+  `ItemValues.price` 入账收款人（`EconomyDb.credit`，不通知），倒计时重置、save、记日志；
+  **每格出售写一条交易流水**（`EconomyDb.recordTransaction`，type=SELL、channel=SHOP、
+  收款人 payee，记录失败静默不影响出售）。
 - **悬浮字**：`Display.TextDisplay`（`EntityTypes.TEXT_DISPLAY`），位于箱子上方 1.6 格，
   内容“所有人/收款人/刷新：N 秒”，金色；`updateDisplay` 在实体丢失时重建（`spawnDisplay`）。
 - **持久化格式**：`{"shops":[{dimension, x, y, z, owner, ownerName, payee, payeeName,

@@ -10,6 +10,16 @@
   - `economy_settings(key TEXT PRIMARY KEY, value TEXT NOT NULL)`（目前仅存公告 `announcement`）。
   - `homes(uuid, name, world, x, y, z, created, PRIMARY KEY(uuid, name))` —— /sethome 的家。
   - `back_points(uuid PRIMARY KEY, world, x, y, z)` —— /back 的最近死亡点。
+  - `economy_transactions(id INTEGER PRIMARY KEY AUTOINCREMENT, uuid, name, type, channel,
+    item_id, item_name, count, price, balance, time)` —— **买卖流水**：type 为 `BUY`（花钱获得
+    物品）/`SELL`（物品消失换钱），channel 为 `SHOP`（箱子商店自动出售）/`BM`（便捷购买）；
+    item_id 为注册表 ID（如 `minecraft:diamond`），item_name 为显示名（含自定义名），
+    price 为本次交易金额（分），balance 为交易后余额（分），time 为毫秒时间戳；
+    索引 `idx_transactions_uuid_time (uuid, time DESC)`；`deleteAccount` 级联删除流水。
+    记录点：`ShopManager.sell`（商店每格出售，收款人 payee）、`BuyModeSettlement.sendBuy/
+    sendSell/sendRefund`（bm 槽位购买/-1 卖出/点击包退款）、`BuyModeSession.settleAndClear`
+    （bm 关闭界面统一卖出）。记录失败一律静默（`recordTrade` 捕获 DatabaseException），
+    不影响资金结算。
 - 家/死亡点 API：`setHome`/`getHome`/`getHomes`（按 created 倒序，第一项为最近设置）/`countHomes`，
   `setBackPoint`/`getBackPoint`/`clearBackPoint`；记录类型 `HomeEntry(name, world, x, y, z, created)`
   与 `BackPoint(world, x, y, z)`，world 为维度 ID 字符串（如 "minecraft:overworld"）。
@@ -32,6 +42,9 @@
   | `topAccounts(limit, offset)` | 排行榜：`ORDER BY balance DESC, name ASC`，返回 `AccountEntry(uuid, name, balance)` |
   | `getAnnouncement()` | 读公告（连接未开时返回 null 而非抛错，供 JOIN 阶段使用） |
   | `setAnnouncement(String)` | 写公告；null/空 → 删除记录 |
+  | `recordTransaction(uuid, name, type, channel, itemId, itemName, count, price)` | 写一条买卖流水（内部 ensureAccount + 附交易后余额） |
+  | `recentTransactions(uuid, limit)` | 玩家最近流水（time DESC, id DESC），返回 `TransactionEntry(id, type, channel, itemId, itemName, count, price, balance, time)` |
+  | `transactionCount(uuid)` | 玩家流水总数 |
 - **`DatabaseException extends RuntimeException`**：数据层不可恢复错误，命令层 catch 后向玩家返回可读提示。
 - **`runSelfTest()`**（open 时自动）：随机账户验证写入/读取/转账/余额不足拦截/名字存储/扣款边界，
   用后清理（`deleteAccount`），失败抛 `IllegalStateException` 使 open 的 catch 里 `close()`。

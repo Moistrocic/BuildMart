@@ -240,11 +240,46 @@ public final class BuyModeSettlement {
 		return before.getHoverName().getString() + " ×" + Math.max(1, before.getCount());
 	}
 
+	/** 从 before 变为 after 时“新增”的数量（交易流水用，与扣款增量一致）。 */
+	private static int gainedCount(ItemStack before, ItemStack after) {
+		if (!after.isEmpty() && ItemStack.isSameItemSameComponents(before, after)) {
+			return Math.max(1, after.getCount() - before.getCount());
+		}
+		return Math.max(1, after.getCount());
+	}
+
+	/** 从 before 变为 after 时“移走”的数量（交易流水用，与退款减量一致）。 */
+	private static int lostCount(ItemStack before, ItemStack after) {
+		if (!before.isEmpty() && ItemStack.isSameItemSameComponents(before, after)) {
+			return Math.max(1, before.getCount() - after.getCount());
+		}
+		return Math.max(1, before.getCount());
+	}
+
+	/**
+	 * 记录一笔 bm 买卖流水（channel=BM）；失败静默（记录失败不应影响资金结算，
+	 * 与 {@link #creditQuietly} 同一原则）。
+	 */
+	public static void recordTrade(ServerPlayer player, String type, ItemStack stack, int count, long price) {
+		if (stack == null || stack.isEmpty() || count <= 0) {
+			return;
+		}
+		try {
+			EconomyDb.recordTransaction(player.getUUID(), player.getGameProfile().name(), type,
+					EconomyDb.CHANNEL_BM,
+					BuiltInRegistries.ITEM.getKey(stack.getItem()).toString(),
+					stack.getHoverName().getString(), count, price);
+		} catch (EconomyDb.DatabaseException ignored) {
+			// 记录失败静默。
+		}
+	}
+
 	public static void sendBuy(ServerPlayer player, ItemStack before, ItemStack after, long cost) {
 		player.sendSystemMessage(Component.literal(
 				"已购买 " + gainedName(before, after)
 						+ "，花费 " + Money.format(cost) + " 元" + balanceSuffix(player))
 				.withStyle(ChatFormatting.GOLD), false);
+		recordTrade(player, EconomyDb.TYPE_BUY, after, gainedCount(before, after), cost);
 	}
 
 	public static void sendRefund(ServerPlayer player, ItemStack before, ItemStack after, long refund) {
@@ -252,6 +287,7 @@ public final class BuyModeSettlement {
 				"已放回 " + lostName(before, after)
 						+ "，获得 " + Money.format(refund) + " 元" + balanceSuffix(player))
 				.withStyle(ChatFormatting.GREEN), false);
+		recordTrade(player, EconomyDb.TYPE_SELL, before, lostCount(before, after), refund);
 	}
 
 	/** 卖出提示：物品从背包消失（丢弃/关闭界面统一结算），按价值退款。 */
@@ -260,6 +296,7 @@ public final class BuyModeSettlement {
 				"已卖出 " + stack.getHoverName().getString() + " ×" + stack.getCount()
 						+ "，获得 " + Money.format(refund) + " 元" + balanceSuffix(player))
 				.withStyle(ChatFormatting.GREEN), false);
+		recordTrade(player, EconomyDb.TYPE_SELL, stack, stack.getCount(), refund);
 	}
 
 	public static void sendBuyNet(ServerPlayer player, long cost) {
