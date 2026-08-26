@@ -1,6 +1,7 @@
 package mois.economy.data;
 
-import mois.economy.Economy;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.nio.file.Path;
 import java.sql.Connection;
@@ -22,6 +23,8 @@ import java.util.UUID;
 public final class EconomyDb {
 	/** 历史遗留的服务器公共账户 UUID（全零），统计与排行榜中排除。 */
 	private static final UUID LEGACY_SERVER_ACCOUNT_UUID = new UUID(0L, 0L);
+
+	private static final Logger LOGGER = LoggerFactory.getLogger("economy");
 
 	private static final String KEY_ANNOUNCEMENT = "announcement";
 
@@ -97,9 +100,9 @@ public final class EconomyDb {
 			initSchema();
 			runSelfTest();
 			dbPath = path;
-			Economy.LOGGER.info("SQLite 数据库已就绪：{}", path);
+			LOGGER.info("SQLite 数据库已就绪：{}", path);
 		} catch (Exception e) {
-			Economy.LOGGER.error("SQLite 数据库初始化失败", e);
+			LOGGER.error("SQLite 数据库初始化失败", e);
 			close();
 		}
 	}
@@ -205,7 +208,7 @@ public final class EconomyDb {
 						""");
 				st.execute("DROP TABLE economy_accounts_old");
 			}
-			Economy.LOGGER.info("数据库迁移：economy_accounts 已移除余额非负约束");
+			LOGGER.info("数据库迁移：economy_accounts 已移除余额非负约束");
 		}
 		// 2) 交易流水补 item_data 列
 		boolean hasItemData = false;
@@ -221,7 +224,7 @@ public final class EconomyDb {
 			try (Statement st = connection.createStatement()) {
 				st.execute("ALTER TABLE economy_transactions ADD COLUMN item_data TEXT");
 			}
-			Economy.LOGGER.info("数据库迁移：economy_transactions 已补充 item_data 列");
+			LOGGER.info("数据库迁移：economy_transactions 已补充 item_data 列");
 		}
 	}
 
@@ -331,7 +334,7 @@ public final class EconomyDb {
 			deleteAccount(a);
 			deleteAccount(b);
 		}
-		Economy.LOGGER.info("数据库自检通过");
+		LOGGER.info("数据库自检通过");
 	}
 
 	// ---------- 账户 ----------

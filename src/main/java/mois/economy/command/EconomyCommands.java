@@ -147,36 +147,44 @@ public final class EconomyCommands {
 
 	// ---------- /balop ----------
 
-	/** /balop start —— 启动数据库管理前端（监听地址/端口来自 config.json 的 balop 段）。 */
-	private static int balopStart(CommandContext<CommandSourceStack> ctx) {
-		String error = mois.economy.balop.BalopServer.start(
+	/**
+	 * /balop start —— 开启管理会话（仅管理员，需玩家身份）：每个管理员获得独立
+	 * 会话（随机 token），访问地址为可点击链接；会话 5 分钟无请求自动关闭。
+	 */
+	private static int balopStart(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+		ServerPlayer player = requirePlayer(ctx.getSource());
+		String url = mois.economy.balop.BalopServer.start(player.getUUID(),
+				player.getGameProfile().name(),
 				mois.economy.config.EconomyConfig.balopHost(),
 				mois.economy.config.EconomyConfig.balopPort());
-		if (error != null) {
-			ctx.getSource().sendFailure(Component.literal(error));
+		if (url == null || url.startsWith("启动管理前端失败")) {
+			ctx.getSource().sendFailure(Component.literal(url == null ? "未知错误" : url));
 			return 0;
 		}
-		String url = mois.economy.balop.BalopServer.address();
+		String finalUrl = url;
 		ctx.getSource().sendSuccess(() -> Component.literal("数据库管理前端已启动：")
 				.withStyle(ChatFormatting.GREEN)
-				.append(Component.literal(url)
+				.append(Component.literal(finalUrl)
 						.withStyle(style -> style.withColor(ChatFormatting.AQUA)
 								.withClickEvent(new net.minecraft.network.chat.ClickEvent.OpenUrl(
-										java.net.URI.create(url)))
+										java.net.URI.create(finalUrl)))
 								.withHoverEvent(new net.minecraft.network.chat.HoverEvent.ShowText(
 										Component.literal("点击打开管理面板"))))), true);
 		return 1;
 	}
 
-	/** /balop stop —— 关闭数据库管理前端。 */
-	private static int balopStop(CommandContext<CommandSourceStack> ctx) {
-		if (!mois.economy.balop.BalopServer.isRunning()) {
-			ctx.getSource().sendFailure(Component.literal("数据库管理前端未在运行"));
+	/**
+	 * /balop stop —— 关闭自己（执行者）的全部管理会话；不影响其他管理员的会话。
+	 */
+	private static int balopStop(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+		ServerPlayer player = requirePlayer(ctx.getSource());
+		int closed = mois.economy.balop.BalopServer.stop(player.getUUID());
+		if (closed <= 0) {
+			ctx.getSource().sendFailure(Component.literal("你没有开启中的管理前端会话"));
 			return 0;
 		}
-		mois.economy.balop.BalopServer.stop();
-		ctx.getSource().sendSuccess(() -> Component.literal("数据库管理前端已关闭")
-				.withStyle(ChatFormatting.GREEN), true);
+		ctx.getSource().sendSuccess(() -> Component.literal(
+				"已关闭 " + closed + " 个管理前端会话").withStyle(ChatFormatting.GREEN), true);
 		return 1;
 	}
 

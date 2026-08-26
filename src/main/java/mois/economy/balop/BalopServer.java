@@ -7,44 +7,87 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
-import mois.economy.Economy;
-import mois.economy.Money;
 import mois.economy.data.EconomyDb;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
+import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
 import java.util.ArrayList;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 /**
- * 数据库管理前端（/balop start | stop）：本机 HTTP 服务器 + 单页管理面板。
+ * 数据库管理前端（/balop start | stop）：本机 HTTP 服务器 + 单页管理面板，**多会话验证**。
  * <p>
  * 能力：
  * <ul>
  * <li>玩家资金增删改查（加钱/扣钱/设余额，允许余额为负——交易回滚可能造成负数）；</li>
- * <li>交易流水查询（按玩家/类型/渠道分页，含物品完整组件数据 item_data）；</li>
+ * <li>交易流水查询（按玩家/类型/渠道多选/金额区间分页，含物品完整组件数据 item_data）；</li>
  * <li>交易记录删除与批量删除——删除时同步回滚资金：删 BUY 记录退款收回
  * （余额 +price），删 SELL 记录扣回所得（余额 -price），原子事务。</li>
  * </ul>
+ * 会话模型：
+ * <ul>
+ * <li>每个管理员执行 /balop start 获得**独立会话**（随机 token），访问地址为
+ * {@code http://host:port/?token=xxx}，所有页面/API 请求必须携带该 token
+ * （`X-Balop-Token` 请求头或 URL query），无效/过期返回 401；</li>
+ * <li>会话 **5 分钟无任何请求自动关闭**（daemon 扫描线程每 30 秒检查）；</li>
+ * <li>/balop stop 只关闭执行者自己的会话，不影响其他管理员；</li>
+ * <li>服务器关闭（SERVER_STOPPING）时 {@link #shutdownAll()} 关闭全部会话与 HTTP 服务。</li>
+ * </ul>
  * 监听地址/端口来自 config.json 的 balop 段（默认 localhost:8899，仅本机可访问）。
- * 注意：若配置为局域网/公网地址，任何能访问该端口的人都能改资金——请自行评估风险。
- * 所有 API 与页面均无鉴权。
+ * 注意：token 会显示在聊天框链接中，若配置为局域网/公网地址，持有链接的人即可管理——
+ * 请自行评估风险。
  */
 public final class BalopServer {
+	private static final Logger LOGGER = LoggerFactory.getLogger("economy");
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 	private static final int DEFAULT_PAGE_SIZE = 20;
+	/** 会话无请求超过该时长（毫秒）自动关闭。 */
+	private static final long SESSION_IDLE_TIMEOUT_MS = 5 * 60_000L;
+	/** 会话超时扫描间隔（毫秒）。 */
+	private static final long SWEEPER_INTERVAL_MS = 30_000L;
+
+	private static final SecureRandom RANDOM = new SecureRandom();
+
+	/** 一个管理会话：owner 为执行 /balop start 的管理员，lastAccess 每次请求刷新。 */
+	public static final class Session {
+		public final String token;
+		public final UUID ownerUuid;
+		public final String ownerName;
+		public final long createdAt;
+		volatile long lastAccess;
+
+		Session(UUID ownerUuid, String ownerName) {
+			this.token = HexFormat.of().formatHex(RANDOM.generateSeed(16)); // 32 hex
+			this.ownerUuid = ownerUuid;
+			this.ownerName = ownerName;
+			long now = System.currentTimeMillis();
+			this.createdAt = now;
+			this.lastAccess = now;
+		}
+	}
 
 	private static HttpServer server;
 	private static ExecutorService executor;
+	private static ScheduledExecutorService sweeper;
 	private static String host;
 	private static int port;
+	/** token -> 会话（多管理员独立会话）。 */
+	private static final Map<String, Session> SESSIONS = new ConcurrentHashMap<>();
 
 	private BalopServer() {
 	}
@@ -53,15 +96,31 @@ public final class BalopServer {
 		return server != null;
 	}
 
-	/** 当前监听地址（未启动返回 null）。 */
+	/** 基础地址（不含 token）；未启动返回 null。 */
 	public static String address() {
 		return server != null ? "http://" + host + ":" + port : null;
 	}
 
-	/** 启动 HTTP 服务器；失败返回错误信息（端口占用等），成功返回 null。 */
-	public static synchronized String start(String listenHost, int listenPort) {
+	/**
+	 * 管理员开启管理会话：创建独立 token 会话；HTTP 服务器未运行时按给定
+	 * host/port 启动（已运行则复用）。返回带 token 的访问地址；失败返回错误信息。
+	 */
+	public static synchronized String start(UUID ownerUuid, String ownerName, String listenHost, int listenPort) {
+		String startError = ensureServer(listenHost, listenPort);
+		if (startError != null) {
+			return startError;
+		}
+		Session session = new Session(ownerUuid, ownerName);
+		SESSIONS.put(session.token, session);
+		LOGGER.info("管理前端会话已创建：{}（{}），当前 {} 个会话", ownerName, session.token.substring(0, 8),
+				SESSIONS.size());
+		return address() + "/?token=" + session.token;
+	}
+
+	/** 确保 HTTP 服务器在运行（复用或新建）；失败返回错误信息，成功返回 null。 */
+	private static synchronized String ensureServer(String listenHost, int listenPort) {
 		if (server != null) {
-			return "管理前端已在运行：" + address();
+			return null;
 		}
 		try {
 			server = HttpServer.create(new InetSocketAddress(listenHost, listenPort), 0);
@@ -75,7 +134,8 @@ public final class BalopServer {
 			server.start();
 			host = listenHost;
 			port = listenPort;
-			Economy.LOGGER.info("数据库管理前端已启动：http://{}:{}", listenHost, listenPort);
+			startSweeper();
+			LOGGER.info("数据库管理前端已启动：http://{}:{}", listenHost, listenPort);
 			return null;
 		} catch (IOException e) {
 			server = null;
@@ -83,18 +143,74 @@ public final class BalopServer {
 		}
 	}
 
-	/** 停止 HTTP 服务器。 */
-	public static synchronized void stop() {
-		if (server == null) {
+	/** 会话超时扫描：每 30 秒清理 5 分钟无请求的会话（daemon 线程，不阻止 JVM 退出）。 */
+	private static synchronized void startSweeper() {
+		if (sweeper != null) {
 			return;
 		}
-		server.stop(0);
-		server = null;
+		sweeper = Executors.newSingleThreadScheduledExecutor(r -> {
+			Thread t = new Thread(r, "balop-sweeper");
+			t.setDaemon(true);
+			return t;
+		});
+		sweeper.scheduleWithFixedDelay(() -> {
+			long now = System.currentTimeMillis();
+			for (Session s : SESSIONS.values()) {
+				if (now - s.lastAccess > SESSION_IDLE_TIMEOUT_MS) {
+					SESSIONS.remove(s.token);
+					LOGGER.info("管理前端会话已超时关闭：{}（{}），剩余 {} 个会话", s.ownerName,
+							s.token.substring(0, 8), SESSIONS.size());
+				}
+			}
+		}, SWEEPER_INTERVAL_MS, SWEEPER_INTERVAL_MS, TimeUnit.MILLISECONDS);
+	}
+
+	/**
+	 * 管理员关闭自己的全部会话（不影响其他管理员的会话）；
+	 * 会话清空后 HTTP 服务器一并停止。
+	 */
+	public static synchronized int stop(UUID ownerUuid) {
+		int removed = 0;
+		for (Session s : SESSIONS.values()) {
+			if (s.ownerUuid.equals(ownerUuid)) {
+				SESSIONS.remove(s.token);
+				removed++;
+			}
+		}
+		if (removed > 0) {
+			LOGGER.info("管理前端会话已关闭：{}（{} 个），剩余 {} 个会话",
+					ownerUuid, removed, SESSIONS.size());
+		}
+		if (SESSIONS.isEmpty()) {
+			stopServer();
+		}
+		return removed;
+	}
+
+	/** 服务器关闭：关闭全部会话与 HTTP 服务（SERVER_STOPPING 调用）。 */
+	public static synchronized void shutdownAll() {
+		int count = SESSIONS.size();
+		SESSIONS.clear();
+		stopServer();
+		if (count > 0) {
+			LOGGER.info("管理前端已随服务器关闭（{} 个会话）", count);
+		}
+	}
+
+	private static void stopServer() {
+		if (server != null) {
+			server.stop(0);
+			server = null;
+		}
 		if (executor != null) {
 			executor.shutdownNow();
 			executor = null;
 		}
-		Economy.LOGGER.info("数据库管理前端已停止");
+		if (sweeper != null) {
+			sweeper.shutdownNow();
+			sweeper = null;
+		}
+		LOGGER.info("数据库管理前端已停止");
 	}
 
 	// ---------- 路由 ----------
@@ -103,6 +219,11 @@ public final class BalopServer {
 		try {
 			String path = exchange.getRequestURI().getPath();
 			String method = exchange.getRequestMethod();
+			// 会话验证：所有页面与 API 请求必须携带有效 token（X-Balop-Token 或 ?token=）
+			Session session = requireSession(exchange);
+			if (session == null) {
+				return; // 401 已返回
+			}
 			if (path.equals("/") || path.equals("/index.html")) {
 				html(exchange, 200, PAGE_HTML);
 				return;
@@ -113,9 +234,33 @@ public final class BalopServer {
 			}
 			json(exchange, 404, Map.of("error", "Not Found"));
 		} catch (Exception e) {
-			Economy.LOGGER.error("balop API 处理异常", e);
+			LOGGER.error("balop API 处理异常", e);
 			json(exchange, 500, Map.of("error", "服务器内部错误：" + e.getMessage()));
 		}
+	}
+
+	/**
+	 * 校验请求会话：token 来自 X-Balop-Token 请求头或 URL query；无效/过期返回
+	 * 401（API 为 JSON，页面为提示页）并返回 null。有效则刷新 lastAccess。
+	 */
+	private static Session requireSession(HttpExchange exchange) throws IOException {
+		String token = exchange.getRequestHeaders().getFirst("X-Balop-Token");
+		if (token == null || token.isEmpty()) {
+			token = query(exchange).get("token");
+		}
+		Session session = token == null ? null : SESSIONS.get(token);
+		if (session == null) {
+			exchange.getResponseHeaders().set("Content-Type", "text/html; charset=utf-8");
+			exchange.getResponseHeaders().set("Cache-Control", "no-store");
+			byte[] body = SESSION_INVALID_PAGE.getBytes(StandardCharsets.UTF_8);
+			exchange.sendResponseHeaders(401, body.length);
+			try (OutputStream os = exchange.getResponseBody()) {
+				os.write(body);
+			}
+			return null;
+		}
+		session.lastAccess = System.currentTimeMillis();
+		return session;
 	}
 
 	private static void handleApi(HttpExchange exchange, String method, String path) throws IOException {
@@ -449,6 +594,21 @@ public final class BalopServer {
 
 	// ---------- 管理页面 ----------
 
+	/** 会话无效/过期的提示页（401）。 */
+	private static final String SESSION_INVALID_PAGE = """
+			<!DOCTYPE html>
+			<html lang="zh-CN">
+			<head><meta charset="utf-8"><title>会话无效</title>
+			<style>body{background:#0f1115;color:#e6e8ee;font:14px/1.6 "Segoe UI","Microsoft YaHei",sans-serif;
+			display:flex;align-items:center;justify-content:center;height:100vh;margin:0}
+			.card{background:#171a21;border:1px solid #2a2f3a;border-radius:8px;padding:24px;max-width:420px;text-align:center}
+			h1{font-size:18px;margin:0 0 10px;color:#f85149}code{background:#0d1016;padding:2px 6px;border-radius:4px}</style>
+			</head>
+			<body><div class="card"><h1>会话无效或已过期</h1>
+			<p>请重新在游戏内执行 <code>/balop start</code>，使用新链接访问管理面板。</p></div></body>
+			</html>
+			""";
+
 	private static final String PAGE_HTML = """
 			<!DOCTYPE html>
 			<html lang="zh-CN">
@@ -573,6 +733,7 @@ public final class BalopServer {
 			  </div>
 			</div>
 			<script>
+			const TOKEN = new URLSearchParams(location.search).get('token') || '';
 			const state = { q:'', page:1, size:20, txPage:1, txSize:20, types:new Set(), channels:new Set(),
 			  currentUuid:null, selected:new Set(), playerPages:1, txPages:1, sort:'balance_desc',
 			  amountMinCents:null, amountMaxCents:null };
@@ -614,8 +775,10 @@ public final class BalopServer {
 			  boxes.forEach(b=>b.checked=!all);
 			  onFilterChange();
 			}
-			async function api(path, opts){ const res=await fetch(path, opts); let data=null;
+			async function api(path, opts){ opts=opts||{}; opts.headers=Object.assign({'X-Balop-Token':TOKEN}, opts.headers||{});
+			  const res=await fetch(path, opts); let data=null;
 			  try{ data=await res.json(); }catch(e){}
+			  if(res.status===401) throw new Error('会话无效或已过期，请重新执行 /balop start');
 			  if(!res.ok) throw new Error((data&&data.error)||('HTTP '+res.status)); return data; }
 			function toast(msg, ok){ const t=document.createElement('div'); t.className='toast '+(ok?'ok':'err');
 			  t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(), 4000); }
