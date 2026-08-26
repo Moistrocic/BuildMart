@@ -36,6 +36,10 @@ public final class EconomyConfig {
 	public static final long DEFAULT_FLY_FEE_CENTS = 50000L;
 	/** 默认趣味钓鱼开关：关闭（使用原版钓鱼战利品）。 */
 	public static final boolean DEFAULT_FUN_FISHING = false;
+	/** 默认数据库管理前端（/balop）监听地址：本机回环，避免暴露到网络。 */
+	public static final String DEFAULT_BALOP_HOST = "localhost";
+	/** 默认数据库管理前端（/balop）端口。 */
+	public static final int DEFAULT_BALOP_PORT = 8899;
 
 	// ---------- 传送默认值 ----------
 	/** 默认家数量上限：0 = 未开放。 */
@@ -76,6 +80,8 @@ public final class EconomyConfig {
 	private static boolean itemPricesInLore = DEFAULT_ITEM_PRICES_IN_LORE;
 	private static long flyFeeCents = DEFAULT_FLY_FEE_CENTS;
 	private static boolean funFishing = DEFAULT_FUN_FISHING;
+	private static String balopHost = DEFAULT_BALOP_HOST;
+	private static int balopPort = DEFAULT_BALOP_PORT;
 	private static HomeSettings homeSettings = new HomeSettings(DEFAULT_HOME_MAX, DEFAULT_FEES);
 	private static TpaSettings tpaSettings = new TpaSettings(false, DEFAULT_FEES, DEFAULT_TPA_TIMEOUT_SECONDS);
 	private static BackSettings backSettings = new BackSettings(false, DEFAULT_FEES);
@@ -406,6 +412,10 @@ public final class EconomyConfig {
 		root.addProperty("itemPricesInLore", itemPricesInLore);
 		root.addProperty("flyFeePerSecond", Money.format(flyFeeCents));
 		root.addProperty("funFishing", funFishing);
+		JsonObject balop = new JsonObject();
+		balop.addProperty("host", balopHost);
+		balop.addProperty("port", balopPort);
+		root.add("balop", balop);
 		root.add("home", sectionJson(homeSettings.max(), null, homeSettings.fees()));
 		root.add("tpa", sectionJson(-1, tpaSettings, tpaSettings.fees()));
 		root.add("back", sectionJson(-1, backSettings, backSettings.fees()));
@@ -508,6 +518,20 @@ public final class EconomyConfig {
 			if (root.has("funFishing")) {
 				funFishing = root.get("funFishing").getAsBoolean();
 			}
+			if (root.has("balop")) {
+				JsonObject balop = root.getAsJsonObject("balop");
+				try {
+					balopHost = balop.has("host") ? balop.get("host").getAsString() : DEFAULT_BALOP_HOST;
+					balopPort = balop.has("port") ? balop.get("port").getAsInt() : DEFAULT_BALOP_PORT;
+					if (balopPort < 1 || balopPort > 65535) {
+						throw new IllegalArgumentException("port 超出范围");
+					}
+				} catch (RuntimeException e) {
+					Economy.LOGGER.error("balop 配置无效，使用默认 {}:{}", DEFAULT_BALOP_HOST, DEFAULT_BALOP_PORT, e);
+					balopHost = DEFAULT_BALOP_HOST;
+					balopPort = DEFAULT_BALOP_PORT;
+				}
+			}
 			homeSettings = readHome(root.getAsJsonObject("home"));
 			tpaSettings = readTpa(root.getAsJsonObject("tpa"));
 			backSettings = readBack(root.getAsJsonObject("back"));
@@ -532,6 +556,16 @@ public final class EconomyConfig {
 	/** 趣味钓鱼开关（开启时用自定义钓鱼战利品，关闭时用原版）。 */
 	public static boolean funFishing() {
 		return funFishing;
+	}
+
+	/** 数据库管理前端监听地址（/balop start 时读取）。 */
+	public static String balopHost() {
+		return balopHost;
+	}
+
+	/** 数据库管理前端端口（/balop start 时读取）。 */
+	public static int balopPort() {
+		return balopPort;
 	}
 
 	public static HomeSettings homeSettings() {
@@ -626,6 +660,8 @@ public final class EconomyConfig {
 				{
 				  "itemPricesInLore": true,
 				  "flyFeePerSecond": "500.00",
+				  "funFishing": false,
+				  "balop": {"host": "localhost", "port": 8899},
 				  "home": {"max": 0, "cooldownSeconds": 0, "fixedFee": false, "fixedFeeAmount": "500.00", "perDistanceFee": "1.00", "crossDimensionFee": "1000.00"},
 				  "tpa": {"enabled": false, "cooldownSeconds": 0, "fixedFee": false, "fixedFeeAmount": "500.00", "perDistanceFee": "1.00", "crossDimensionFee": "1000.00", "timeoutSeconds": 60},
 				  "back": {"enabled": false, "cooldownSeconds": 0, "fixedFee": false, "fixedFeeAmount": "500.00", "perDistanceFee": "1.00", "crossDimensionFee": "1000.00"}

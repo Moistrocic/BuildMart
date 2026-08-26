@@ -6,7 +6,7 @@
 
 ## `EconomyCommands.java` — 资金指令 + /balhelp
 
-- `PAGE_SIZE = 10`；`HELP_LINES`（String[]，23 行）包含全部 /bal*、/shop*、/fly、传送、/suicide、/hongbao 帮助行。
+- `PAGE_SIZE = 10`；`HELP_LINES`（String[]，25 行）包含全部 /bal*、/shop*、/fly、传送、/suicide、/hongbao、/balop 帮助行。
 - 注册的指令与执行方法：
   | 指令 | 方法 | 说明 |
   |---|---|---|
@@ -16,6 +16,7 @@
   | `/balhelp [页码]` | `showHelp` | 帮助分页 |
   | `/announcement 内容` / `clear` | `setAnnouncement`/`clearAnnouncement` | 进服红色公告（管理员 `LEVEL_ADMINS`） |
   | `/eco add\|remove\|set 目标 金额` | `ecoAdd`/`ecoRemove`/`ecoSet` | 管理员资金注入/回收；目标 = word 参数手动解析 |
+  | `/balop start\|stop` | `balopStart`/`balopStop` | 启动/关闭数据库管理前端（管理员；监听地址/端口见 config 的 balop 段，默认 localhost:8899；详见 package-balop.md） |
 - 工具方法（同类指令复用）：`requirePlayer`（PLAYER_ONLY）、`parseAmount`、
   `resolveUuid`（离线 UUID 回退）、`readBalance`、`countOrThrow`、`topOrThrow`、
   `totalAssetsOrThrow`、`transferOrThrow`、`transferManyOrThrow`、`text(content, color)`。

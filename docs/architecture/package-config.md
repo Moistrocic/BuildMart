@@ -8,6 +8,8 @@
   - `itemPricesInLore`（boolean，默认 true）——物品价格以金色 lore 下发（纯净端可见）。
   - `flyFeePerSecond`（十进制元字符串，默认 `"500.00"`，即 50000 分/秒）——/fly 每秒扣费。
   - `funFishing`（boolean，默认 false）——趣味钓鱼开关（开启用 fishing.json 战利品，关闭用原版）。
+  - `balop`（数据库管理前端段）——`host`（默认 "localhost"，改绑外部地址无鉴权请自担风险）、
+    `port`（默认 8899，范围 1-65535）；由 `/balop start` 时读取。
   - `home` / `tpa` / `back`（传送配置段，见下）。
 - 传送配置段字段（`home` 无 enabled；`tpa`/`back` 有 enabled；`tpa` 另有 timeoutSeconds）：
   `max`（home，默认 0 = 未开放）、`enabled`（tpa/back，默认 false）、`cooldownSeconds`（默认 0）、
@@ -18,7 +20,7 @@
   crossDimensionFeeCents)`、`HomeSettings(max, fees)`、`TpaSettings(enabled, fees, timeoutSeconds)`、
   `BackSettings(enabled, fees)`。
 - API：`load(Path configDir)`、`itemPricesInLore()`、`flyFeeCents()`、`funFishing()`、
-  `homeSettings()`、`tpaSettings()`、`backSettings()`；`/config` 热重载支持
+  `balopHost()`、`balopPort()`、`homeSettings()`、`tpaSettings()`、`backSettings()`；`/config` 热重载支持
   （`configKeys()` / `configType(key)` / `getValue(key)` / `apply(key, value)` / `save(configDir)`）。
 - 行为：文件缺失时 `writeDefault` 写入含全部段的默认 JSON；已有文件缺段时该段用默认值；
   金额字段解析失败回退默认并记 error 日志。

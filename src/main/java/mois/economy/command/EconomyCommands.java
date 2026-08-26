@@ -69,7 +69,9 @@ public final class EconomyCommands {
 			"/tpaccept - 接受最近的传送请求",
 			"/back - 回到最近死亡点",
 			"/suicide - 自杀",
-			"/hongbao 总金额 数量 口令 - 发红包（聊天说出口令即可领取）"
+			"/hongbao 总金额 数量 口令 - 发红包（聊天说出口令即可领取）",
+			"/balop start - 启动数据库管理前端（仅管理员）",
+			"/balop stop - 关闭数据库管理前端（仅管理员）"
 	};
 
 	private EconomyCommands() {
@@ -133,6 +135,43 @@ public final class EconomyCommands {
 								.then(Commands.argument("amount", StringArgumentType.word())
 										.executes(EconomyCommands::ecoSet)))));
 
+		// /balop start|stop —— 数据库管理前端（仅管理员）
+		dispatcher.register(Commands.literal("balop")
+				.requires(Commands.hasPermission(Commands.LEVEL_ADMINS))
+				.then(Commands.literal("start")
+						.executes(EconomyCommands::balopStart))
+				.then(Commands.literal("stop")
+						.executes(EconomyCommands::balopStop)));
+
+	}
+
+	// ---------- /balop ----------
+
+	/** /balop start —— 启动数据库管理前端（监听地址/端口来自 config.json 的 balop 段）。 */
+	private static int balopStart(CommandContext<CommandSourceStack> ctx) {
+		String error = mois.economy.balop.BalopServer.start(
+				mois.economy.config.EconomyConfig.balopHost(),
+				mois.economy.config.EconomyConfig.balopPort());
+		if (error != null) {
+			ctx.getSource().sendFailure(Component.literal(error));
+			return 0;
+		}
+		ctx.getSource().sendSuccess(() -> Component.literal(
+				"数据库管理前端已启动：" + mois.economy.balop.BalopServer.address())
+				.withStyle(ChatFormatting.GREEN), true);
+		return 1;
+	}
+
+	/** /balop stop —— 关闭数据库管理前端。 */
+	private static int balopStop(CommandContext<CommandSourceStack> ctx) {
+		if (!mois.economy.balop.BalopServer.isRunning()) {
+			ctx.getSource().sendFailure(Component.literal("数据库管理前端未在运行"));
+			return 0;
+		}
+		mois.economy.balop.BalopServer.stop();
+		ctx.getSource().sendSuccess(() -> Component.literal("数据库管理前端已关闭")
+				.withStyle(ChatFormatting.GREEN), true);
+		return 1;
 	}
 
 	// ---------- /suicide ----------

@@ -31,6 +31,14 @@
 - `format(long cents)` → `"X.XX"`（两位小数，整数运算，负号处理）。
 - 被 `EconomyCommands`、`BalshopCommands`、`FlyCommands`、`FlyManager`、`ShopManager` 等广泛使用。
 
+## `ItemCodec.java` — 物品完整数据编解码（交易流水 item_data）
+
+- `encode(ItemStack, RegistryAccess)` → 物品完整组件数据的 JSON 字符串
+  （`ItemStack.CODEC.encodeStart(registryAccess.createSerializationContext(JsonOps.INSTANCE))`，
+  含 NBT/附魔/自定义名等）；空堆或编码失败返回 null（记录仍写入，仅缺完整数据）。
+- 与趣味钓鱼配置（FishingManager）同一套编解码；被 `BuyModeSettlement.recordTrade`、
+  `ShopManager.sell` 用于交易流水 item_data 落库。
+
 ## `PriceLore.java` — 价格标签（真实 lore 组件）
 
 给玩家持有的物品打“单价”标签；纯服务端实现，纯净客户端可见。

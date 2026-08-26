@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 
 import mois.economy.Economy;
+import mois.economy.ItemCodec;
 import mois.economy.Money;
 import mois.economy.PriceLore;
 import mois.economy.config.ItemValues;
@@ -257,8 +258,8 @@ public final class BuyModeSettlement {
 	}
 
 	/**
-	 * 记录一笔 bm 买卖流水（channel=BM）；失败静默（记录失败不应影响资金结算，
-	 * 与 {@link #creditQuietly} 同一原则）。
+	 * 记录一笔 bm 买卖流水（channel=BM，含物品完整组件数据 item_data）；
+	 * 失败静默（记录失败不应影响资金结算，与 {@link #creditQuietly} 同一原则）。
 	 */
 	public static void recordTrade(ServerPlayer player, String type, ItemStack stack, int count, long price) {
 		if (stack == null || stack.isEmpty() || count <= 0) {
@@ -268,7 +269,9 @@ public final class BuyModeSettlement {
 			EconomyDb.recordTransaction(player.getUUID(), player.getGameProfile().name(), type,
 					EconomyDb.CHANNEL_BM,
 					BuiltInRegistries.ITEM.getKey(stack.getItem()).toString(),
-					stack.getHoverName().getString(), count, price);
+					stack.getHoverName().getString(),
+					ItemCodec.encode(stack, player.level().registryAccess()),
+					count, price);
 		} catch (EconomyDb.DatabaseException ignored) {
 			// 记录失败静默。
 		}

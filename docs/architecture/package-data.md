@@ -6,16 +6,20 @@
   随 jar 打包（嵌套 jar 环境不依赖 ServiceLoader，显式 `Class.forName` 加载）。
 - 连接参数：`PRAGMA journal_mode=WAL`、`PRAGMA busy_timeout=5000`。
 - **表结构**：
-  - `economy_accounts(uuid TEXT PRIMARY KEY, name TEXT NOT NULL, balance INTEGER NOT NULL DEFAULT 0 CHECK (balance >= 0))`
+  - `economy_accounts(uuid TEXT PRIMARY KEY, name TEXT NOT NULL, balance INTEGER NOT NULL DEFAULT 0)` —
+    **余额允许为负**（管理前端删除交易记录回滚造成；旧库的 `CHECK (balance >= 0)` 由
+    `migrateSchema` 重建表移除）。
   - `economy_settings(key TEXT PRIMARY KEY, value TEXT NOT NULL)`（目前仅存公告 `announcement`）。
   - `homes(uuid, name, world, x, y, z, created, PRIMARY KEY(uuid, name))` —— /sethome 的家。
   - `back_points(uuid PRIMARY KEY, world, x, y, z)` —— /back 的最近死亡点。
   - `economy_transactions(id INTEGER PRIMARY KEY AUTOINCREMENT, uuid, name, type, channel,
-    item_id, item_name, count, price, balance, time)` —— **买卖流水**：type 为 `BUY`（花钱获得
+    item_id, item_name, item_data, count, price, balance, time)` —— **买卖流水**：type 为 `BUY`（花钱获得
     物品）/`SELL`（物品消失换钱），channel 为 `SHOP`（箱子商店自动出售）/`BM`（便捷购买）；
     item_id 为注册表 ID（如 `minecraft:diamond`），item_name 为显示名（含自定义名），
-    price 为本次交易金额（分），balance 为交易后余额（分），time 为毫秒时间戳；
-    索引 `idx_transactions_uuid_time (uuid, time DESC)`；`deleteAccount` 级联删除流水。
+    **item_data 为物品完整组件数据（ItemStack.CODEC 编码的 JSON 字符串，含 NBT/附魔/自定义名，
+    旧记录为 NULL，由 `migrateSchema` 补列）**，price 为本次交易金额（分），balance 为交易后
+    余额（分），time 为毫秒时间戳；索引 `idx_transactions_uuid_time (uuid, time DESC)`；
+    `deleteAccount` 级联删除流水。
     记录点：`ShopManager.sell`（商店每格出售，收款人 payee）、`BuyModeSettlement.sendBuy/
     sendSell/sendRefund`（bm 槽位购买/-1 卖出/点击包退款）、`BuyModeSession.settleAndClear`
     （bm 关闭界面统一卖出）。记录失败一律静默（`recordTrade` 捕获 DatabaseException），
@@ -42,9 +46,15 @@
   | `topAccounts(limit, offset)` | 排行榜：`ORDER BY balance DESC, name ASC`，返回 `AccountEntry(uuid, name, balance)` |
   | `getAnnouncement()` | 读公告（连接未开时返回 null 而非抛错，供 JOIN 阶段使用） |
   | `setAnnouncement(String)` | 写公告；null/空 → 删除记录 |
-  | `recordTransaction(uuid, name, type, channel, itemId, itemName, count, price)` | 写一条买卖流水（内部 ensureAccount + 附交易后余额） |
-  | `recentTransactions(uuid, limit)` | 玩家最近流水（time DESC, id DESC），返回 `TransactionEntry(id, type, channel, itemId, itemName, count, price, balance, time)` |
+  | `recordTransaction(uuid, name, type, channel, itemId, itemName, itemData, count, price)` | 写一条买卖流水（内部 ensureAccount + 附交易后余额；itemData 可空） |
+  | `recentTransactions(uuid, limit)` | 玩家最近流水（time DESC, id DESC），返回 `TransactionEntry(id, uuid, name, type, channel, itemId, itemName, itemData, count, price, balance, time)` |
   | `transactionCount(uuid)` | 玩家流水总数 |
+  | `queryTransactions(uuid, type, channel, limit, offset)` | 分页查询流水（uuid 可空=全部、type/channel 可空=不过滤），返回 `TransactionPage(total, list)` |
+  | `listAccounts(query, limit, offset)` | 分页查询账户（名字/UUID 模糊，余额倒序），返回 `AccountPage(total, list)` |
+  | `accountName(uuid)` | 查询账户名（不存在返回“未知玩家”） |
+  | `setBalance(uuid, name, balance)` | 设置余额（**允许负数**） |
+  | `adjustBalance(uuid, name, delta)` | 直接增减余额（delta 可负，允许余额为负），返回新余额（管理前端用） |
+  | `deleteTransactionsWithRollback(ids)` | **删除流水并同步回滚资金**（原子事务）：删 BUY = 余额 +price（退款收回），删 SELL = 余额 -price（所得扣回）；返回 `List<RollbackResult(id, uuid, name, type, price, newBalance)>`，不存在的 id 跳过 |
 - **`DatabaseException extends RuntimeException`**：数据层不可恢复错误，命令层 catch 后向玩家返回可读提示。
 - **`runSelfTest()`**（open 时自动）：随机账户验证写入/读取/转账/余额不足拦截/名字存储/扣款边界，
   用后清理（`deleteAccount`），失败抛 `IllegalStateException` 使 open 的 catch 里 `close()`。

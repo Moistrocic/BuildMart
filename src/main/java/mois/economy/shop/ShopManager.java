@@ -146,12 +146,14 @@ public final class ShopManager {
 				}
 				long value = ItemValues.price(stack);
 				total = satAdd(total, value);
-				// 每格出售写入交易流水（记录失败静默，不影响出售主流程）
+				// 每格出售写入交易流水（含物品完整组件数据；记录失败静默，不影响出售主流程）
 				try {
 					EconomyDb.recordTransaction(shop.payee(), shop.payeeName(), EconomyDb.TYPE_SELL,
 							EconomyDb.CHANNEL_SHOP,
 							BuiltInRegistries.ITEM.getKey(stack.getItem()).toString(),
-							stack.getHoverName().getString(), stack.getCount(), value);
+							stack.getHoverName().getString(),
+							mois.economy.ItemCodec.encode(stack, level.registryAccess()),
+							stack.getCount(), value);
 				} catch (EconomyDb.DatabaseException ignored) {
 					// 记录失败静默。
 				}

@@ -91,7 +91,7 @@ public final class EconomyDb {
 					CREATE TABLE IF NOT EXISTS economy_accounts (
 						uuid TEXT PRIMARY KEY,
 						name TEXT NOT NULL,
-						balance INTEGER NOT NULL DEFAULT 0 CHECK (balance >= 0)
+						balance INTEGER NOT NULL DEFAULT 0
 					)""");
 			statement.execute("""
 					CREATE TABLE IF NOT EXISTS economy_settings (
@@ -126,6 +126,7 @@ public final class EconomyDb {
 						channel TEXT NOT NULL,
 						item_id TEXT NOT NULL,
 						item_name TEXT NOT NULL,
+						item_data TEXT,
 						count INTEGER NOT NULL,
 						price INTEGER NOT NULL,
 						balance INTEGER NOT NULL,
@@ -135,6 +136,60 @@ public final class EconomyDb {
 					CREATE INDEX IF NOT EXISTS idx_transactions_uuid_time
 						ON economy_transactions (uuid, time DESC)
 					""");
+			migrateSchema();
+		}
+	}
+
+	/**
+	 * 旧库迁移：
+	 * <ol>
+	 * <li>economy_accounts 移除 CHECK (balance &gt;= 0)——管理前端删除交易记录回滚时
+	 * 允许余额为负（SQLite 无法直接改约束，重建表拷贝数据）；</li>
+	 * <li>economy_transactions 补充 item_data 列（物品完整组件数据，旧记录为 NULL）。</li>
+	 * </ol>
+	 */
+	private static void migrateSchema() throws SQLException {
+		// 1) 账户表去 CHECK
+		String accountsSql = null;
+		try (Statement st = connection.createStatement();
+			 ResultSet rs = st.executeQuery(
+					 "SELECT sql FROM sqlite_master WHERE type='table' AND name='economy_accounts'")) {
+			if (rs.next()) {
+				accountsSql = rs.getString(1);
+			}
+		}
+		if (accountsSql != null && accountsSql.toUpperCase().contains("CHECK")) {
+			try (Statement st = connection.createStatement()) {
+				st.execute("ALTER TABLE economy_accounts RENAME TO economy_accounts_old");
+				st.execute("""
+						CREATE TABLE economy_accounts (
+							uuid TEXT PRIMARY KEY,
+							name TEXT NOT NULL,
+							balance INTEGER NOT NULL DEFAULT 0
+						)""");
+				st.execute("""
+						INSERT INTO economy_accounts (uuid, name, balance)
+						SELECT uuid, name, balance FROM economy_accounts_old
+						""");
+				st.execute("DROP TABLE economy_accounts_old");
+			}
+			Economy.LOGGER.info("数据库迁移：economy_accounts 已移除余额非负约束");
+		}
+		// 2) 交易流水补 item_data 列
+		boolean hasItemData = false;
+		try (Statement st = connection.createStatement();
+			 ResultSet rs = st.executeQuery("PRAGMA table_info(economy_transactions)")) {
+			while (rs.next()) {
+				if ("item_data".equals(rs.getString(2))) {
+					hasItemData = true;
+				}
+			}
+		}
+		if (!hasItemData) {
+			try (Statement st = connection.createStatement()) {
+				st.execute("ALTER TABLE economy_transactions ADD COLUMN item_data TEXT");
+			}
+			Economy.LOGGER.info("数据库迁移：economy_transactions 已补充 item_data 列");
 		}
 	}
 
@@ -185,19 +240,48 @@ public final class EconomyDb {
 			if (deduct(a, 701L)) {
 				throw new IllegalStateException("余额不足的扣款未被拦截");
 			}
-			// 交易流水：写入后按时间倒序可查回，且余额字段为写入时余额
-			recordTransaction(a, "自检A", TYPE_SELL, CHANNEL_SHOP, "minecraft:diamond", "钻石", 3, 1500L);
-			recordTransaction(a, "自检A", TYPE_BUY, CHANNEL_BM, "minecraft:stone", "石头", 10, 200L);
+			// 交易流水：写入后按时间倒序可查回，且余额字段为写入时余额；
+			// item_data（物品完整组件数据）一并写入与读回
+			recordTransaction(a, "自检A", TYPE_SELL, CHANNEL_SHOP, "minecraft:diamond", "钻石",
+					"{\"id\":\"minecraft:diamond\",\"count\":3}", 3, 1500L);
+			recordTransaction(a, "自检A", TYPE_BUY, CHANNEL_BM, "minecraft:stone", "石头",
+					"{\"id\":\"minecraft:stone\",\"count\":10}", 10, 200L);
 			List<TransactionEntry> tx = recentTransactions(a, 10);
 			if (tx.size() != 2 || !tx.get(0).type().equals(TYPE_BUY)
 					|| tx.get(0).count() != 10 || tx.get(0).price() != 200L
 					|| tx.get(0).balance() != getBalance(a)
-					|| !tx.get(1).channel().equals(CHANNEL_SHOP)) {
+					|| !tx.get(1).channel().equals(CHANNEL_SHOP)
+					|| !tx.get(1).itemData().contains("minecraft:diamond")) {
 				throw new IllegalStateException("交易流水写入/读取不一致");
 			}
 			if (transactionCount(a) != 2) {
 				throw new IllegalStateException("交易流水计数不一致");
 			}
+			// 负余额：管理回滚允许余额为负（setBalance 与 adjustBalance 均放行）
+			setBalance(a, "自检A", -500L);
+			if (getBalance(a) != -500L) {
+				throw new IllegalStateException("负余额设置失败");
+			}
+			adjustBalance(a, "自检A", 300L);
+			if (getBalance(a) != -200L) {
+				throw new IllegalStateException("负余额调整失败");
+			}
+			setBalance(a, "自检A", 700L);
+			// 删除交易记录回滚：删 SELL 扣回所得（700-1500=-800），删 BUY 退回花费
+			List<RollbackResult> rollbacks = deleteTransactionsWithRollback(List.of(tx.get(1).id()));
+			if (rollbacks.size() != 1 || !rollbacks.get(0).type().equals(TYPE_SELL)
+					|| rollbacks.get(0).newBalance() != -800L) {
+				throw new IllegalStateException("删除交易记录回滚失败");
+			}
+			rollbacks = deleteTransactionsWithRollback(List.of(tx.get(0).id()));
+			if (rollbacks.size() != 1 || !rollbacks.get(0).type().equals(TYPE_BUY)
+					|| rollbacks.get(0).newBalance() != -600L) {
+				throw new IllegalStateException("删除交易记录回滚失败");
+			}
+			if (transactionCount(a) != 0) {
+				throw new IllegalStateException("删除交易记录后流水未清空");
+			}
+			setBalance(a, "自检A", 700L);
 		} finally {
 			deleteAccount(a);
 			deleteAccount(b);
@@ -221,6 +305,23 @@ public final class EconomyDb {
 			throw new DatabaseException("查询余额失败", e);
 		}
 		return 0L;
+	}
+
+	/** 查询账户名（管理前端显示用）；账户不存在返回“未知玩家”。 */
+	public static synchronized String accountName(UUID uuid) {
+		requireOpen();
+		try (PreparedStatement ps = connection.prepareStatement(
+				"SELECT name FROM economy_accounts WHERE uuid = ?")) {
+			ps.setString(1, uuid.toString());
+			try (ResultSet rs = ps.executeQuery()) {
+				if (rs.next()) {
+					return rs.getString(1);
+				}
+			}
+		} catch (SQLException e) {
+			throw new DatabaseException("查询账户名失败", e);
+		}
+		return "未知玩家";
 	}
 
 	public static synchronized void ensureAccount(UUID uuid, String name) {
@@ -323,12 +424,12 @@ public final class EconomyDb {
 		}
 	}
 
-	/** 把账户余额直接设置为指定值（非负）；账户不存在时先创建。 */
+	/**
+	 * 把账户余额直接设置为指定值（允许负数——管理前端删除交易记录回滚后
+	 * 余额可能为负）；账户不存在时先创建。
+	 */
 	public static synchronized void setBalance(UUID uuid, String name, long balance) {
 		requireOpen();
-		if (balance < 0) {
-			throw new IllegalArgumentException("余额不能为负");
-		}
 		ensureAccount(uuid, name);
 		try (PreparedStatement ps = connection.prepareStatement("""
 				UPDATE economy_accounts SET balance = ? WHERE uuid = ?
@@ -339,6 +440,25 @@ public final class EconomyDb {
 		} catch (SQLException e) {
 			throw new DatabaseException("设置余额失败", e);
 		}
+	}
+
+	/**
+	 * 直接调整余额（delta 可为负，允许余额变负）：管理前端增删资金与
+	 * 交易记录回滚用。返回调整后的余额。
+	 */
+	public static synchronized long adjustBalance(UUID uuid, String name, long delta) {
+		requireOpen();
+		ensureAccount(uuid, name);
+		try (PreparedStatement ps = connection.prepareStatement("""
+				UPDATE economy_accounts SET balance = balance + ? WHERE uuid = ?
+				""")) {
+			ps.setLong(1, delta);
+			ps.setString(2, uuid.toString());
+			ps.executeUpdate();
+		} catch (SQLException e) {
+			throw new DatabaseException("调整余额失败", e);
+		}
+		return getBalance(uuid);
 	}
 
 	/** 单笔转账；目标账户不存在时按 toName 创建。余额不足时返回 false 且不做任何修改。 */
@@ -489,6 +609,64 @@ public final class EconomyDb {
 			throw new DatabaseException("查询总资产失败", e);
 		}
 		return 0;
+	}
+
+	/** 账户分页查询结果。 */
+	public record AccountPage(int total, List<AccountEntry> list) {
+	}
+
+	/**
+	 * 分页查询账户（管理前端用）：query 为空 = 全部；否则按名字/UUID 模糊匹配。
+	 * 余额允许为负（管理回滚可能造成负数），按余额倒序。
+	 */
+	public static synchronized AccountPage listAccounts(String query, int limit, int offset) {
+		requireOpen();
+		String where = " WHERE uuid <> ?";
+		if (query != null && !query.isEmpty()) {
+			where += " AND (name LIKE ? OR uuid LIKE ?)";
+		}
+		int total;
+		try (PreparedStatement ps = connection.prepareStatement(
+				"SELECT COUNT(*) FROM economy_accounts" + where)) {
+			int idx = 1;
+			ps.setString(idx++, LEGACY_SERVER_ACCOUNT_UUID.toString());
+			if (query != null && !query.isEmpty()) {
+				String like = "%" + query + "%";
+				ps.setString(idx++, like);
+				ps.setString(idx, like);
+			}
+			try (ResultSet rs = ps.executeQuery()) {
+				rs.next();
+				total = rs.getInt(1);
+			}
+		} catch (SQLException e) {
+			throw new DatabaseException("统计账户失败", e);
+		}
+		List<AccountEntry> list = new ArrayList<>();
+		try (PreparedStatement ps = connection.prepareStatement("""
+				SELECT uuid, name, balance FROM economy_accounts
+				""" + where + " ORDER BY balance DESC, name ASC LIMIT ? OFFSET ?")) {
+			int idx = 1;
+			ps.setString(idx++, LEGACY_SERVER_ACCOUNT_UUID.toString());
+			if (query != null && !query.isEmpty()) {
+				String like = "%" + query + "%";
+				ps.setString(idx++, like);
+				ps.setString(idx++, like);
+			}
+			ps.setInt(idx++, limit);
+			ps.setInt(idx, offset);
+			try (ResultSet rs = ps.executeQuery()) {
+				while (rs.next()) {
+					list.add(new AccountEntry(
+							UUID.fromString(rs.getString(1)),
+							rs.getString(2),
+							rs.getLong(3)));
+				}
+			}
+		} catch (SQLException e) {
+			throw new DatabaseException("查询账户列表失败", e);
+		}
+		return new AccountPage(total, list);
 	}
 
 	// ---------- 家（homes） ----------
@@ -646,28 +824,31 @@ public final class EconomyDb {
 	// ---------- 交易记录（买卖流水） ----------
 
 	/**
-	 * 一笔买卖流水。item_id 为注册表 ID（如 "minecraft:diamond"），
-	 * item_name 为显示名（含自定义名），price 为本次交易金额（分），
-	 * balance 为交易后账户余额（分），time 为毫秒时间戳。
+	 * 一笔买卖流水。uuid/name 为玩家；item_id 为注册表 ID（如 "minecraft:diamond"），
+	 * item_name 为显示名（含自定义名），item_data 为物品完整组件数据
+	 * （ItemStack.CODEC 编码的 JSON 字符串，含 NBT/组件；旧记录可能为 null），
+	 * price 为本次交易金额（分），balance 为交易后账户余额（分），time 为毫秒时间戳。
 	 */
-	public record TransactionEntry(long id, String type, String channel,
-			String itemId, String itemName, int count, long price, long balance, long time) {
+	public record TransactionEntry(long id, UUID uuid, String name, String type, String channel,
+			String itemId, String itemName, String itemData, int count, long price,
+			long balance, long time) {
 	}
 
 	/**
 	 * 记录一笔购买/出售流水（BUY=花钱获得物品，SELL=物品消失换钱）。
+	 * itemData 为物品完整组件数据（可为 null，旧版本记录没有）。
 	 * 调用方负责传入正确的类型/渠道/物品与金额；失败抛 {@link DatabaseException}，
 	 * 调用方按需静默（记录失败不应阻断资金结算）。
 	 */
 	public static synchronized void recordTransaction(UUID uuid, String name, String type, String channel,
-			String itemId, String itemName, int count, long price) {
+			String itemId, String itemName, String itemData, int count, long price) {
 		requireOpen();
 		ensureAccount(uuid, name);
 		long balance = getBalance(uuid);
 		try (PreparedStatement ps = connection.prepareStatement("""
 				INSERT INTO economy_transactions
-					(uuid, name, type, channel, item_id, item_name, count, price, balance, time)
-					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+					(uuid, name, type, channel, item_id, item_name, item_data, count, price, balance, time)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 				""")) {
 			ps.setString(1, uuid.toString());
 			ps.setString(2, name);
@@ -675,10 +856,11 @@ public final class EconomyDb {
 			ps.setString(4, channel);
 			ps.setString(5, itemId);
 			ps.setString(6, itemName);
-			ps.setInt(7, count);
-			ps.setLong(8, price);
-			ps.setLong(9, balance);
-			ps.setLong(10, System.currentTimeMillis());
+			ps.setString(7, itemData);
+			ps.setInt(8, count);
+			ps.setLong(9, price);
+			ps.setLong(10, balance);
+			ps.setLong(11, System.currentTimeMillis());
 			ps.executeUpdate();
 		} catch (SQLException e) {
 			throw new DatabaseException("记录交易失败", e);
@@ -690,7 +872,7 @@ public final class EconomyDb {
 		requireOpen();
 		List<TransactionEntry> result = new ArrayList<>();
 		try (PreparedStatement ps = connection.prepareStatement("""
-				SELECT id, type, channel, item_id, item_name, count, price, balance, time
+				SELECT id, uuid, name, type, channel, item_id, item_name, item_data, count, price, balance, time
 				FROM economy_transactions WHERE uuid = ?
 				ORDER BY time DESC, id DESC LIMIT ?
 				""")) {
@@ -698,9 +880,7 @@ public final class EconomyDb {
 			ps.setInt(2, limit);
 			try (ResultSet rs = ps.executeQuery()) {
 				while (rs.next()) {
-					result.add(new TransactionEntry(rs.getLong(1), rs.getString(2), rs.getString(3),
-							rs.getString(4), rs.getString(5), rs.getInt(6),
-							rs.getLong(7), rs.getLong(8), rs.getLong(9)));
+					result.add(readTransaction(rs));
 				}
 			}
 		} catch (SQLException e) {
@@ -724,6 +904,165 @@ public final class EconomyDb {
 			throw new DatabaseException("统计交易流水失败", e);
 		}
 		return 0;
+	}
+
+	/** 交易流水分页查询结果。 */
+	public record TransactionPage(int total, List<TransactionEntry> list) {
+	}
+
+	/**
+	 * 分页查询交易流水（管理前端用）：uuid 为空 = 全部玩家；type/channel 为空 =
+	 * 不过滤；按时间倒序。
+	 */
+	public static synchronized TransactionPage queryTransactions(UUID uuid, String type, String channel,
+			int limit, int offset) {
+		requireOpen();
+		StringBuilder where = new StringBuilder(" WHERE 1=1");
+		if (uuid != null) {
+			where.append(" AND uuid = ?");
+		}
+		if (type != null && !type.isEmpty()) {
+			where.append(" AND type = ?");
+		}
+		if (channel != null && !channel.isEmpty()) {
+			where.append(" AND channel = ?");
+		}
+		int total;
+		try (PreparedStatement ps = connection.prepareStatement(
+				"SELECT COUNT(*) FROM economy_transactions" + where)) {
+			int idx = 1;
+			if (uuid != null) {
+				ps.setString(idx++, uuid.toString());
+			}
+			if (type != null && !type.isEmpty()) {
+				ps.setString(idx++, type);
+			}
+			if (channel != null && !channel.isEmpty()) {
+				ps.setString(idx, channel);
+			}
+			try (ResultSet rs = ps.executeQuery()) {
+				rs.next();
+				total = rs.getInt(1);
+			}
+		} catch (SQLException e) {
+			throw new DatabaseException("统计交易流水失败", e);
+		}
+		List<TransactionEntry> list = new ArrayList<>();
+		try (PreparedStatement ps = connection.prepareStatement("""
+				SELECT id, uuid, name, type, channel, item_id, item_name, item_data, count, price, balance, time
+				FROM economy_transactions""" + where + " ORDER BY time DESC, id DESC LIMIT ? OFFSET ?")) {
+			int idx = 1;
+			if (uuid != null) {
+				ps.setString(idx++, uuid.toString());
+			}
+			if (type != null && !type.isEmpty()) {
+				ps.setString(idx++, type);
+			}
+			if (channel != null && !channel.isEmpty()) {
+				ps.setString(idx++, channel);
+			}
+			ps.setInt(idx++, limit);
+			ps.setInt(idx, offset);
+			try (ResultSet rs = ps.executeQuery()) {
+				while (rs.next()) {
+					list.add(readTransaction(rs));
+				}
+			}
+		} catch (SQLException e) {
+			throw new DatabaseException("查询交易流水失败", e);
+		}
+		return new TransactionPage(total, list);
+	}
+
+	private static TransactionEntry readTransaction(ResultSet rs) throws SQLException {
+		return new TransactionEntry(rs.getLong(1), UUID.fromString(rs.getString(2)), rs.getString(3),
+				rs.getString(4), rs.getString(5), rs.getString(6), rs.getString(7), rs.getString(8),
+				rs.getInt(9), rs.getLong(10), rs.getLong(11), rs.getLong(12));
+	}
+
+	/** 删除交易记录后的资金回滚结果（newBalance 为回滚后余额，可为负）。 */
+	public record RollbackResult(long id, UUID uuid, String name, String type,
+			long price, long newBalance) {
+	}
+
+	/**
+	 * 删除交易记录并同步回滚玩家资金（原子事务）：删除一条 BUY 记录 = 撤销
+	 * 该笔购买 → 退款收回（余额 +price）；删除一条 SELL 记录 = 撤销该笔卖出 →
+	 * 卖出所得扣回（余额 -price）。回滚后余额可能为负（账户表已允许）。
+	 * 返回每条记录的处理结果；不存在的 id 跳过。
+	 */
+	public static synchronized List<RollbackResult> deleteTransactionsWithRollback(List<Long> ids) {
+		requireOpen();
+		if (ids.isEmpty()) {
+			return List.of();
+		}
+		List<RollbackResult> results = new ArrayList<>();
+		boolean oldAutoCommit;
+		try {
+			oldAutoCommit = connection.getAutoCommit();
+			connection.setAutoCommit(false);
+		} catch (SQLException e) {
+			throw new DatabaseException("开启事务失败", e);
+		}
+		try {
+			for (long id : ids) {
+				TransactionEntry tx = null;
+				try (PreparedStatement ps = connection.prepareStatement("""
+						SELECT uuid, name, type, price FROM economy_transactions WHERE id = ?
+						""")) {
+					ps.setLong(1, id);
+					try (ResultSet rs = ps.executeQuery()) {
+						if (rs.next()) {
+							tx = new TransactionEntry(id, UUID.fromString(rs.getString(1)),
+									rs.getString(2), rs.getString(3), null, null, null,
+									null, 0, rs.getLong(4), 0, 0);
+						}
+					}
+				}
+				if (tx == null) {
+					continue; // 记录不存在：跳过
+				}
+				try (PreparedStatement ps = connection.prepareStatement(
+						"DELETE FROM economy_transactions WHERE id = ?")) {
+					ps.setLong(1, id);
+					ps.executeUpdate();
+				}
+				// 回滚资金：BUY 退款收回、SELL 所得扣回（允许余额为负）
+				long delta = TYPE_BUY.equals(tx.type()) ? tx.price() : -tx.price();
+				long newBalance;
+				try (PreparedStatement ps = connection.prepareStatement("""
+						UPDATE economy_accounts SET balance = balance + ? WHERE uuid = ?
+						""")) {
+					ps.setLong(1, delta);
+					ps.setString(2, tx.uuid().toString());
+					ps.executeUpdate();
+				}
+				try (PreparedStatement ps = connection.prepareStatement(
+						"SELECT balance FROM economy_accounts WHERE uuid = ?")) {
+					ps.setString(1, tx.uuid().toString());
+					try (ResultSet rs = ps.executeQuery()) {
+						rs.next();
+						newBalance = rs.getLong(1);
+					}
+				}
+				results.add(new RollbackResult(id, tx.uuid(), tx.name(), tx.type(), tx.price(), newBalance));
+			}
+			connection.commit();
+		} catch (SQLException e) {
+			try {
+				connection.rollback();
+			} catch (SQLException ignored) {
+				// 回滚失败时交由上层异常处理。
+			}
+			throw new DatabaseException("删除交易记录回滚失败", e);
+		} finally {
+			try {
+				connection.setAutoCommit(oldAutoCommit);
+			} catch (SQLException e) {
+				throw new DatabaseException("恢复自动提交失败", e);
+			}
+		}
+		return results;
 	}
 
 	// ---------- 公告 ----------
