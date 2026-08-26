@@ -966,35 +966,30 @@ public final class EconomyDb {
 	}
 
 	/**
-	 * 分页查询交易流水（管理前端用）：uuid 为空 = 全部玩家；type/channel 为空 =
-	 * 不过滤；按时间倒序。
+	 * 分页查询资金流水（管理前端用）：uuid 为空 = 全部玩家；types/channels 为
+	 * 多值筛选（空列表 = 不过滤，非空 = IN 匹配）；按时间倒序。
 	 */
-	public static synchronized TransactionPage queryTransactions(UUID uuid, String type, String channel,
-			int limit, int offset) {
+	public static synchronized TransactionPage queryTransactions(UUID uuid, List<String> types,
+			List<String> channels, int limit, int offset) {
 		requireOpen();
 		StringBuilder where = new StringBuilder(" WHERE 1=1");
+		List<String> params = new ArrayList<>();
 		if (uuid != null) {
 			where.append(" AND uuid = ?");
+			params.add(uuid.toString());
 		}
-		if (type != null && !type.isEmpty()) {
-			where.append(" AND type = ?");
+		if (types != null && !types.isEmpty()) {
+			where.append(" AND type IN (").append(placeholders(types.size())).append(")");
+			params.addAll(types);
 		}
-		if (channel != null && !channel.isEmpty()) {
-			where.append(" AND channel = ?");
+		if (channels != null && !channels.isEmpty()) {
+			where.append(" AND channel IN (").append(placeholders(channels.size())).append(")");
+			params.addAll(channels);
 		}
 		int total;
 		try (PreparedStatement ps = connection.prepareStatement(
 				"SELECT COUNT(*) FROM economy_transactions" + where)) {
-			int idx = 1;
-			if (uuid != null) {
-				ps.setString(idx++, uuid.toString());
-			}
-			if (type != null && !type.isEmpty()) {
-				ps.setString(idx++, type);
-			}
-			if (channel != null && !channel.isEmpty()) {
-				ps.setString(idx, channel);
-			}
+			bindParams(ps, params);
 			try (ResultSet rs = ps.executeQuery()) {
 				rs.next();
 				total = rs.getInt(1);
@@ -1006,18 +1001,9 @@ public final class EconomyDb {
 		try (PreparedStatement ps = connection.prepareStatement("""
 				SELECT id, uuid, name, type, channel, item_id, item_name, item_data, count, price, balance, time
 				FROM economy_transactions""" + where + " ORDER BY time DESC, id DESC LIMIT ? OFFSET ?")) {
-			int idx = 1;
-			if (uuid != null) {
-				ps.setString(idx++, uuid.toString());
-			}
-			if (type != null && !type.isEmpty()) {
-				ps.setString(idx++, type);
-			}
-			if (channel != null && !channel.isEmpty()) {
-				ps.setString(idx++, channel);
-			}
-			ps.setInt(idx++, limit);
-			ps.setInt(idx, offset);
+			bindParams(ps, params);
+			ps.setInt(params.size() + 1, limit);
+			ps.setInt(params.size() + 2, offset);
 			try (ResultSet rs = ps.executeQuery()) {
 				while (rs.next()) {
 					list.add(readTransaction(rs));
@@ -1027,6 +1013,16 @@ public final class EconomyDb {
 			throw new DatabaseException("查询交易流水失败", e);
 		}
 		return new TransactionPage(total, list);
+	}
+
+	private static String placeholders(int n) {
+		return String.join(",", java.util.Collections.nCopies(n, "?"));
+	}
+
+	private static void bindParams(PreparedStatement ps, List<String> params) throws SQLException {
+		for (int i = 0; i < params.size(); i++) {
+			ps.setString(i + 1, params.get(i));
+		}
 	}
 
 	private static TransactionEntry readTransaction(ResultSet rs) throws SQLException {

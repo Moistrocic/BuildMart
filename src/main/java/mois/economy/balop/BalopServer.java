@@ -151,21 +151,12 @@ public final class BalopServer {
 				return;
 			}
 			Map<String, String> q = query(exchange);
-			String type = q.getOrDefault("type", "");
-			String channel = q.getOrDefault("channel", "");
+			List<String> types = multiQuery(q, "type");
+			List<String> channels = multiQuery(q, "channel");
 			int page = parseInt(q.getOrDefault("page", "1"), 1, 1, Integer.MAX_VALUE);
 			int size = parseInt(q.getOrDefault("size", String.valueOf(DEFAULT_PAGE_SIZE)), DEFAULT_PAGE_SIZE, 1, 200);
-			EconomyDb.TransactionPage result = EconomyDb.queryTransactions(uuid, type, channel, size, (page - 1) * size);
-			JsonObject body = new JsonObject();
-			body.addProperty("total", result.total());
-			body.addProperty("page", page);
-			body.addProperty("size", size);
-			JsonArray list = new JsonArray();
-			for (EconomyDb.TransactionEntry tx : result.list()) {
-				list.add(transactionJson(tx));
-			}
-			body.add("list", list);
-			json(exchange, 200, body);
+			EconomyDb.TransactionPage result = EconomyDb.queryTransactions(uuid, types, channels, size, (page - 1) * size);
+			json(exchange, 200, transactionPageJson(result, page, size));
 			return;
 		}
 		// ---- 单个玩家（详情 / 资金增删改） ----
@@ -240,21 +231,12 @@ public final class BalopServer {
 					return;
 				}
 			}
-			String type = q.getOrDefault("type", "");
-			String channel = q.getOrDefault("channel", "");
+			List<String> types = multiQuery(q, "type");
+			List<String> channels = multiQuery(q, "channel");
 			int page = parseInt(q.getOrDefault("page", "1"), 1, 1, Integer.MAX_VALUE);
 			int size = parseInt(q.getOrDefault("size", String.valueOf(DEFAULT_PAGE_SIZE)), DEFAULT_PAGE_SIZE, 1, 200);
-			EconomyDb.TransactionPage result = EconomyDb.queryTransactions(uuid, type, channel, size, (page - 1) * size);
-			JsonObject body = new JsonObject();
-			body.addProperty("total", result.total());
-			body.addProperty("page", page);
-			body.addProperty("size", size);
-			JsonArray list = new JsonArray();
-			for (EconomyDb.TransactionEntry tx : result.list()) {
-				list.add(transactionJson(tx));
-			}
-			body.add("list", list);
-			json(exchange, 200, body);
+			EconomyDb.TransactionPage result = EconomyDb.queryTransactions(uuid, types, channels, size, (page - 1) * size);
+			json(exchange, 200, transactionPageJson(result, page, size));
 			return;
 		}
 		// ---- 删除单条交易记录（同步回滚资金） ----
@@ -324,6 +306,31 @@ public final class BalopServer {
 		} catch (EconomyDb.DatabaseException ignored) {
 			// 记录失败静默。
 		}
+	}
+
+	private static JsonObject transactionPageJson(EconomyDb.TransactionPage result, int page, int size) {
+		JsonObject body = new JsonObject();
+		body.addProperty("total", result.total());
+		body.addProperty("page", page);
+		body.addProperty("size", size);
+		JsonArray list = new JsonArray();
+		for (EconomyDb.TransactionEntry tx : result.list()) {
+			list.add(transactionJson(tx));
+		}
+		body.add("list", list);
+		return body;
+	}
+
+	/** 解析逗号分隔的多值筛选参数（如 type=BUY,SELL）；空串返回空列表（= 不过滤）。 */
+	private static List<String> multiQuery(Map<String, String> q, String key) {
+		String value = q.getOrDefault(key, "");
+		if (value.isBlank()) {
+			return List.of();
+		}
+		return java.util.Arrays.stream(value.split(","))
+				.map(String::trim)
+				.filter(s -> !s.isEmpty())
+				.toList();
 	}
 
 	private static JsonObject transactionJson(EconomyDb.TransactionEntry tx) {
@@ -483,9 +490,9 @@ public final class BalopServer {
 			      <tbody id="playerRows"></tbody>
 			    </table>
 			    <div class="pager">
-			      <button onclick="pagePlayers(-1)">上一页</button>
+			      <button id="prevPlayerBtn" onclick="pagePlayers(-1)">上一页</button>
 			      <span class="muted" id="playerPageInfo"></span>
-			      <button onclick="pagePlayers(1)">下一页</button>
+			      <button id="nextPlayerBtn" onclick="pagePlayers(1)">下一页</button>
 			    </div>
 			  </div>
 			  <div id="detail" style="display:none">
@@ -498,14 +505,19 @@ public final class BalopServer {
 			        <button onclick="operate('balance')">设为余额（可负）</button>
 			      </div>
 			      <div class="row" style="margin-top:8px">
-			        <select id="txType" onchange="state.txType=this.value; state.txPage=1; loadTx()">
-			          <option value="">全部类型</option><option value="BUY">BUY 购买</option><option value="SELL">SELL 出售</option>
-			        </select>
-			        <select id="txChannel" onchange="state.txChannel=this.value; state.txPage=1; loadTx()">
-			          <option value="">全部渠道</option><option value="SHOP">SHOP 商店</option><option value="BM">BM 便捷购买</option>
-			        </select>
-			        <button onclick="selectAll()">全选</button>
-			        <button class="danger" onclick="batchDelete()">批量删除选中（回滚资金）</button>
+			        <span class="muted">类型：</span>
+			        <span id="typeFilters" style="display:flex;flex-wrap:wrap;gap:2px 10px"></span>
+			        <button onclick="toggleAllFilters('type')">全选/取消类型</button>
+			      </div>
+			      <div class="row" style="margin-top:6px">
+			        <span class="muted">渠道：</span>
+			        <span id="channelFilters" style="display:flex;flex-wrap:wrap;gap:2px 10px"></span>
+			        <button onclick="toggleAllFilters('channel')">全选/取消渠道</button>
+			      </div>
+			      <div class="row" style="margin-top:8px">
+			        <button onclick="selectAll()">全选本页</button>
+			        <button onclick="deselectAll()">取消全选</button>
+			        <button class="danger" onclick="batchDelete()">批量删除选中（仅交易回滚资金）</button>
 			      </div>
 			      <table>
 			        <thead><tr>
@@ -516,15 +528,19 @@ public final class BalopServer {
 			        <tbody id="txRows"></tbody>
 			      </table>
 			      <div class="pager">
-			        <button onclick="pageTx(-1)">上一页</button>
+			        <button id="prevTxBtn" onclick="pageTx(-1)">上一页</button>
 			        <span class="muted" id="txPageInfo"></span>
-			        <button onclick="pageTx(1)">下一页</button>
+			        <button id="nextTxBtn" onclick="pageTx(1)">下一页</button>
 			      </div>
 			    </div>
 			  </div>
 			</div>
 			<script>
-			const state = { q:'', page:1, size:20, txPage:1, txSize:20, txType:'', txChannel:'', currentUuid:null, selected:new Set() };
+			const state = { q:'', page:1, size:20, txPage:1, txSize:20, types:new Set(), channels:new Set(),
+			  currentUuid:null, selected:new Set(), playerPages:1, txPages:1 };
+			const TYPES = ['BUY','SELL','TRANSFER_IN','TRANSFER_OUT','ADMIN_ADD','ADMIN_SUB','ADMIN_SET',
+			  'FEE','REDPACKET_SEND','REDPACKET_CLAIM','REDPACKET_REFUND'];
+			const CHANNELS = ['SHOP','BM','BUY','PAY','ECO','BALOP','FLY','TP','REDPACKET'];
 			const $ = id => document.getElementById(id);
 			const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 			const yuan = c => (c/100).toFixed(2);
@@ -540,6 +556,26 @@ public final class BalopServer {
 			  const neg=tx.price<0; const s=(neg?'-':'+')+yuan(Math.abs(tx.price));
 			  return neg?'<span class="badge neg">'+s+' 元</span>':'<span class="good">'+s+' 元</span>'; }
 			function isTrade(t){ return t==='BUY'||t==='SELL'; }
+			function initFilters(){
+			  TYPES.forEach(t=>{ const l=document.createElement('label'); l.style.cssText='font-size:12px;cursor:pointer;white-space:nowrap';
+			    l.innerHTML='<input type="checkbox" value="'+t+'" checked onchange="onFilterChange()"> '+t;
+			    $('typeFilters').appendChild(l); });
+			  CHANNELS.forEach(c=>{ const l=document.createElement('label'); l.style.cssText='font-size:12px;cursor:pointer;white-space:nowrap';
+			    l.innerHTML='<input type="checkbox" value="'+c+'" checked onchange="onFilterChange()"> '+c;
+			    $('channelFilters').appendChild(l); });
+			  onFilterChange();
+			}
+			function onFilterChange(){
+			  state.types=new Set([...document.querySelectorAll('#typeFilters input:checked')].map(e=>e.value));
+			  state.channels=new Set([...document.querySelectorAll('#channelFilters input:checked')].map(e=>e.value));
+			  state.txPage=1; loadTx();
+			}
+			function toggleAllFilters(kind){
+			  const boxes=document.querySelectorAll('#'+kind+'Filters input');
+			  const all=[...boxes].every(b=>b.checked);
+			  boxes.forEach(b=>b.checked=!all);
+			  onFilterChange();
+			}
 			async function api(path, opts){ const res=await fetch(path, opts); let data=null;
 			  try{ data=await res.json(); }catch(e){}
 			  if(!res.ok) throw new Error((data&&data.error)||('HTTP '+res.status)); return data; }
@@ -554,11 +590,13 @@ public final class BalopServer {
 			    tr.innerHTML='<td>'+esc(p.name)+'</td><td class="muted">'+esc(p.uuid)+'</td><td class="right">'+
 			      (p.balance<0?'<span class="badge neg">'+esc(yuan(p.balance))+' 元</span>':esc(yuan(p.balance))+' 元')+'</td>';
 			    rows.appendChild(tr); });
-			  const totalPages=Math.max(1, Math.ceil(d.total/d.size));
-			  $('playerPageInfo').textContent='第 '+d.page+'/'+totalPages+' 页，共 '+d.total+' 个账户';
+			  state.playerPages=Math.max(1, Math.ceil(d.total/d.size));
+			  if(state.page>state.playerPages){ state.page=state.playerPages; return loadPlayers(); }
+			  $('playerPageInfo').textContent='第 '+d.page+'/'+state.playerPages+' 页，共 '+d.total+' 个账户';
+			  $('prevPlayerBtn').disabled=state.page<=1; $('nextPlayerBtn').disabled=state.page>=state.playerPages;
 			  if(d.list.length===0) rows.innerHTML='<tr><td colspan="3" class="muted">无账户</td></tr>';
 			  }catch(e){ toast(e.message,false); } }
-			function pagePlayers(d){ const np=state.page+d; if(np<1) return; state.page=np; loadPlayers(); }
+			function pagePlayers(d){ const np=state.page+d; if(np<1||np>state.playerPages) return; state.page=np; loadPlayers(); }
 			async function openPlayer(uuid, name){
 			  state.currentUuid=uuid; state.txPage=1; state.selected.clear(); $('checkAll').checked=false;
 			  $('detail').style.display=''; $('detailName').textContent=name;
@@ -573,10 +611,12 @@ public final class BalopServer {
 			  try{ const d=await api('/api/players/'+state.currentUuid+'/'+op, {method:'POST',
 			    headers:{'Content-Type':'application/json'}, body:JSON.stringify({amountCents:amount})});
 			    $('detailBalance').textContent=yuan(d.balance)+' 元'; toast('操作成功，余额 '+yuan(d.balance)+' 元', true);
-			    input.value=''; loadPlayers(); }
+			    input.value=''; loadPlayers(); loadTx(); }
 			  catch(e){ toast(e.message,false); } }
+			function txParams(){ const t=[...state.types].join(','), c=[...state.channels].join(',');
+			  return 'type='+encodeURIComponent(t)+'&channel='+encodeURIComponent(c); }
 			async function loadTx(){ if(!state.currentUuid) return; try{
-			  const d=await api('/api/players/'+state.currentUuid+'/transactions?type='+state.txType+'&channel='+state.txChannel+
+			  const d=await api('/api/players/'+state.currentUuid+'/transactions?'+txParams()+
 			    '&page='+state.txPage+'&size='+state.txSize);
 			  const rows=$('txRows'); rows.innerHTML='';
 			  d.list.forEach(tx=>{ const tr=document.createElement('tr');
@@ -591,16 +631,22 @@ public final class BalopServer {
 			      '<td class="right">'+(tx.balance<0?'<span class="badge neg">':'')+esc(yuan(tx.balance))+(tx.balance<0?'</span>':'')+'</td>'+
 			      '<td><button class="danger" onclick="delOne('+tx.id+')">删除</button></td>';
 			    rows.appendChild(tr); });
-			  const totalPages=Math.max(1, Math.ceil(d.total/d.size));
-			  $('txPageInfo').textContent='第 '+d.page+'/'+totalPages+' 页，共 '+d.total+' 条';
+			  state.txPages=Math.max(1, Math.ceil(d.total/d.size));
+			  if(state.txPage>state.txPages){ state.txPage=state.txPages; return loadTx(); }
+			  $('txPageInfo').textContent='第 '+d.page+'/'+state.txPages+' 页，共 '+d.total+' 条';
+			  $('prevTxBtn').disabled=state.txPage<=1; $('nextTxBtn').disabled=state.txPage>=state.txPages;
 			  if(d.list.length===0) rows.innerHTML='<tr><td colspan="10" class="muted">无交易记录</td></tr>';
 			  }catch(e){ toast(e.message,false); } }
-			function pageTx(d){ const np=state.txPage+d; if(np<1) return; state.txPage=np; loadTx(); }
+			function pageTx(d){ const np=state.txPage+d; if(np<1||np>state.txPages) return; state.txPage=np; loadTx(); }
 			function toggleOne(id, checked){ if(checked) state.selected.add(id); else state.selected.delete(id); }
 			function toggleAll(checked){ document.querySelectorAll('#txRows input[data-id]').forEach(el=>{
 			    el.checked=checked; toggleOne(Number(el.dataset.id), checked); }); }
 			function selectAll(){ const ids=[]; document.querySelectorAll('#txRows input[data-id]').forEach(el=>ids.push(Number(el.dataset.id)));
-			  ids.forEach(id=>state.selected.add(id)); document.querySelectorAll('#txRows input[data-id]').forEach(el=>el.checked=true); }
+			  ids.forEach(id=>state.selected.add(id)); document.querySelectorAll('#txRows input[data-id]').forEach(el=>el.checked=true);
+			  $('checkAll').checked=true; }
+			function deselectAll(){ state.selected.clear();
+			  document.querySelectorAll('#txRows input[data-id]').forEach(el=>el.checked=false);
+			  $('checkAll').checked=false; }
 			function rollbackMsg(r){ if(r.type==='BUY') return '已删除 #'+r.id+'（BUY '+esc(r.name)+'），退款收回 +'+yuan(r.price)+' 元，新余额 '+yuan(r.balance)+' 元';
 			  if(r.type==='SELL') return '已删除 #'+r.id+'（SELL '+esc(r.name)+'），扣回所得 -'+yuan(r.price)+' 元，新余额 '+yuan(r.balance)+' 元';
 			  return '已删除 #'+r.id+'（'+r.type+' '+esc(r.name)+'），仅删除记录，不回滚资金'; }
@@ -621,6 +667,10 @@ public final class BalopServer {
 			  catch(e){ toast(e.message,false); } }
 			async function refreshBalance(){ if(state.currentUuid){ try{
 			  $('detailBalance').textContent=yuan(await loadBalance(state.currentUuid))+' 元'; }catch(e){} } }
+			// 自动刷新：每 6 秒轮询玩家列表/当前玩家余额与流水（其他标签页/面板操作
+			// 造成的资金与流水变化会自动呈现）
+			setInterval(()=>{ if(state.currentUuid){ refreshBalance(); loadTx(); } loadPlayers(); }, 6000);
+			initFilters();
 			loadPlayers();
 			</script>
 			</body>
