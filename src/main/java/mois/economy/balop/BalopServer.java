@@ -123,9 +123,10 @@ public final class BalopServer {
 		if (path.equals("/api/players") && method.equals("GET")) {
 			Map<String, String> q = query(exchange);
 			String keyword = q.getOrDefault("q", "");
+			String sort = q.getOrDefault("sort", "");
 			int page = parseInt(q.getOrDefault("page", "1"), 1, 1, Integer.MAX_VALUE);
 			int size = parseInt(q.getOrDefault("size", String.valueOf(DEFAULT_PAGE_SIZE)), DEFAULT_PAGE_SIZE, 1, 200);
-			EconomyDb.AccountPage result = EconomyDb.listAccounts(keyword, size, (page - 1) * size);
+			EconomyDb.AccountPage result = EconomyDb.listAccounts(keyword, sort, size, (page - 1) * size);
 			JsonObject body = new JsonObject();
 			body.addProperty("total", result.total());
 			body.addProperty("page", page);
@@ -153,9 +154,11 @@ public final class BalopServer {
 			Map<String, String> q = query(exchange);
 			List<String> types = multiQuery(q, "type");
 			List<String> channels = multiQuery(q, "channel");
+			Long priceMin = longQuery(q, "amountMinCents");
+			Long priceMax = longQuery(q, "amountMaxCents");
 			int page = parseInt(q.getOrDefault("page", "1"), 1, 1, Integer.MAX_VALUE);
 			int size = parseInt(q.getOrDefault("size", String.valueOf(DEFAULT_PAGE_SIZE)), DEFAULT_PAGE_SIZE, 1, 200);
-			EconomyDb.TransactionPage result = EconomyDb.queryTransactions(uuid, types, channels, size, (page - 1) * size);
+			EconomyDb.TransactionPage result = EconomyDb.queryTransactions(uuid, types, channels, priceMin, priceMax, size, (page - 1) * size);
 			json(exchange, 200, transactionPageJson(result, page, size));
 			return;
 		}
@@ -233,9 +236,11 @@ public final class BalopServer {
 			}
 			List<String> types = multiQuery(q, "type");
 			List<String> channels = multiQuery(q, "channel");
+			Long priceMin = longQuery(q, "amountMinCents");
+			Long priceMax = longQuery(q, "amountMaxCents");
 			int page = parseInt(q.getOrDefault("page", "1"), 1, 1, Integer.MAX_VALUE);
 			int size = parseInt(q.getOrDefault("size", String.valueOf(DEFAULT_PAGE_SIZE)), DEFAULT_PAGE_SIZE, 1, 200);
-			EconomyDb.TransactionPage result = EconomyDb.queryTransactions(uuid, types, channels, size, (page - 1) * size);
+			EconomyDb.TransactionPage result = EconomyDb.queryTransactions(uuid, types, channels, priceMin, priceMax, size, (page - 1) * size);
 			json(exchange, 200, transactionPageJson(result, page, size));
 			return;
 		}
@@ -333,6 +338,19 @@ public final class BalopServer {
 				.toList();
 	}
 
+	/** 解析长整型参数（分）；缺失/非法返回 null（= 不过滤）。 */
+	private static Long longQuery(Map<String, String> q, String key) {
+		String value = q.getOrDefault(key, "");
+		if (value.isBlank()) {
+			return null;
+		}
+		try {
+			return Long.parseLong(value.trim());
+		} catch (NumberFormatException e) {
+			return null;
+		}
+	}
+
 	private static JsonObject transactionJson(EconomyDb.TransactionEntry tx) {
 		JsonObject o = new JsonObject();
 		o.addProperty("id", tx.id());
@@ -411,6 +429,7 @@ public final class BalopServer {
 	private static void json(HttpExchange exchange, int status, Object body) throws IOException {
 		byte[] bytes = GSON.toJson(body).getBytes(StandardCharsets.UTF_8);
 		exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
+		exchange.getResponseHeaders().set("Cache-Control", "no-store");
 		exchange.sendResponseHeaders(status, bytes.length);
 		try (OutputStream os = exchange.getResponseBody()) {
 			os.write(bytes);
@@ -420,6 +439,8 @@ public final class BalopServer {
 	private static void html(HttpExchange exchange, int status, String page) throws IOException {
 		byte[] bytes = page.getBytes(StandardCharsets.UTF_8);
 		exchange.getResponseHeaders().set("Content-Type", "text/html; charset=utf-8");
+		// 禁止缓存：管理面板必须始终加载最新页面（服务器关闭后浏览器不应显示缓存旧页）
+		exchange.getResponseHeaders().set("Cache-Control", "no-store");
 		exchange.sendResponseHeaders(status, bytes.length);
 		try (OutputStream os = exchange.getResponseBody()) {
 			os.write(bytes);
@@ -484,6 +505,14 @@ public final class BalopServer {
 			    <div class="row">
 			      <input id="q" class="grow" placeholder="搜索玩家（名字 / UUID）" oninput="state.q=this.value; state.page=1; loadPlayers()">
 			      <button onclick="loadPlayers()">搜索</button>
+			      <select id="playerSort" onchange="state.sort=this.value; state.page=1; loadPlayers()">
+			        <option value="balance_desc">余额 高→低</option>
+			        <option value="balance_asc">余额 低→高</option>
+			        <option value="name_asc">名字 A→Z</option>
+			        <option value="name_desc">名字 Z→A</option>
+			        <option value="uuid_asc">UUID 正序</option>
+			        <option value="uuid_desc">UUID 倒序</option>
+			      </select>
 			    </div>
 			    <table>
 			      <thead><tr><th>名字</th><th>UUID</th><th class="right">余额</th></tr></thead>
@@ -515,6 +544,14 @@ public final class BalopServer {
 			        <button onclick="toggleAllFilters('channel')">全选/取消渠道</button>
 			      </div>
 			      <div class="row" style="margin-top:8px">
+			        <span class="muted">金额区间：</span>
+			        <input id="amountMin" placeholder="最小金额（元，可负）" style="width:130px" onchange="onAmountRange()">
+			        <span class="muted">～</span>
+			        <input id="amountMax" placeholder="最大金额（元，可负）" style="width:130px" onchange="onAmountRange()">
+			        <button onclick="onAmountRange()">应用金额区间</button>
+			        <button onclick="clearAmountRange()">清除</button>
+			      </div>
+			      <div class="row" style="margin-top:8px">
 			        <button onclick="selectAll()">全选本页</button>
 			        <button onclick="deselectAll()">取消全选</button>
 			        <button class="danger" onclick="batchDelete()">批量删除选中（仅交易回滚资金）</button>
@@ -537,7 +574,8 @@ public final class BalopServer {
 			</div>
 			<script>
 			const state = { q:'', page:1, size:20, txPage:1, txSize:20, types:new Set(), channels:new Set(),
-			  currentUuid:null, selected:new Set(), playerPages:1, txPages:1 };
+			  currentUuid:null, selected:new Set(), playerPages:1, txPages:1, sort:'balance_desc',
+			  amountMinCents:null, amountMaxCents:null };
 			const TYPES = ['BUY','SELL','TRANSFER_IN','TRANSFER_OUT','ADMIN_ADD','ADMIN_SUB','ADMIN_SET',
 			  'FEE','REDPACKET_SEND','REDPACKET_CLAIM','REDPACKET_REFUND'];
 			const CHANNELS = ['SHOP','BM','BUY','PAY','ECO','BALOP','FLY','TP','REDPACKET'];
@@ -582,7 +620,8 @@ public final class BalopServer {
 			function toast(msg, ok){ const t=document.createElement('div'); t.className='toast '+(ok?'ok':'err');
 			  t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(), 4000); }
 			async function loadPlayers(){ try{
-			  const d=await api('/api/players?q='+encodeURIComponent(state.q)+'&page='+state.page+'&size='+state.size);
+			  const d=await api('/api/players?q='+encodeURIComponent(state.q)+'&sort='+encodeURIComponent(state.sort)+
+			    '&page='+state.page+'&size='+state.size);
 			  const rows=$('playerRows'); rows.innerHTML='';
 			  d.list.forEach(p=>{ const tr=document.createElement('tr'); tr.className='clickable';
 			    if(state.currentUuid===p.uuid) tr.className+=' selected';
@@ -614,7 +653,18 @@ public final class BalopServer {
 			    input.value=''; loadPlayers(); loadTx(); }
 			  catch(e){ toast(e.message,false); } }
 			function txParams(){ const t=[...state.types].join(','), c=[...state.channels].join(',');
-			  return 'type='+encodeURIComponent(t)+'&channel='+encodeURIComponent(c); }
+			  let p='type='+encodeURIComponent(t)+'&channel='+encodeURIComponent(c);
+			  if(state.amountMinCents!==null) p+='&amountMinCents='+state.amountMinCents;
+			  if(state.amountMaxCents!==null) p+='&amountMaxCents='+state.amountMaxCents;
+			  return p; }
+			function onAmountRange(){ const a=$('amountMin').value, b=$('amountMax').value;
+			  try{ state.amountMinCents=a.trim()===''?null:cents(a); state.amountMaxCents=b.trim()===''?null:cents(b); }
+			  catch(e){ toast(e.message,false); return; }
+			  if(state.amountMinCents!==null&&state.amountMaxCents!==null&&state.amountMinCents>state.amountMaxCents)
+			    { toast('最小金额不能大于最大金额', false); return; }
+			  state.txPage=1; loadTx(); }
+			function clearAmountRange(){ $('amountMin').value=''; $('amountMax').value='';
+			  state.amountMinCents=null; state.amountMaxCents=null; state.txPage=1; loadTx(); }
 			async function loadTx(){ if(!state.currentUuid) return; try{
 			  const d=await api('/api/players/'+state.currentUuid+'/transactions?'+txParams()+
 			    '&page='+state.txPage+'&size='+state.txSize);

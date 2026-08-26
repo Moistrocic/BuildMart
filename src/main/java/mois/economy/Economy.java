@@ -61,6 +61,9 @@ public class Economy implements ModInitializer {
 			ShopManager.save();
 			// 未领取的红包作废并返还剩余金额（需在数据库关闭前执行）
 			mois.economy.command.HongbaoCommands.refundAll(server);
+			// 数据库管理前端随服务器一起关闭：即使进程残留（Windows 下 JVM 未完全
+			// 退出）也不允许端口继续服务（否则面板能打开但数据库已关闭）
+			mois.economy.balop.BalopServer.stop();
 			EconomyDb.close();
 		});
 		ServerTickEvents.END_SERVER_TICK.register(ShopManager::onServerTick);

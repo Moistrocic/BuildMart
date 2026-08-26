@@ -662,14 +662,23 @@ public final class EconomyDb {
 
 	/**
 	 * 分页查询账户（管理前端用）：query 为空 = 全部；否则按名字/UUID 模糊匹配。
-	 * 余额允许为负（管理回滚可能造成负数），按余额倒序。
+	 * sort 白名单：balance_desc（默认）/balance_asc/name_asc/name_desc/uuid_asc/uuid_desc。
+	 * 余额允许为负（管理回滚可能造成负数）。
 	 */
-	public static synchronized AccountPage listAccounts(String query, int limit, int offset) {
+	public static synchronized AccountPage listAccounts(String query, String sort, int limit, int offset) {
 		requireOpen();
 		String where = " WHERE uuid <> ?";
 		if (query != null && !query.isEmpty()) {
 			where += " AND (name LIKE ? OR uuid LIKE ?)";
 		}
+		String orderBy = switch (sort == null ? "" : sort) {
+			case "balance_asc" -> "balance ASC, name ASC";
+			case "name_asc" -> "name ASC, uuid ASC";
+			case "name_desc" -> "name DESC, uuid ASC";
+			case "uuid_asc" -> "uuid ASC";
+			case "uuid_desc" -> "uuid DESC";
+			default -> "balance DESC, name ASC";
+		};
 		int total;
 		try (PreparedStatement ps = connection.prepareStatement(
 				"SELECT COUNT(*) FROM economy_accounts" + where)) {
@@ -690,7 +699,7 @@ public final class EconomyDb {
 		List<AccountEntry> list = new ArrayList<>();
 		try (PreparedStatement ps = connection.prepareStatement("""
 				SELECT uuid, name, balance FROM economy_accounts
-				""" + where + " ORDER BY balance DESC, name ASC LIMIT ? OFFSET ?")) {
+				""" + where + " ORDER BY " + orderBy + " LIMIT ? OFFSET ?")) {
 			int idx = 1;
 			ps.setString(idx++, LEGACY_SERVER_ACCOUNT_UUID.toString());
 			if (query != null && !query.isEmpty()) {
@@ -967,13 +976,14 @@ public final class EconomyDb {
 
 	/**
 	 * 分页查询资金流水（管理前端用）：uuid 为空 = 全部玩家；types/channels 为
-	 * 多值筛选（空列表 = 不过滤，非空 = IN 匹配）；按时间倒序。
+	 * 多值筛选（空列表 = 不过滤，非空 = IN 匹配）；priceMin/priceMax 为金额
+	 * 区间筛选（分，可空，含边界）；按时间倒序。
 	 */
 	public static synchronized TransactionPage queryTransactions(UUID uuid, List<String> types,
-			List<String> channels, int limit, int offset) {
+			List<String> channels, Long priceMin, Long priceMax, int limit, int offset) {
 		requireOpen();
 		StringBuilder where = new StringBuilder(" WHERE 1=1");
-		List<String> params = new ArrayList<>();
+		List<Object> params = new ArrayList<>();
 		if (uuid != null) {
 			where.append(" AND uuid = ?");
 			params.add(uuid.toString());
@@ -985,6 +995,14 @@ public final class EconomyDb {
 		if (channels != null && !channels.isEmpty()) {
 			where.append(" AND channel IN (").append(placeholders(channels.size())).append(")");
 			params.addAll(channels);
+		}
+		if (priceMin != null) {
+			where.append(" AND price >= ?");
+			params.add(priceMin);
+		}
+		if (priceMax != null) {
+			where.append(" AND price <= ?");
+			params.add(priceMax);
 		}
 		int total;
 		try (PreparedStatement ps = connection.prepareStatement(
@@ -1019,9 +1037,9 @@ public final class EconomyDb {
 		return String.join(",", java.util.Collections.nCopies(n, "?"));
 	}
 
-	private static void bindParams(PreparedStatement ps, List<String> params) throws SQLException {
+	private static void bindParams(PreparedStatement ps, List<Object> params) throws SQLException {
 		for (int i = 0; i < params.size(); i++) {
-			ps.setString(i + 1, params.get(i));
+			ps.setObject(i + 1, params.get(i));
 		}
 	}
 

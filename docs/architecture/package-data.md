@@ -56,8 +56,8 @@
   | `recordMoneyLog(uuid, name, type, channel, description, price)` | 写非买卖资金流水（转账/管理/扣费/红包等；item 字段用描述占位，price 为变化量可负） |
   | `recentTransactions(uuid, limit)` | 玩家最近流水（time DESC, id DESC），返回 `TransactionEntry(id, uuid, name, type, channel, itemId, itemName, itemData, count, price, balance, time)` |
   | `transactionCount(uuid)` | 玩家流水总数 |
-  | `queryTransactions(uuid, type, channel, limit, offset)` | 分页查询流水（uuid 可空=全部、type/channel 可空=不过滤），返回 `TransactionPage(total, list)` |
-  | `listAccounts(query, limit, offset)` | 分页查询账户（名字/UUID 模糊，余额倒序），返回 `AccountPage(total, list)` |
+  | `queryTransactions(uuid, types, channels, priceMin, priceMax, limit, offset)` | 分页查询流水（uuid 可空=全部、types/channels 多值 IN 匹配、priceMin/priceMax 金额区间含边界，均可不传），返回 `TransactionPage(total, list)` |
+  | `listAccounts(query, sort, limit, offset)` | 分页查询账户（名字/UUID 模糊；sort 白名单 balance_desc/balance_asc/name_asc/name_desc/uuid_asc/uuid_desc），返回 `AccountPage(total, list)` |
   | `accountName(uuid)` | 查询账户名（不存在返回“未知玩家”） |
   | `setBalance(uuid, name, balance)` | 设置余额（**允许负数**） |
   | `adjustBalance(uuid, name, delta)` | 直接增减余额（delta 可负，允许余额为负），返回新余额（管理前端用） |

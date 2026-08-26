@@ -17,16 +17,21 @@
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| GET | `/` | 管理页面（单页 HTML，内嵌 JS/CSS，深色风格） |
-| GET | `/api/players?q=&page=&size=` | 玩家列表（名字/UUID 模糊查询，余额倒序分页） |
+| GET | `/` | 管理页面（单页 HTML，内嵌 JS/CSS，深色风格；响应 `Cache-Control: no-store` 防浏览器缓存旧页） |
+| GET | `/api/players?q=&sort=&page=&size=` | 玩家列表（名字/UUID 模糊查询；sort=balance_desc\|balance_asc\|name_asc\|name_desc\|uuid_asc\|uuid_desc，默认余额倒序） |
 | GET | `/api/players/{uuid}` | 玩家详情（名字 + 余额） |
 | POST | `/api/players/{uuid}/credit` | 加钱 `{amountCents}`（分） |
 | POST | `/api/players/{uuid}/deduct` | 扣钱（**允许扣成负数**，与玩家侧 deduct 的余额检查不同） |
 | POST | `/api/players/{uuid}/balance` | 设置余额（可负） |
-| GET | `/api/players/{uuid}/transactions?type=&channel=&page=&size=` | 该玩家交易流水 |
-| GET | `/api/transactions?uuid=&type=&channel=&page=&size=` | 交易流水（uuid 可空 = 全部玩家） |
+| GET | `/api/players/{uuid}/transactions?type=&channel=&amountMinCents=&amountMaxCents=&page=&size=` | 该玩家交易流水（类型/渠道多值逗号分隔，金额区间分） |
+| GET | `/api/transactions?uuid=&type=&channel=&amountMinCents=&amountMaxCents=&page=&size=` | 交易流水（uuid 可空 = 全部玩家） |
 | DELETE | `/api/transactions/{id}` | 删除单条并**同步回滚资金** |
 | POST | `/api/transactions/delete` | 批量删除 `{ids:[...]}` 并同步回滚资金 |
+
+## 生命周期
+
+- `/balop start|stop` 手动控制；**服务器关闭（SERVER_STOPPING）时自动 `BalopServer.stop()`**——
+  即使 Windows 下 JVM 残留也不允许端口继续服务（面板能打开但数据库已关闭的假象）
 
 ## 交易记录删除回滚（EconomyDb.deleteTransactionsWithRollback）
 
