@@ -100,7 +100,7 @@ public abstract class ServerGamePacketListenerImplMixin {
 				// 背包 ctrl+q 直接丢：卖出丢出部分；槽位直接设为剩余（不再走出现/消失判定）
 				long refund = ItemValues.price(drop);
 				BuyModeSettlement.creditQuietly(player, refund);
-				setSlotAndSync(player, menu, slotNum, slot, newStack);
+				BuyModeSettlement.setSlotAndSync(player, menu, slotNum, slot, newStack);
 				if (refund > 0) {
 					BuyModeSettlement.sendSell(player, drop, refund);
 				}
@@ -109,45 +109,73 @@ public abstract class ServerGamePacketListenerImplMixin {
 			// 面板 ctrl+q：购买（严格校验 + 余额 + 扣款 + 生成实体）
 			BuyModeSettlement.buyDrop(player, drop);
 		}
+		// ---- 1.5) 槽间交换配对：26.3 创造界面数字键（1-9）对悬停物品执行 SWAP，
+		// 客户端本地交换后把两个变化槽以 SetCreativeModeSlot 逐槽上报。若上一包挂起的
+		// 「出现」与本包构成对称交换（本包原内容 = 挂起出现内容，本包出现 = 挂起消失
+		// 内容），则两槽都是中性移动，不是面板购买：不扣款、不提示、不产生暂存残留。
+		// 配对失败则结算挂起（面板购买 or 拒绝），再继续本包判定。----
+		if (session.hasPendingSlot()) {
+			BuyModeSession.PendingSlot pending = session.pendingSlot();
+			if (isSwapPair(pending, prev, newStack)) {
+				session.clearPendingSlot();
+				session.recordVanished(prev); // 本包消失（= 挂起出现内容）入暂存
+				session.absorb(pending.next(), pending.next().getCount()); // 挂起槽吸收
+				BuyModeSettlement.setSlotAndSync(player, menu, pending.slotNum(),
+						menu.getSlot(pending.slotNum()), pending.next());
+				session.absorb(newStack, newStack.getCount()); // 本槽吸收（= 挂起消失内容）
+				BuyModeSettlement.setSlotAndSync(player, menu, slotNum, slot, newStack);
+				return;
+			}
+			// 配对失败：结算挂起的槽位（购买 or 拒绝），本包继续正常判定
+			BuyModeSettlement.settlePendingSlot(player, session, menu, pending);
+		}
 		// ---- 2) 出现/消失判定（暂存模型）----
 		if (newStack.isEmpty()) {
 			// 消失：拿起/清空，物品入暂存（不结算，关闭界面时统一卖出）
 			if (!prev.isEmpty()) {
 				session.recordVanished(prev);
 			}
-			setSlotAndSync(player, menu, slotNum, slot, newStack);
+			BuyModeSettlement.setSlotAndSync(player, menu, slotNum, slot, newStack);
 			return;
 		}
 		boolean sameAsPrev = !prev.isEmpty() && BuyModeSession.sameItemAndComponents(prev, newStack);
 		if (sameAsPrev && newStack.getCount() < prev.getCount()) {
 			// 部分消失（拆分拿起等）：消失部分入暂存，剩余留槽
 			session.recordVanished(newStack.copyWithCount(prev.getCount() - newStack.getCount()));
-			setSlotAndSync(player, menu, slotNum, slot, newStack);
+			BuyModeSettlement.setSlotAndSync(player, menu, slotNum, slot, newStack);
 			return;
 		}
 		if (!sameAsPrev && !prev.isEmpty()) {
-			// 原槽内容被顶出（去客户端光标）→ 入暂存
+			// 原槽内容被顶出（去客户端光标/交换来源槽）→ 入暂存
 			session.recordVanished(prev);
 		}
-		// 先吸收暂存（放回自己的物品 → 中性）；未能吸收的增量 = 面板来源 → 购买
+		// 先吸收暂存（放回自己的物品 → 中性）；未能吸收的增量可能是面板购买，
+		// 也可能是槽间交换（数字键），先挂起由下一个槽位包配对或超时结算：
+		// 直接购买会在「背包↔快捷栏交换」时误扣款（改造物品交换还会留下暂存残留
+		// 造成关闭界面白嫖退款、残留被后续包吸收造成免费复制）。
 		int deltaCount = sameAsPrev ? newStack.getCount() - prev.getCount() : newStack.getCount();
 		int unbought = session.absorb(newStack, deltaCount);
 		if (unbought == 0) {
 			// 全部来自暂存（放回自己的物品）：中性
-			setSlotAndSync(player, menu, slotNum, slot, newStack);
+			BuyModeSettlement.setSlotAndSync(player, menu, slotNum, slot, newStack);
 			return;
 		}
-		// 未能吸收的部分来自创造面板：购买（严格校验 + 余额 + 按增量扣款）
-		long cost = ItemValues.price(newStack)
-				- ItemValues.price(newStack.copyWithCount(newStack.getCount() - unbought));
-		Object snapshot = session.snapshot();
-		if (!BuyModeSettlement.approveBuy(player, newStack, cost)) {
-			session.restore(snapshot);
-			rollbackSlot(menu, slot, prev);
-			return;
-		}
-		setSlotAndSync(player, menu, slotNum, slot, newStack);
-		BuyModeSettlement.sendBuy(player, prev, newStack, cost);
+		// 挂起记录：非 sameAsPrev 时本包已把 prev 入暂存（撤销挂起需一并撤销）；
+		// sameAsPrev 增量购买未发生消失，vanished 传空（避免误扣暂存中的同物品）
+		session.setPendingSlot(slotNum, prev, newStack,
+				sameAsPrev ? ItemStack.EMPTY : prev, unbought,
+				player.level().getServer().getTickCount());
+	}
+
+	/** 挂起的槽位出现与本包是否构成对称交换（数字键 SWAP：两槽内容互换）。 */
+	@Unique
+	private static boolean isSwapPair(BuyModeSession.PendingSlot pending,
+			ItemStack prev, ItemStack newStack) {
+		return !pending.next().isEmpty() && !pending.vanished().isEmpty()
+				&& BuyModeSession.sameItemAndComponents(pending.next(), prev)
+				&& pending.next().getCount() == prev.getCount()
+				&& BuyModeSession.sameItemAndComponents(pending.vanished(), newStack)
+				&& pending.vanished().getCount() == newStack.getCount();
 	}
 
 	/**
@@ -185,27 +213,8 @@ public abstract class ServerGamePacketListenerImplMixin {
 		session.setPendingDrop(dropped, player.level().getServer().getTickCount());
 	}
 
-	/** 设置槽位（服务端权威 + 打标 + 强制下发），购买/放回/拿起共用。 */
-	@Unique
-	private static void setSlotAndSync(ServerPlayer player, InventoryMenu menu, int slotNum, Slot slot, ItemStack stack) {
-		slot.setByPlayer(stack);
-		// 显式打标：覆盖合成格等不经过 Inventory.setItem 的容器槽位（幂等）
-		PriceLore.tag(stack);
-		// 原版 handleSetCreativeModeSlot 用 setRemoteSlot 把该槽位标记为“客户端已知”后不会
-		// 再下发同步包，客户端本地持有的堆没有价格标签。这里标记远端状态后强制下发一次
-		// 打标后的权威堆（同步机制与服务端 ContainerSynchronizer.sendSlotChange 一致），
-		// 保证拿取/放回的瞬间客户端即可看到价值标签。
-		menu.setRemoteSlot(slotNum, stack);
-		player.connection.send(new ClientboundContainerSetSlotPacket(
-				menu.containerId, menu.incrementStateId(), slotNum, stack.copy()));
-	}
-
-	/** 回滚槽位并全量同步（购买被拒/余额不足）。 */
-	@Unique
-	private static void rollbackSlot(InventoryMenu menu, Slot slot, ItemStack prev) {
-		slot.setByPlayer(prev);
-		menu.broadcastFullState();
-	}
+	/** 设置槽位（服务端权威 + 打标 + 强制下发）与回滚同步统一走
+	 *  {@link BuyModeSettlement#setSlotAndSync}（含显式补发权威内容）。 */
 
 	// ---------- 普通创造模式（非便捷购买）的标签即时同步 ----------
 

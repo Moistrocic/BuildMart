@@ -52,6 +52,25 @@ public final class BuyModeSession {
 	private ItemStack pendingDrop = null;
 	/** pendingDrop 挂起时的服务端 tick（用于超时结算：面板 ctrl+q 无槽位包跟随）。 */
 	private long pendingDropTick = -1;
+	/** 挂起的槽位出现（数字键/槽间交换的配对候选，见 {@link PendingSlot}）。 */
+	private PendingSlot pendingSlot = null;
+
+	/**
+	 * 挂起的「槽位出现」：出现内容未能被暂存完全吸收时先挂起，由下一个槽位包
+	 * 配对（对称交换）或超时/关闭界面结算。挂起期间服务端槽位**从未被修改**
+	 * （仍为 {@code prev}），因此拒绝/作废时物品并未丢失。
+	 *
+	 * @param slotNum  目标槽位
+	 * @param prev     挂起前的槽位内容（服务端权威）
+	 * @param next     客户端请求的出现内容
+	 * @param vanished 本包处理中已入暂存的「消失」物品（拒绝/作废时需撤销；
+	 *                 同物品增量购买场景可为空）
+	 * @param unbought 未能被暂存吸收的数量（结算购买时按此收费）
+	 * @param tick     挂起时的服务端 tick（超时结算用）
+	 */
+	public record PendingSlot(int slotNum, ItemStack prev, ItemStack next,
+			ItemStack vanished, int unbought, long tick) {
+	}
 
 	// ---------- 暂存 ----------
 
@@ -132,10 +151,65 @@ public final class BuyModeSession {
 		pendingDropTick = -1;
 	}
 
+	// ---------- pendingSlot（槽位出现挂起：交换配对 / 延迟结算） ----------
+
+	public boolean hasPendingSlot() {
+		return pendingSlot != null;
+	}
+
+	public PendingSlot pendingSlot() {
+		return pendingSlot;
+	}
+
+	public void setPendingSlot(int slotNum, ItemStack prev, ItemStack next,
+			ItemStack vanished, int unbought, long tick) {
+		pendingSlot = new PendingSlot(slotNum, prev.copy(), next.copy(),
+				vanished == null || vanished.isEmpty() ? ItemStack.EMPTY : vanished.copy(),
+				unbought, tick);
+	}
+
+	public void clearPendingSlot() {
+		pendingSlot = null;
+	}
+
+	/** pendingSlot 是否已超过宽限期（≥2 tick 仍无配对包认领 = 非交换，应结算购买/拒绝）。 */
+	public boolean pendingSlotExpired(long nowTick) {
+		return pendingSlot != null && pendingSlot.tick() >= 0 && nowTick - pendingSlot.tick() >= 2;
+	}
+
+	/**
+	 * 撤销一次「消失」：从暂存扣减同物品数量。用于挂起被拒绝/作废时——
+	 * 槽位从未被修改（物品未丢失），已入暂存的消失记录必须一并撤销，
+	 * 否则关闭界面会把仍在背包里的物品再卖出退款一次。
+	 */
+	public void removeVanished(ItemStack stack) {
+		if (stack == null || stack.isEmpty()) {
+			return;
+		}
+		ItemStack normalized = normalize(stack);
+		Iterator<PendingStack> it = pendingStacks.iterator();
+		while (it.hasNext()) {
+			PendingStack p = it.next();
+			if (sameItemAndComponents(p.stack, normalized)) {
+				int remove = Math.min(normalized.getCount(), p.remaining());
+				p.setRemaining(p.remaining() - remove);
+				if (p.remaining() == 0) {
+					it.remove();
+				}
+				return;
+			}
+		}
+	}
+
 	// ---------- 结算 ----------
 
 	/** 关闭物品栏 / 退出模式 / 掉线：暂存剩余统一卖出，pendingDrop 作废。 */
 	public void settleAndClear(ServerPlayer player) {
+		// 挂起中的槽位出现：服务端槽位从未被修改（物品未丢失）→ 撤销消失记录，不作卖出
+		if (pendingSlot != null) {
+			removeVanished(pendingSlot.vanished());
+			pendingSlot = null;
+		}
 		long total = 0;
 		List<String> sold = new ArrayList<>();
 		for (PendingStack p : pendingStacks) {

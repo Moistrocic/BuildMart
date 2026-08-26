@@ -66,12 +66,21 @@
      `BuyModeSettlement.settlePendingDrop`，避免滞后一拍）；
      不可交易物品丢弃 → 作废。挂起的旧 pendingDrop 被新丢弃包触发时按面板购买结算。
    - `slotNum > 45` 放行（原版同样忽略）。
-   - 接管后按**暂存模型**判定（详见 package-buymode.md 的 `BuyModeSession`）：
+   - 接管后按**暂存模型 + 挂起配对**判定（详见 package-buymode.md 的 `BuyModeSession`）：
      - 槽位变空/同物品数量减少（拿起、拆分拿起）→ 物品入暂存，不结算；
      - 槽位出现物品：增量匹配暂存（同 item+组件，untag 归一比较）→ 中性放回；
-       增量超出暂存的部分（面板叠放）或与暂存完全不同（面板来源）→ **购买**：
-       `isVanillaCreativeItem` 严格比对（比对前 `PriceLore.untag`，价格行是模组自身
-       数据须绕过）→ 余额检查 → 扣款；任一失败回滚槽位 + 恢复暂存快照 + `broadcastFullState`。
+     - **增量超出暂存（面板叠放）或与暂存完全不同 → 一律先挂起 `session.pendingSlot`**
+       （槽位暂不修改，记录 prev/next/vanished/unbought），不再立即购买：
+       - 下一个槽位包构成**对称交换**（本包原内容 = 挂起 next 且本包出现 = 挂起 vanished，
+         同 item+组件+数量，`isSwapPair`）→ **数字键/槽间交换**（26.3 创造界面数字键 1-9
+         对悬停物品执行 SWAP，客户端本地交换后经 `broadcastChanges` 把两个变化槽逐槽上报）：
+         双槽中性放回，不扣款、不提示、无暂存残留；
+       - 配对失败 / **挂起 ≥2 tick 无配对包**（服务端 tick → `BuyModeSettlement.settlePendingSlot`）：
+         挂起内容通过 `isVanillaCreativeItem` 严格比对（比对前 `PriceLore.untag`，价格行是
+         模组自身数据须绕过）→ **面板购买**（按未吸收增量扣款，原内容消失记录保留）；
+         比对不过或余额不足 → **拒绝**：槽位保持原状（物品未丢失）、`removeVanished`
+         撤销消失记录、补发权威内容 + 提示——杜绝「物品既在背包又被卖出退款」的白嫖
+         与「残留被后续包吸收」的免费复制。
    - **严格比对索引**首次使用时构建：`CreativeModeTabs.tryRebuildTabContents` 用服务端
      注册表/特性重建创造面板内容（与客户端一致），收集全部标签页 displayItems 与
      searchTabDisplayItems；**另加兜底**——所有注册物品的纯净默认形态
@@ -85,7 +94,8 @@
    - 成功写入后：`PriceLore.tag(newStack)` + `menu.setRemoteSlot(slotNum, newStack)` +
      **`player.connection.send(new ClientboundContainerSetSlotPacket(menu.containerId,
      menu.incrementStateId(), slotNum, newStack.copy()))`** ——原版 `setRemoteSlot` 会把槽位标记为
-     “客户端已知”而不再下发，必须显式补发才能让客户端立即看到价格标签。
+     “客户端已知”而不再下发，必须显式补发才能让客户端立即看到价格标签
+     （统一走 `BuyModeSettlement.setSlotAndSync`）。
 2. `handleSetCreativeModeSlot` @RETURN `economy$syncCreativeSlotTag` — **普通创造模式补发**：
    非 buymode 且 `hasInfiniteMaterials()` 的玩家，原版处理完成后把打标后的权威槽位补发一次
    （守卫：slotNum 1..45、非空、数量合法、`PriceLore.enabled`）。与上一条互斥。
@@ -105,7 +115,8 @@
    **发言照常进入公屏**（不取消原版处理）；领取失败私聊红字；非口令发言完全不受影响。
 - **结算工具已提取到 `BuyModeSettlement`**（mixin 不允许非 private 方法，会被合并进 target
   导致启动崩溃）：创造索引与严格比对（`isVanillaCreativeItem`）、面板购买链（`buyDrop`/
-  `approveBuy`/`settlePendingDrop`）、买卖提示（`sendBuy/sendSell/sendRefund/sendModified` 等）、
+  `approveBuy`/`settlePendingDrop`/`settlePendingSlot`）、槽位设置与同步（`setSlotAndSync`）、
+  买卖提示（`sendBuy/sendSell/sendRefund/sendModified` 等）、
   资金操作（`balance*`/`deductQuietly`/`creditQuietly`/`satAdd`）都在该独立类，mixin 只保留
   private 方法并通过 `BuyModeSettlement.xxx` 调用。
 - 设计原则：购买花费直接从玩家账户扣除、不进入任何账户；一切以服务端权威槽位状态为准。

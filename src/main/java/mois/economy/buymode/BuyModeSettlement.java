@@ -13,6 +13,7 @@ import mois.economy.data.EconomyDb;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundContainerSetSlotPacket;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Prediction;
@@ -20,6 +21,8 @@ import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.inventory.InventoryMenu;
+import net.minecraft.world.inventory.Slot;
 
 /**
  * 便捷购买的公共结算工具（自 ServerGamePacketListenerImplMixin 提取）：
@@ -139,6 +142,84 @@ public final class BuyModeSettlement {
 		}
 		deductQuietly(player, cost);
 		return true;
+	}
+
+	// ---------- 槽位出现挂起（数字键/槽间交换） ----------
+
+	/**
+	 * 结算挂起超过宽限期的槽位出现（由服务端 tick 调用）：无配对包认领 = 非交换，
+	 * 按「面板购买 or 拒绝」结算，与 {@link #settlePendingDrop} 同一套超时机制。
+	 */
+	public static void settlePendingSlot(ServerPlayer player, BuyModeSession session) {
+		if (session == null || !session.pendingSlotExpired(player.level().getServer().getTickCount())) {
+			return;
+		}
+		BuyModeSession.PendingSlot pending = session.pendingSlot();
+		if (pending != null) {
+			settlePendingSlot(player, session, player.inventoryMenu, pending);
+		}
+	}
+
+	/**
+	 * 结算挂起的槽位出现（配对失败/超时）：
+	 * <ul>
+	 * <li>挂起内容与原版创造物品栏一致 → 按未吸收增量购买（原内容被覆盖，其消失记录
+	 * 保留，关闭界面时按卖出退款）；余额不足 → 槽位保持原状（物品未丢失），
+	 * 撤销消失记录并补发权威内容；</li>
+	 * <li>非面板物品（改造物品/槽间交换未配对）→ 拒绝：槽位保持原状，撤销消失记录
+	 * （物品未丢失，杜绝「既在背包又被卖出退款」的白嫖），补发权威内容并提示。</li>
+	 * </ul>
+	 */
+	public static void settlePendingSlot(ServerPlayer player, BuyModeSession session,
+			InventoryMenu menu, BuyModeSession.PendingSlot pending) {
+		session.clearPendingSlot();
+		ItemStack next = pending.next();
+		if (next.isEmpty() || pending.unbought() <= 0) {
+			// 防御：无内容则直接作废（物品未丢失）
+			session.removeVanished(pending.vanished());
+			return;
+		}
+		ItemStack probe = next.copy();
+		PriceLore.untag(probe); // 价格行是本模组自身数据，比对应绕过
+		if (isVanillaCreativeItem(probe, player.level().getServer())) {
+			long cost = ItemValues.price(next)
+					- ItemValues.price(next.copyWithCount(next.getCount() - pending.unbought()));
+			if (!approveBuy(player, next, cost)) {
+				// 余额不足：槽位保持原状，撤销消失记录，补发权威内容
+				session.removeVanished(pending.vanished());
+				setSlotAndSync(player, menu, pending.slotNum(),
+						menu.getSlot(pending.slotNum()), pending.prev());
+				return;
+			}
+			setSlotAndSync(player, menu, pending.slotNum(),
+					menu.getSlot(pending.slotNum()), next);
+			sendBuy(player, pending.prev(), next, cost);
+			return;
+		}
+		// 非面板物品：拒绝（槽位从未被修改，物品未丢失）
+		session.removeVanished(pending.vanished());
+		setSlotAndSync(player, menu, pending.slotNum(),
+				menu.getSlot(pending.slotNum()), pending.prev());
+		sendModified(player);
+	}
+
+	// ---------- 槽位设置与同步 ----------
+
+	/**
+	 * 设置槽位（服务端权威 + 打标 + 强制下发），购买/放回/拿起共用。
+	 * 26.3 同步协议：原版 handleSetCreativeModeSlot 用 setRemoteSlot 把槽位标记为
+	 * “客户端已知”后不会下发同步包，客户端本地持有的堆没有价格标签；此处标记远端
+	 * 状态后强制下发一次打标后的权威堆（同步机制与服务端 ContainerSynchronizer
+	 * 一致），保证拿取/放回/回滚的瞬间客户端即可看到权威内容（含标签）。
+	 */
+	public static void setSlotAndSync(ServerPlayer player, InventoryMenu menu,
+			int slotNum, Slot slot, ItemStack stack) {
+		slot.setByPlayer(stack);
+		// 显式打标：覆盖合成格等不经过 Inventory.setItem 的容器槽位（幂等）
+		PriceLore.tag(stack);
+		menu.setRemoteSlot(slotNum, stack);
+		player.connection.send(new ClientboundContainerSetSlotPacket(
+				menu.containerId, menu.incrementStateId(), slotNum, stack.copy()));
 	}
 
 	// ---------- 提示 ----------

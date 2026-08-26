@@ -42,7 +42,10 @@ public final class BuyModeManager {
 		player.onUpdateAbilities();
 	}
 
-	/** 服务端 tick：结算挂起超过宽限期的 -1 包（面板 ctrl+q 购买，避免滞后一拍）。 */
+	/**
+	 * 服务端 tick：结算挂起超过宽限期的 -1 包（面板 ctrl+q 购买）与槽位出现
+	 * （数字键/槽间交换未配对 → 面板购买 or 拒绝），避免滞后一拍。
+	 */
 	public static void onServerTick(MinecraftServer server) {
 		for (UUID uuid : ACTIVE) {
 			ServerPlayer player = server.getPlayerList().getPlayer(uuid);
@@ -52,6 +55,7 @@ public final class BuyModeManager {
 			BuyModeSession session = SESSIONS.get(uuid);
 			if (session != null) {
 				BuyModeSettlement.settlePendingDrop(player, session);
+				BuyModeSettlement.settlePendingSlot(player, session);
 			}
 		}
 	}

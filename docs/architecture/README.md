@@ -71,8 +71,11 @@
     含纯净默认形态兜底）——原版创造面板只存在未经修改的初始物品，因此“保存的快捷栏”
     （客户端本地数据，标签页/热键加载路径均无法服务端禁用）里的任何改造物品都无法购买；
     卖出方向不检测（改造物品只能由管理员持有）。拿起（消失）不结算：放回匹配暂存 = 中性
-    重组，丢弃/关闭界面 = 卖出（统一由 `BuyModeManager.exit` 结算）。同时 buymode 期间
-    禁止破坏方块（instabuild 会创造式秒破）。
+    重组，丢弃/关闭界面 = 卖出（统一由 `BuyModeManager.exit` 结算）。**出现不匹配暂存先挂起
+    （`pendingSlot`）**：数字键 1-9（创造界面 SWAP，客户端本地交换后两个槽位包逐槽上报）
+    的下一个包构成对称交换 → 双槽中性；否则/超时（2 tick）才按面板购买或拒绝
+    （拒绝时撤销消失记录——槽位从未被修改，物品未丢失，杜绝白嫖退款与残留免费复制）。
+    同时 buymode 期间禁止破坏方块（instabuild 会创造式秒破）。
 
 ## 已知坑位速查
 
@@ -84,6 +87,7 @@
 | 打开熔炉后烧制停止 | tagMenu 给机器输出槽打标 → `canBurn` 组件比对失败 | `PriceLore.tagMenu` 跳过熔炉/酿造容器槽 |
 | buymode 秒破方块无掉落 | instabuild 使客户端走创造破坏 | `ServerPlayerGameModeMixin.destroyBlock` buymode 取消 |
 | buymode 拿到改造 NBT 物品 | 保存的快捷栏（标签页/热键）加载客户端本地数据 | buymode 购买方向严格比对原版创造物品栏 `isVanillaCreativeItem` |
+| buymode 数字键 1-9 交换背包物品 | 创造界面数字键对悬停槽执行 SWAP，客户端本地交换后两个槽位包逐槽上报，逐包购买判定误判交换 | 「出现不匹配暂存」先挂起 pendingSlot，下一包构成对称交换（`isSwapPair`）→ 中性双槽放回；否则/超时才按面板购买或拒绝（拒绝撤销消失记录，杜绝残留白嫖/复制） |
 | 纯净端被踢 | 自定义命令参数类型进同步注册表 | 只用原版参数类型（规则书 3.1） |
 | 管理员红名递归 | `createCommandSourceStack()` 会调 `getDisplayName()`（被 PlayerMixin 注入） | `AdminUtil` 用 `player.level().getServer()` |
 | `/eco` 目标解析 | word 参数手动解析选择器 | `EconomyTargets.resolve` 复用 `EntitySelectorParser` |
