@@ -102,10 +102,17 @@ public final class BalopServer {
 	}
 
 	/**
-	 * 管理员开启管理会话：创建独立 token 会话；HTTP 服务器未运行时按给定
-	 * host/port 启动（已运行则复用）。返回带 token 的访问地址；失败返回错误信息。
+	 * 管理员开启管理会话：**一个管理员同时只能有一个会话**——已有活跃会话时拒绝
+	 * （提示先 /balop stop 再 /balop start）；会话丢失（超时被清理/stop 后）可重新开启。
+	 * 创建独立 token 会话；HTTP 服务器未运行时按给定 host/port 启动（已运行则复用）。
+	 * 返回带 token 的访问地址；失败返回错误信息。
 	 */
 	public static synchronized String start(UUID ownerUuid, String ownerName, String listenHost, int listenPort) {
+		for (Session s : SESSIONS.values()) {
+			if (s.ownerUuid.equals(ownerUuid)) {
+				return "你已有开启中的管理前端会话，请先执行 /balop stop 再 /balop start";
+			}
+		}
 		String startError = ensureServer(listenHost, listenPort);
 		if (startError != null) {
 			return startError;

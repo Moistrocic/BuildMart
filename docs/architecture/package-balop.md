@@ -9,6 +9,8 @@
   `/balop start` 的提示中地址为**可点击聊天链接**（`ClickEvent.OpenUrl`，点击弹确认后打开浏览器）。
 - **会话模型**：
   - 每个管理员执行 `/balop start` 获得**独立会话**（32 hex 随机 token，`SecureRandom`）；
+    **一个管理员同时只能有一个会话**——已有会话时 start 被拒绝（提示先 `/balop stop`）；
+    会话丢失（超时清理/stop）后重新 start 即可；
     访问地址 `http://host:port/?token=xxx`；页面与所有 API 请求必须携带 token
     （`X-Balop-Token` 请求头或 URL query），无效/过期返回 401（页面为提示页）；
   - 会话 **5 分钟无任何请求自动关闭**（daemon 扫描线程每 30 秒清理，不阻止 JVM 退出）；
