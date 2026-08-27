@@ -11,8 +11,12 @@ import mois.economy.config.EconomyConfig;
 import mois.economy.data.EconomyDb;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 
 /**
  * 付费飞行模式（会话级）：
@@ -31,8 +35,42 @@ public final class FlyManager {
 	private static final Set<UUID> WARN_OFF = Collections.newSetFromMap(new ConcurrentHashMap<>());
 	/** 本次低余额事件已提醒过的玩家（余额回升到阈值以上后解除，可再次提醒）。 */
 	private static final Set<UUID> LOW_WARNED = Collections.newSetFromMap(new ConcurrentHashMap<>());
+	/** 飞行挖掘加速属性修改器 id：BLOCK_BREAK_SPEED 乘算 +4.0（总 ×5，抵消原版空中 /5 惩罚）。 */
+	private static final Identifier DIG_BOOST_ID = Identifier.fromNamespaceAndPath("economy", "fly_dig_boost");
+	/** 属性修改器倍率：1.0 × (1 + 4.0) = 5.0。 */
+	private static final double DIG_BOOST_AMOUNT = 4.0D;
 
 	private FlyManager() {
+	}
+
+	/**
+	 * 每 tick 同步飞行挖掘加速（由 ServerPlayerMixin.tick RETURN 调用，全部在线玩家）：
+	 * 飞行模式开启、正在飞行、未落地且 fly.digNoSlow 开启时，给玩家挂
+	 * {@code Attributes.BLOCK_BREAK_SPEED} 瞬态修改器 ×5——原版 getDestroySpeed 的
+	 * 空中惩罚是最后除以 5，属性乘 5 后空中速度恢复为地面原速；落地/关闭飞行/关闭
+	 * 配置时移除。
+	 * <p>
+	 * 属性是服务端权威并**由原版机制自动同步客户端**（ClientboundUpdateAttributesPacket），
+	 * 因此纯净客户端（无 mod）的本地挖掘预测、裂纹动画与实际破坏速率也一致——
+	 * 不需要任何自定义同步包或速度注入。
+	 */
+	public static void syncDigBoost(ServerPlayer player) {
+		boolean boost = ENABLED.contains(player.getUUID())
+				&& player.getAbilities().flying && !player.onGround()
+				&& EconomyConfig.flyDigNoSlow();
+		AttributeInstance attribute = player.getAttribute(Attributes.BLOCK_BREAK_SPEED);
+		if (attribute == null) {
+			return;
+		}
+		if (boost) {
+			if (attribute.getModifier(DIG_BOOST_ID) == null) {
+				attribute.addOrUpdateTransientModifier(
+						new AttributeModifier(DIG_BOOST_ID, DIG_BOOST_AMOUNT,
+								AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
+			}
+		} else {
+			attribute.removeModifier(DIG_BOOST_ID);
+		}
 	}
 
 	public static boolean isEnabled(ServerPlayer player) {

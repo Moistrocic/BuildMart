@@ -69,4 +69,11 @@ public abstract class ServerPlayerMixin {
 		// 记录最近死亡点（/back 使用；配置关闭时不记录）
 		TeleportManager.recordDeath((ServerPlayer) (Object) this);
 	}
+
+	@Inject(method = "tick", at = @At("RETURN"))
+	private void economy$syncFlyDigBoost(CallbackInfo ci) {
+		// 每 tick 维护飞行挖掘加速属性（BLOCK_BREAK_SPEED ×5，见 FlyManager.syncDigBoost）；
+		// 属性变化由原版机制自动同步客户端，纯净端本地预测/裂纹/破坏速率天然一致。
+		mois.economy.fly.FlyManager.syncDigBoost((ServerPlayer) (Object) this);
+	}
 }

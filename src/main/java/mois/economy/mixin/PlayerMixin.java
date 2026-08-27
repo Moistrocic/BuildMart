@@ -32,27 +32,4 @@ public abstract class PlayerMixin {
 		}
 		cir.setReturnValue(current.copy().withStyle(ChatFormatting.RED));
 	}
-
-	/**
-	 * 飞行中挖掘速度恢复为地面速度：26.3 原版对不在地面的玩家在
-	 * getDestroySpeed 末尾执行 {@code f / 5.0F}（空中挖掘惩罚，速度降至 1/5）。
-	 * /fly 付费飞行开启后玩家悬浮空中，挖掘会变得极慢；此处对「正在飞行且
-	 * 未落地」的玩家撤销该惩罚（×5 还原），使飞行挖掘速度与地面一致。
-	 * 注入 Player 是通用类（服务端权威判定 + 客户端本地预测同步生效）；
-	 * 纯净客户端未装模组时服务端仍按恢复后的速度破坏（客户端进度显示略慢，
-	 * 方块在服务端进度满时破坏，可正常游玩）。
-	 */
-	@Inject(method = "getDestroySpeed", at = @At("RETURN"), cancellable = true)
-	private void economy$restoreDigSpeedWhileFlying(CallbackInfoReturnable<Float> cir) {
-		// /config fly.digNoSlow 开关：false 时保留原版生存飞行挖掘速度（不减速判定关闭）。
-		// 两端统一读 FlyConfigSync：服务端由配置权威设置，客户端由服务端 JOIN/热改时下发，
-		// 保证客户端本地预测与服务端权威一致。
-		if (!mois.economy.network.FlyConfigSync.digNoSlow) {
-			return;
-		}
-		Player player = (Player) (Object) this;
-		if (!player.onGround() && player.getAbilities().flying) {
-			cir.setReturnValue(cir.getReturnValue() * 5.0F);
-		}
-	}
 }

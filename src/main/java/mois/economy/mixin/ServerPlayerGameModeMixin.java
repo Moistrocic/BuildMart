@@ -7,7 +7,6 @@ import mois.economy.util.AdminUtil;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.protocol.game.ClientboundBlockDestructionPacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.level.ServerPlayerGameMode;
@@ -16,7 +15,6 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
@@ -31,24 +29,6 @@ public abstract class ServerPlayerGameModeMixin {
 
 	@Shadow
 	protected ServerLevel level;
-
-	@Shadow
-	private boolean isDestroyingBlock;
-
-	@Shadow
-	private BlockPos destroyPos;
-
-	@Shadow
-	private int destroyProgressStart;
-
-	@Shadow
-	private boolean hasDelayedDestroy;
-
-	@Shadow
-	private int gameTicks;
-
-	@Shadow
-	public abstract boolean destroyBlock(BlockPos pos);
 
 	@Inject(method = "destroyBlock", at = @At("HEAD"), cancellable = true)
 	private void economy$protectShop(BlockPos pos, CallbackInfoReturnable<Boolean> cir) {
@@ -75,34 +55,6 @@ public abstract class ServerPlayerGameModeMixin {
 	private void economy$removeShopOnBreak(BlockPos pos, CallbackInfoReturnable<Boolean> cir) {
 		if (cir.getReturnValue()) {
 			ShopManager.removeIfShop(level, pos);
-		}
-	}
-
-	/**
-	 * 纯净客户端（无 mod）飞行挖掘加速：26.3 服务端对普通破坏（isDestroyingBlock）
-	 * 只广播裂纹进度、**不判定破坏**——破坏时刻由客户端本地进度满后发送的
-	 * DESTROY_BLOCK 包决定（hasDelayedDestroy 分支才会由服务端判定）。
-	 * 纯净端本地 getDestroySpeed 未恢复（慢 5 倍）→ 实际挖掘变慢（裂纹显示快是假象）。
-	 * 修复：飞行挖掘加速（fly.digNoSlow）生效、服务端权威进度已满时，由服务端
-	 * 直接 destroyBlock（下一 tick 原版 isAir 分支自动复位 isDestroyingBlock；
-	 * destroyBlock 幂等，且商店保护/buymode 禁挖的既有拦截一并生效）。
-	 */
-	@Inject(method = "tick", at = @At("RETURN"))
-	private void economy$earlyDestroyForVanillaClient(CallbackInfo ci) {
-		if (!mois.economy.network.FlyConfigSync.digNoSlow
-				|| !player.getAbilities().flying || player.onGround()
-				|| !isDestroyingBlock || hasDelayedDestroy) {
-			return;
-		}
-		float progress = level.getBlockState(destroyPos)
-				.getDestroyProgress(player, level, destroyPos) * (gameTicks - destroyProgressStart + 1);
-		if (progress >= 1.0F) {
-			// 纯净端本地裂纹按慢速度爬行（客户端本地预测），破坏瞬间先补发一次
-			// 满裂纹再破坏：裂纹满格后方块消失，有完整铺垫且无反复闪烁。
-			// 注意不能每 tick 补发——客户端本地每 tick 会用慢值覆盖，快慢来回
-			// 切换会造成裂纹闪烁（见 11e8011 回退原因）。
-			player.connection.send(new ClientboundBlockDestructionPacket(player.getId(), destroyPos, 10));
-			destroyBlock(destroyPos);
 		}
 	}
 }

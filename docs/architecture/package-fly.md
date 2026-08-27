@@ -31,22 +31,15 @@
      每秒一条；记录失败静默）。
 - **能力管理**：`revokeAbilities` 跳过创造/旁观玩家（其能力由游戏模式管理）；
   飞行能力不写存档——下线时收回，上线/tick 重新授予。
-- **飞行挖掘速度**：`PlayerMixin.economy$restoreDigSpeedWhileFlying` 撤销空中挖掘惩罚
-  （26.3 原版 `getDestroySpeed` 对 `!onGround` 玩家末尾 `f / 5.0F`）——`/fly` 开启且
-  正在飞行（`abilities.flying`）时挖掘速度与地面一致。**`/config fly.digNoSlow` 开关**
-  （默认 true）：false 时保留原版生存飞行挖掘速度。
-  - mod 客户端：开关值经 `FlyConfigSync`（S2C payload `economy:fly_dig_no_slow`）在
-    JOIN 与热改时下发，本地预测与服务端权威一致。
-  - **纯净客户端（无 mod）**：26.3 服务端对普通破坏只广播裂纹（且 `ServerLevel.destroyBlockProgress`
-    **跳过破坏者本人**，破坏者裂纹靠客户端本地预测）、破坏时刻由客户端本地进度满后发送的
-    DESTROY_BLOCK 包决定——纯净端本地未恢复会实际变慢且裂纹跟不上。
-    `ServerPlayerGameModeMixin` 两项注入修复：
-    - `economy$earlyDestroyForVanillaClient`（tick RETURN）：飞行加速生效且服务端权威进度
-      已满时由服务端直接 `destroyBlock`，纯净端实际挖掘速率与 mod 客户端一致；
-    - `economy$syncCrackToBreaker`（incrementDestroyProgress RETURN）：每 tick 按服务端
-      权威进度给破坏者本人补发 `ClientboundBlockDestructionPacket`，驱动纯净端裂纹动画
-      跟随服务端（破坏瞬间裂纹已满，方块消失前有完整裂纹铺垫）。
-    下一 tick 原版 isAir 分支自动复位；商店保护/buymode 禁挖的既有拦截一并生效。
+- **飞行挖掘速度**：**属性方案**——`FlyManager.syncDigBoost`（每 tick 由
+  `ServerPlayerMixin.tick` RETURN 调用）在飞行模式开启、正在飞行、未落地且
+  `fly.digNoSlow`（`/config`，默认 true）时，给玩家挂 `Attributes.BLOCK_BREAK_SPEED`
+  瞬态修改器（乘算 +4.0，总 ×5）。26.3 原版 `getDestroySpeed` 的空中惩罚是末尾
+  `f / 5.0F`——属性乘 5 后空中挖掘速度恢复为地面原速；落地/关闭飞行/关闭配置时移除。
+  **属性是服务端权威并由原版机制自动同步客户端**（ClientboundUpdateAttributesPacket），
+  因此纯净客户端（无 mod）的本地挖掘预测、裂纹动画与实际破坏速率天然一致——
+  无需自定义同步包、无需速度注入、无闪烁。
+  false 时保留原版生存飞行挖掘速度。
 - `FlyCommands` 是唯一外部入口（命令只切换状态与提示，扣费全在本类）。
 - 工具：`satMul`（fee×60 防溢出）。
 

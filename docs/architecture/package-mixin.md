@@ -13,13 +13,12 @@
 3. `doCloseContainer` @HEAD：`untagMenu`（保留玩家背包部分）+ 光标 untag；若在便捷购买中，
    光标物品作废（`setCarried(EMPTY)`，避免白嫖）+ `BuyModeManager.exit`。
 4. `die` @HEAD：记录最近死亡点（`TeleportManager.recordDeath`，back 配置关闭时不记录）。
+5. `tick` @RETURN：`FlyManager.syncDigBoost`——每 tick 维护飞行挖掘加速属性
+   （`BLOCK_BREAK_SPEED` ×5 瞬态修改器，见 package-fly.md；属性由原版机制自动同步客户端）。
 
 ## `PlayerMixin`（目标 `Player`）
 
 - `getDisplayName` @RETURN（cancellable）：管理员红名（聊天框发送者名）。
-- `getDestroySpeed` @RETURN（cancellable）：**飞行挖掘速度恢复**——`!onGround() &&
-  abilities.flying` 时把返回值 ×5（撤销 26.3 空中挖掘惩罚 `f / 5.0F`），使 /fly 飞行中
-  挖掘速度与地面一致；注入 Player 通用类，服务端权威与 mod 客户端本地预测同步生效。
 - 注意：必须注入 `Player`（26.3 中 `Player` 重写了 `getDisplayName` 且不含 super 调用，
   注入 `Entity` 拦截不到玩家实例）。
 
@@ -132,15 +131,8 @@
     式秒破且无掉落物，关闭 buymode 后恢复正常生存挖掘；
   - 否则 `ShopManager.getShopOrHalf` 命中且非主人/管理员 → 红字提示 + false（阻止拆除）。
 - `destroyBlock` @RETURN：拆除成功（`cir.getReturnValue()`）→ `ShopManager.removeIfShop` 自动删店。
-- `tick` @RETURN `economy$earlyDestroyForVanillaClient`：**纯净客户端飞行挖掘加速**——26.3
-  服务端对普通破坏只广播裂纹、破坏时刻由客户端 DESTROY_BLOCK 包决定（纯净端本地未恢复
-  会实际变慢）；`fly.digNoSlow` 生效且服务端权威进度已满时由服务端直接 `destroyBlock`
-  （`hasDelayedDestroy` 原版路径跳过；下一 tick isAir 分支自动复位；商店保护/buymode
-  禁挖拦截一并生效）。
-- `incrementDestroyProgress` @RETURN `economy$syncCrackToBreaker`：**纯净端破坏裂纹同步**——
-  26.3 `ServerLevel.destroyBlockProgress` 跳过破坏者本人（裂纹靠客户端本地预测）；
-  飞行加速生效时按服务端权威进度给破坏者本人补发 `ClientboundBlockDestructionPacket`，
-  裂纹动画跟随服务端（破坏瞬间裂纹已满）。详见 package-fly.md。
+  （飞行挖掘加速已改由属性方案实现——`FlyManager.syncDigBoost` 挂 `BLOCK_BREAK_SPEED` ×5
+  瞬态修改器，原版属性同步自动下发客户端，无需速度注入/补发包，详见 package-fly.md。）
 
 ## `ExplosionDamageCalculatorMixin`（目标 `ExplosionDamageCalculator`）
 

@@ -270,9 +270,8 @@ public final class EconomyConfig {
 					return "fly.digNoSlow 需要 true 或 false";
 				}
 				flyDigNoSlow = b;
-				// 服务端本地立即生效，并同步给全部在线玩家的客户端（本地预测一致）
-				mois.economy.network.FlyConfigSync.digNoSlow = b;
-				mois.economy.network.FlyConfigSync.broadcastToAll();
+				// 服务端权威值；下一 tick FlyManager.syncDigBoost 按新值增删属性修改器，
+				// 属性变化由原版机制自动同步客户端（无需自定义网络包）
 				return null;
 			}
 			case "shop.sellLog" -> {
