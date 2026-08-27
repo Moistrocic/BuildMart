@@ -7,9 +7,11 @@ import mois.economy.util.AdminUtil;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundBlockDestructionPacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.level.ServerPlayerGameMode;
+import net.minecraft.world.level.block.state.BlockState;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -98,5 +100,24 @@ public abstract class ServerPlayerGameModeMixin {
 		if (progress >= 1.0F) {
 			destroyBlock(destroyPos);
 		}
+	}
+
+	/**
+	 * 纯净客户端破坏裂纹同步：26.3 的 {@code ServerLevel.destroyBlockProgress}
+	 * 明确跳过破坏者本人（{@code if (player.getId() == entityId) continue}）——
+	 * 破坏者裂纹由客户端本地预测驱动。纯净端本地速度未恢复（慢）→ 裂纹跟不上
+	 * 服务端权威进度。此处仅在飞行加速（fly.digNoSlow）生效时，按服务端每 tick
+	 * 计算的权威进度给破坏者本人补发裂纹进度包，驱动其裂纹动画与服务端一致
+	 * （破坏瞬间裂纹已满，方块消失前有完整裂纹铺垫）。
+	 */
+	@Inject(method = "incrementDestroyProgress", at = @At("RETURN"))
+	private void economy$syncCrackToBreaker(BlockState state, BlockPos pos, int startTick,
+			CallbackInfoReturnable<Float> cir) {
+		if (!mois.economy.network.FlyConfigSync.digNoSlow
+				|| !player.getAbilities().flying || player.onGround()) {
+			return;
+		}
+		int crack = (int) (cir.getReturnValue() * 10.0F);
+		player.connection.send(new ClientboundBlockDestructionPacket(player.getId(), pos, crack));
 	}
 }

@@ -136,7 +136,11 @@
   服务端对普通破坏只广播裂纹、破坏时刻由客户端 DESTROY_BLOCK 包决定（纯净端本地未恢复
   会实际变慢）；`fly.digNoSlow` 生效且服务端权威进度已满时由服务端直接 `destroyBlock`
   （`hasDelayedDestroy` 原版路径跳过；下一 tick isAir 分支自动复位；商店保护/buymode
-  禁挖拦截一并生效）。详见 package-fly.md。
+  禁挖拦截一并生效）。
+- `incrementDestroyProgress` @RETURN `economy$syncCrackToBreaker`：**纯净端破坏裂纹同步**——
+  26.3 `ServerLevel.destroyBlockProgress` 跳过破坏者本人（裂纹靠客户端本地预测）；
+  飞行加速生效时按服务端权威进度给破坏者本人补发 `ClientboundBlockDestructionPacket`，
+  裂纹动画跟随服务端（破坏瞬间裂纹已满）。详见 package-fly.md。
 
 ## `ExplosionDamageCalculatorMixin`（目标 `ExplosionDamageCalculator`）
 

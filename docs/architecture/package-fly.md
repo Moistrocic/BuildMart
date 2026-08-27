@@ -37,12 +37,16 @@
   （默认 true）：false 时保留原版生存飞行挖掘速度。
   - mod 客户端：开关值经 `FlyConfigSync`（S2C payload `economy:fly_dig_no_slow`）在
     JOIN 与热改时下发，本地预测与服务端权威一致。
-  - **纯净客户端（无 mod）**：26.3 服务端对普通破坏只广播裂纹、破坏时刻由客户端本地
-    进度满后发送的 DESTROY_BLOCK 包决定——纯净端本地未恢复会实际变慢。
-    `ServerPlayerGameModeMixin.economy$earlyDestroyForVanillaClient`（tick RETURN）在
-    飞行加速生效且服务端权威进度已满时由服务端直接 `destroyBlock`，使纯净端实际
-    挖掘速率与 mod 客户端一致（下一 tick 原版 isAir 分支自动复位；商店保护/buymode
-    禁挖的既有拦截一并生效）。
+  - **纯净客户端（无 mod）**：26.3 服务端对普通破坏只广播裂纹（且 `ServerLevel.destroyBlockProgress`
+    **跳过破坏者本人**，破坏者裂纹靠客户端本地预测）、破坏时刻由客户端本地进度满后发送的
+    DESTROY_BLOCK 包决定——纯净端本地未恢复会实际变慢且裂纹跟不上。
+    `ServerPlayerGameModeMixin` 两项注入修复：
+    - `economy$earlyDestroyForVanillaClient`（tick RETURN）：飞行加速生效且服务端权威进度
+      已满时由服务端直接 `destroyBlock`，纯净端实际挖掘速率与 mod 客户端一致；
+    - `economy$syncCrackToBreaker`（incrementDestroyProgress RETURN）：每 tick 按服务端
+      权威进度给破坏者本人补发 `ClientboundBlockDestructionPacket`，驱动纯净端裂纹动画
+      跟随服务端（破坏瞬间裂纹已满，方块消失前有完整裂纹铺垫）。
+    下一 tick 原版 isAir 分支自动复位；商店保护/buymode 禁挖的既有拦截一并生效。
 - `FlyCommands` 是唯一外部入口（命令只切换状态与提示，扣费全在本类）。
 - 工具：`satMul`（fee×60 防溢出）。
 
