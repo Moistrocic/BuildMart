@@ -19,7 +19,7 @@
 
 ## 构建
 
-- 需要 **JDK 25**；运行 `gradlew build`，产物为 `build/libs/economy-5.1.jar`。
+- 需要 **JDK 25**；运行 `gradlew build`，产物为 `build/libs/economy-5.2.jar`。
 - 依赖：Fabric Loader `0.19.3+`、Fabric API `0.158.0+26.3`；SQLite JDBC 已内置打包进 jar。
 
 ## 配置与数据
