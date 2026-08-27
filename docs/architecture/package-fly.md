@@ -33,11 +33,16 @@
   飞行能力不写存档——下线时收回，上线/tick 重新授予。
 - **飞行挖掘速度**：`PlayerMixin.economy$restoreDigSpeedWhileFlying` 撤销空中挖掘惩罚
   （26.3 原版 `getDestroySpeed` 对 `!onGround` 玩家末尾 `f / 5.0F`）——`/fly` 开启且
-  正在飞行（`abilities.flying`）时挖掘速度与地面一致（服务端权威 + mod 客户端本地预测
-  同步生效；纯净客户端进度显示略慢但可正常游玩）。**`/config fly.digNoSlow` 开关**
+  正在飞行（`abilities.flying`）时挖掘速度与地面一致。**`/config fly.digNoSlow` 开关**
   （默认 true）：false 时保留原版生存飞行挖掘速度。
-  开关值经 `FlyConfigSync`（S2C payload `economy:fly_dig_no_slow`）在 JOIN 与热改时
-  下发客户端，两端判定一致（服务端权威 + 客户端本地预测同步）。
+  - mod 客户端：开关值经 `FlyConfigSync`（S2C payload `economy:fly_dig_no_slow`）在
+    JOIN 与热改时下发，本地预测与服务端权威一致。
+  - **纯净客户端（无 mod）**：26.3 服务端对普通破坏只广播裂纹、破坏时刻由客户端本地
+    进度满后发送的 DESTROY_BLOCK 包决定——纯净端本地未恢复会实际变慢。
+    `ServerPlayerGameModeMixin.economy$earlyDestroyForVanillaClient`（tick RETURN）在
+    飞行加速生效且服务端权威进度已满时由服务端直接 `destroyBlock`，使纯净端实际
+    挖掘速率与 mod 客户端一致（下一 tick 原版 isAir 分支自动复位；商店保护/buymode
+    禁挖的既有拦截一并生效）。
 - `FlyCommands` 是唯一外部入口（命令只切换状态与提示，扣费全在本类）。
 - 工具：`satMul`（fee×60 防溢出）。
 

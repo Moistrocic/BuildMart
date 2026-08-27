@@ -132,6 +132,11 @@
     式秒破且无掉落物，关闭 buymode 后恢复正常生存挖掘；
   - 否则 `ShopManager.getShopOrHalf` 命中且非主人/管理员 → 红字提示 + false（阻止拆除）。
 - `destroyBlock` @RETURN：拆除成功（`cir.getReturnValue()`）→ `ShopManager.removeIfShop` 自动删店。
+- `tick` @RETURN `economy$earlyDestroyForVanillaClient`：**纯净客户端飞行挖掘加速**——26.3
+  服务端对普通破坏只广播裂纹、破坏时刻由客户端 DESTROY_BLOCK 包决定（纯净端本地未恢复
+  会实际变慢）；`fly.digNoSlow` 生效且服务端权威进度已满时由服务端直接 `destroyBlock`
+  （`hasDelayedDestroy` 原版路径跳过；下一 tick isAir 分支自动复位；商店保护/buymode
+  禁挖拦截一并生效）。详见 package-fly.md。
 
 ## `ExplosionDamageCalculatorMixin`（目标 `ExplosionDamageCalculator`）
 
