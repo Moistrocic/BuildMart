@@ -5,7 +5,6 @@ import net.fabricmc.api.ClientModInitializer;
 public class EconomyClient implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
-		// 价格提示完全由服务端线路层 lore 提供（纯净端同样可见），客户端无需任何逻辑。
-		// 飞行挖掘加速经原版属性同步（BLOCK_BREAK_SPEED 修改器）自动下发，无需自定义网络。
+		// 纯服务端，客户端无需任何逻辑，仅占位用于启动。
 	}
 }
