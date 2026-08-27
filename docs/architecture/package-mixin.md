@@ -17,6 +17,9 @@
 ## `PlayerMixin`（目标 `Player`）
 
 - `getDisplayName` @RETURN（cancellable）：管理员红名（聊天框发送者名）。
+- `getDestroySpeed` @RETURN（cancellable）：**飞行挖掘速度恢复**——`!onGround() &&
+  abilities.flying` 时把返回值 ×5（撤销 26.3 空中挖掘惩罚 `f / 5.0F`），使 /fly 飞行中
+  挖掘速度与地面一致；注入 Player 通用类，服务端权威与 mod 客户端本地预测同步生效。
 - 注意：必须注入 `Player`（26.3 中 `Player` 重写了 `getDisplayName` 且不含 super 调用，
   注入 `Entity` 拦截不到玩家实例）。
 
