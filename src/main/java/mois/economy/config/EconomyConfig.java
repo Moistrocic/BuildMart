@@ -36,6 +36,10 @@ public final class EconomyConfig {
 	public static final long DEFAULT_FLY_FEE_CENTS = 50000L;
 	/** 默认趣味钓鱼开关：关闭（使用原版钓鱼战利品）。 */
 	public static final boolean DEFAULT_FUN_FISHING = false;
+	/** 默认飞行挖掘速度恢复：开启（飞行中挖掘速度与地面一致，撤销原版空中惩罚）。 */
+	public static final boolean DEFAULT_FLY_DIG_SPEED_RESTORE = true;
+	/** 默认商店出售结算日志：关闭（每店每 60 秒一条，过多影响后台观感）。 */
+	public static final boolean DEFAULT_SHOP_SELL_LOG = false;
 	/** 默认数据库管理前端（/balop）监听地址：本机回环，避免暴露到网络。 */
 	public static final String DEFAULT_BALOP_HOST = "localhost";
 	/** 默认数据库管理前端（/balop）端口。 */
@@ -80,6 +84,8 @@ public final class EconomyConfig {
 	private static boolean itemPricesInLore = DEFAULT_ITEM_PRICES_IN_LORE;
 	private static long flyFeeCents = DEFAULT_FLY_FEE_CENTS;
 	private static boolean funFishing = DEFAULT_FUN_FISHING;
+	private static boolean flyDigSpeedRestore = DEFAULT_FLY_DIG_SPEED_RESTORE;
+	private static boolean shopSellLog = DEFAULT_SHOP_SELL_LOG;
 	private static String balopHost = DEFAULT_BALOP_HOST;
 	private static int balopPort = DEFAULT_BALOP_PORT;
 	private static HomeSettings homeSettings = new HomeSettings(DEFAULT_HOME_MAX, DEFAULT_FEES);
@@ -100,6 +106,8 @@ public final class EconomyConfig {
 		map.put("itemPricesInLore", new Entry("bool", "物品价格 lore 显示开关"));
 		map.put("flyFeePerSecond", new Entry("money", "付费飞行每秒扣费（元）"));
 		map.put("funFishing", new Entry("bool", "趣味钓鱼开关（关闭=原版钓鱼战利品）"));
+		map.put("flyDigSpeedRestore", new Entry("bool", "飞行挖掘速度恢复开关（关闭=原版空中挖掘惩罚）"));
+		map.put("shopSellLog", new Entry("bool", "商店出售结算日志开关（默认关闭，开启后每店每 60 秒一条）"));
 		map.put("balop.host", new Entry("string", "数据库管理前端监听地址（/balop 重启后生效）"));
 		map.put("balop.port", new Entry("int", "数据库管理前端端口 1-65535（/balop 重启后生效）"));
 		map.put("home.max", new Entry("int", "家数量上限（0 = 未开放）"));
@@ -148,6 +156,12 @@ public final class EconomyConfig {
 			}
 			case "funFishing" -> {
 				return Boolean.toString(funFishing);
+			}
+			case "flyDigSpeedRestore" -> {
+				return Boolean.toString(flyDigSpeedRestore);
+			}
+			case "shopSellLog" -> {
+				return Boolean.toString(shopSellLog);
 			}
 			case "balop.host" -> {
 				return balopHost;
@@ -247,6 +261,22 @@ public final class EconomyConfig {
 					return "funFishing 需要 true 或 false";
 				}
 				funFishing = b;
+				return null;
+			}
+			case "flyDigSpeedRestore" -> {
+				Boolean b = parseBool(value);
+				if (b == null) {
+					return "flyDigSpeedRestore 需要 true 或 false";
+				}
+				flyDigSpeedRestore = b;
+				return null;
+			}
+			case "shopSellLog" -> {
+				Boolean b = parseBool(value);
+				if (b == null) {
+					return "shopSellLog 需要 true 或 false";
+				}
+				shopSellLog = b;
 				return null;
 			}
 			case "balop.host" -> {
@@ -435,6 +465,8 @@ public final class EconomyConfig {
 		root.addProperty("itemPricesInLore", itemPricesInLore);
 		root.addProperty("flyFeePerSecond", Money.format(flyFeeCents));
 		root.addProperty("funFishing", funFishing);
+		root.addProperty("flyDigSpeedRestore", flyDigSpeedRestore);
+		root.addProperty("shopSellLog", shopSellLog);
 		JsonObject balop = new JsonObject();
 		balop.addProperty("host", balopHost);
 		balop.addProperty("port", balopPort);
@@ -534,12 +566,18 @@ public final class EconomyConfig {
 				try {
 					flyFeeCents = parseCents(root.get("flyFeePerSecond").getAsString());
 				} catch (RuntimeException e) {
-					Economy.LOGGER.error("flyFeePerSecond 配置无效，使用默认 {} 元/秒", Money.format(DEFAULT_FLY_FEE_CENTS), e);
+					Economy.LOGGER.warn("flyFeePerSecond 配置无效，使用默认 {} 元/秒", Money.format(DEFAULT_FLY_FEE_CENTS), e);
 					flyFeeCents = DEFAULT_FLY_FEE_CENTS;
 				}
 			}
 			if (root.has("funFishing")) {
 				funFishing = root.get("funFishing").getAsBoolean();
+			}
+			if (root.has("flyDigSpeedRestore")) {
+				flyDigSpeedRestore = root.get("flyDigSpeedRestore").getAsBoolean();
+			}
+			if (root.has("shopSellLog")) {
+				shopSellLog = root.get("shopSellLog").getAsBoolean();
 			}
 			if (root.has("balop")) {
 				JsonObject balop = root.getAsJsonObject("balop");
@@ -550,7 +588,7 @@ public final class EconomyConfig {
 						throw new IllegalArgumentException("port 超出范围");
 					}
 				} catch (RuntimeException e) {
-					Economy.LOGGER.error("balop 配置无效，使用默认 {}:{}", DEFAULT_BALOP_HOST, DEFAULT_BALOP_PORT, e);
+					Economy.LOGGER.warn("balop 配置无效，使用默认 {}:{}", DEFAULT_BALOP_HOST, DEFAULT_BALOP_PORT, e);
 					balopHost = DEFAULT_BALOP_HOST;
 					balopPort = DEFAULT_BALOP_PORT;
 				}
@@ -563,7 +601,7 @@ public final class EconomyConfig {
 					file, itemPricesInLore, Money.format(flyFeeCents),
 					homeSettings.max(), tpaSettings.enabled(), backSettings.enabled());
 		} catch (IOException e) {
-			Economy.LOGGER.error("主配置加载失败，使用默认值", e);
+			Economy.LOGGER.warn("主配置加载失败，使用默认值", e);
 		}
 	}
 
@@ -579,6 +617,16 @@ public final class EconomyConfig {
 	/** 趣味钓鱼开关（开启时用自定义钓鱼战利品，关闭时用原版）。 */
 	public static boolean funFishing() {
 		return funFishing;
+	}
+
+	/** 飞行挖掘速度恢复开关（开启时飞行挖掘速度与地面一致，关闭时恢复原版空中惩罚）。 */
+	public static boolean flyDigSpeedRestore() {
+		return flyDigSpeedRestore;
+	}
+
+	/** 商店出售结算日志开关（默认关闭：每店每 60 秒一条过于刷屏）。 */
+	public static boolean shopSellLog() {
+		return shopSellLog;
 	}
 
 	/** 数据库管理前端监听地址（/balop start 时读取）。 */
@@ -614,7 +662,7 @@ public final class EconomyConfig {
 					section.has("max") ? section.get("max").getAsInt() : DEFAULT_HOME_MAX,
 					readFees(section));
 		} catch (RuntimeException e) {
-			Economy.LOGGER.error("home 配置无效，使用默认值", e);
+			Economy.LOGGER.warn("home 配置无效，使用默认值", e);
 			return new HomeSettings(DEFAULT_HOME_MAX, DEFAULT_FEES);
 		}
 	}
@@ -630,7 +678,7 @@ public final class EconomyConfig {
 					section.has("timeoutSeconds") ? section.get("timeoutSeconds").getAsInt()
 							: DEFAULT_TPA_TIMEOUT_SECONDS);
 		} catch (RuntimeException e) {
-			Economy.LOGGER.error("tpa 配置无效，使用默认值", e);
+			Economy.LOGGER.warn("tpa 配置无效，使用默认值", e);
 			return new TpaSettings(false, DEFAULT_FEES, DEFAULT_TPA_TIMEOUT_SECONDS);
 		}
 	}
@@ -644,7 +692,7 @@ public final class EconomyConfig {
 					section.has("enabled") && section.get("enabled").getAsBoolean(),
 					readFees(section));
 		} catch (RuntimeException e) {
-			Economy.LOGGER.error("back 配置无效，使用默认值", e);
+			Economy.LOGGER.warn("back 配置无效，使用默认值", e);
 			return new BackSettings(false, DEFAULT_FEES);
 		}
 	}
@@ -684,6 +732,8 @@ public final class EconomyConfig {
 				  "itemPricesInLore": true,
 				  "flyFeePerSecond": "500.00",
 				  "funFishing": false,
+				  "flyDigSpeedRestore": true,
+				  "shopSellLog": false,
 				  "balop": {"host": "localhost", "port": 8899},
 				  "home": {"max": 0, "cooldownSeconds": 0, "fixedFee": false, "fixedFeeAmount": "500.00", "perDistanceFee": "1.00", "crossDimensionFee": "1000.00"},
 				  "tpa": {"enabled": false, "cooldownSeconds": 0, "fixedFee": false, "fixedFeeAmount": "500.00", "perDistanceFee": "1.00", "crossDimensionFee": "1000.00", "timeoutSeconds": 60},

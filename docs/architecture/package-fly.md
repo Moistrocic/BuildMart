@@ -34,7 +34,8 @@
 - **飞行挖掘速度**：`PlayerMixin.economy$restoreDigSpeedWhileFlying` 撤销空中挖掘惩罚
   （26.3 原版 `getDestroySpeed` 对 `!onGround` 玩家末尾 `f / 5.0F`）——`/fly` 开启且
   正在飞行（`abilities.flying`）时挖掘速度与地面一致（服务端权威 + mod 客户端本地预测
-  同步生效；纯净客户端进度显示略慢但可正常游玩）。
+  同步生效；纯净客户端进度显示略慢但可正常游玩）。**`/config flyDigSpeedRestore` 开关**
+  （默认 true）：关闭后保留原版空中挖掘惩罚。
 - `FlyCommands` 是唯一外部入口（命令只切换状态与提示，扣费全在本类）。
 - 工具：`satMul`（fee×60 防溢出）。
 

@@ -104,7 +104,7 @@ public final class FishingManager {
 				loaded = true;
 				Economy.LOGGER.info("趣味钓鱼战利品已加载：{}（{} 项，总概率 {}）", file, ENTRIES.size(), sum);
 			} catch (IOException | RuntimeException e) {
-				Economy.LOGGER.error("趣味钓鱼配置加载失败，回退原版钓鱼", e);
+				Economy.LOGGER.warn("趣味钓鱼配置加载失败，回退原版钓鱼", e);
 				ENTRIES.clear();
 			}
 		}

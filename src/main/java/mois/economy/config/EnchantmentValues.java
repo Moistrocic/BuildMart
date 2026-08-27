@@ -69,7 +69,7 @@ public final class EnchantmentValues {
 			Economy.LOGGER.info("附魔价值配置已加载：{}（{} 项覆盖；未配置附魔按村民交易：普通 1 级 {} 绿宝石+1 书，宝藏翻倍；每升 1 级价格翻倍）",
 					file, VALUES.size(), NORMAL_EMERALDS);
 		} catch (Exception e) {
-			Economy.LOGGER.error("附魔价值配置加载失败，全部回退为村民交易默认", e);
+			Economy.LOGGER.warn("附魔价值配置加载失败，全部回退为村民交易默认", e);
 			synchronized (VALUES) {
 				VALUES.clear();
 			}

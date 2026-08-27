@@ -44,6 +44,10 @@ public abstract class PlayerMixin {
 	 */
 	@Inject(method = "getDestroySpeed", at = @At("RETURN"), cancellable = true)
 	private void economy$restoreDigSpeedWhileFlying(CallbackInfoReturnable<Float> cir) {
+		// /config flyDigSpeedRestore 开关：关闭时保留原版空中挖掘惩罚
+		if (!mois.economy.config.EconomyConfig.flyDigSpeedRestore()) {
+			return;
+		}
 		Player player = (Player) (Object) this;
 		if (!player.onGround() && player.getAbilities().flying) {
 			cir.setReturnValue(cir.getReturnValue() * 5.0F);

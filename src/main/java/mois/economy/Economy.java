@@ -83,7 +83,7 @@ public class Economy implements ModInitializer {
 							Component.literal(announcement).withStyle(ChatFormatting.RED), false);
 				}
 			} catch (EconomyDb.DatabaseException e) {
-				LOGGER.error("读取公告失败", e);
+				LOGGER.warn("读取公告失败", e);
 			}
 			// 保留的飞行模式恢复飞行能力
 			FlyManager.onJoin(handler.getPlayer());

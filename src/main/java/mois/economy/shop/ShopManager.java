@@ -165,8 +165,11 @@ public final class ShopManager {
 		}
 		shop.setRemainingTicks(RESET_TICKS);
 		save();
-		Economy.LOGGER.info("商店出售结算：{} {} → {}（{} 元）", dimensionString(shop.dimension()), shop.pos(),
-				shop.payeeName(), Money.format(total));
+		// 出售结算日志默认关闭（每店每 60 秒一条，过多影响后台观感）；/config shopSellLog 开启
+		if (mois.economy.config.EconomyConfig.shopSellLog()) {
+			Economy.LOGGER.info("商店出售结算：{} {} → {}（{} 元）", dimensionString(shop.dimension()), shop.pos(),
+					shop.payeeName(), Money.format(total));
+		}
 	}
 
 	/** 目标箱子及其双箱另一半（同类型水平相邻箱子）的容器列表。 */
@@ -296,7 +299,7 @@ public final class ShopManager {
 			}
 			Economy.LOGGER.info("商店已加载：{} 个", SHOPS.size());
 		} catch (Exception e) {
-			Economy.LOGGER.error("商店数据加载失败，跳过", e);
+			Economy.LOGGER.warn("商店数据加载失败，跳过", e);
 			SHOPS.clear();
 		}
 	}

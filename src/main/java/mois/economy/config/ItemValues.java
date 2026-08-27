@@ -236,7 +236,7 @@ public final class ItemValues {
 			}
 			Economy.LOGGER.info("物品价值配置已加载：{}（{} 项，未配置物品默认不可交易）", file, VALUES.size());
 		} catch (Exception e) {
-			Economy.LOGGER.error("物品价值配置加载失败，全部回退为默认不可交易", e);
+			Economy.LOGGER.warn("物品价值配置加载失败，全部回退为默认不可交易", e);
 			synchronized (VALUES) {
 				VALUES.clear();
 			}
