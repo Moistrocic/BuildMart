@@ -9,9 +9,18 @@
 
 ## client 源集（`src/client`）
 
-- `mois.economy.client.EconomyClient`：空 `ClientModInitializer`（`onInitializeClient` 无逻辑）。
-- 价格提示完全由服务端线路层真实 lore 提供（纯净端同样可见），客户端目前无任何逻辑；
+- `mois.economy.client.EconomyClient`：`ClientModInitializer`——注册 `FlyConfigSync` 的
+  S2C receiver（接收 `economy:fly_dig_no_slow` 载荷，更新共享状态 `FlyConfigSync.digNoSlow`，
+  供 PlayerMixin 客户端侧判定；纯净端无 mod 收不到该载荷，完全不受影响）。
+- 价格提示完全由服务端线路层真实 lore 提供（纯净端同样可见）；
   未来客户端增强功能（HUD、快捷键等）放这里，必须保持可选（规则书 3.2）。
+
+## 网络同步（`src/main` 的 `mois.economy.network`）
+
+- `FlyConfigSync`：`fly.digNoSlow` 服务端 → 客户端同步——JOIN 时下发当前值、
+  `/config fly.digNoSlow` 热改时广播全部在线玩家；发送前 `ServerPlayNetworking.canSend`
+  检查（纯净端不发送）；载荷类型注册用 `PayloadTypeRegistry.clientboundPlay()`
+  （不在同步注册表，纯净端无感知）。
 
 ## 资源文件
 

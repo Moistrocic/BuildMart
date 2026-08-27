@@ -44,8 +44,10 @@ public abstract class PlayerMixin {
 	 */
 	@Inject(method = "getDestroySpeed", at = @At("RETURN"), cancellable = true)
 	private void economy$restoreDigSpeedWhileFlying(CallbackInfoReturnable<Float> cir) {
-		// /config flyDigSpeedRestore 开关：关闭时保留原版空中挖掘惩罚
-		if (!mois.economy.config.EconomyConfig.flyDigSpeedRestore()) {
+		// /config fly.digNoSlow 开关：false 时保留原版生存飞行挖掘速度（不减速判定关闭）。
+		// 两端统一读 FlyConfigSync：服务端由配置权威设置，客户端由服务端 JOIN/热改时下发，
+		// 保证客户端本地预测与服务端权威一致。
+		if (!mois.economy.network.FlyConfigSync.digNoSlow) {
 			return;
 		}
 		Player player = (Player) (Object) this;

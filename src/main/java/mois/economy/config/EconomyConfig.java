@@ -22,7 +22,8 @@ import java.util.Map;
  * 主配置：config/economy/config.json。
  * <ul>
  * <li>itemPricesInLore：物品价格以金色 lore 形式随物品数据下发给客户端（默认开启）；</li>
- * <li>flyFeePerSecond：付费飞行模式每秒扣费（十进制元字符串，默认 500.00 元/秒）；</li>
+ * <li>fly：付费飞行配置段（feePerSecond 每秒扣费、digNoSlow 飞行挖掘不减速开关）；</li>
+ * <li>shop：商店配置段（sellLog 出售结算日志开关）；</li>
  * <li>home：家的配置（最大数量、传送冷却、传送消耗）；</li>
  * <li>tpa：传送请求配置（开关、冷却、消耗、请求超时）；</li>
  * <li>back：死亡点传送配置（开关、冷却、消耗）。</li>
@@ -36,8 +37,8 @@ public final class EconomyConfig {
 	public static final long DEFAULT_FLY_FEE_CENTS = 50000L;
 	/** 默认趣味钓鱼开关：关闭（使用原版钓鱼战利品）。 */
 	public static final boolean DEFAULT_FUN_FISHING = false;
-	/** 默认飞行挖掘速度恢复：开启（飞行中挖掘速度与地面一致，撤销原版空中惩罚）。 */
-	public static final boolean DEFAULT_FLY_DIG_SPEED_RESTORE = true;
+	/** 默认飞行挖掘不减速：开启（true=不减速，飞行中挖掘与地面一致；false=原版生存飞行挖掘速度）。 */
+	public static final boolean DEFAULT_FLY_DIG_NO_SLOW = true;
 	/** 默认商店出售结算日志：关闭（每店每 60 秒一条，过多影响后台观感）。 */
 	public static final boolean DEFAULT_SHOP_SELL_LOG = false;
 	/** 默认数据库管理前端（/balop）监听地址：本机回环，避免暴露到网络。 */
@@ -84,7 +85,7 @@ public final class EconomyConfig {
 	private static boolean itemPricesInLore = DEFAULT_ITEM_PRICES_IN_LORE;
 	private static long flyFeeCents = DEFAULT_FLY_FEE_CENTS;
 	private static boolean funFishing = DEFAULT_FUN_FISHING;
-	private static boolean flyDigSpeedRestore = DEFAULT_FLY_DIG_SPEED_RESTORE;
+	private static boolean flyDigNoSlow = DEFAULT_FLY_DIG_NO_SLOW;
 	private static boolean shopSellLog = DEFAULT_SHOP_SELL_LOG;
 	private static String balopHost = DEFAULT_BALOP_HOST;
 	private static int balopPort = DEFAULT_BALOP_PORT;
@@ -104,10 +105,10 @@ public final class EconomyConfig {
 	private static Map<String, Entry> buildEntries() {
 		Map<String, Entry> map = new HashMap<>(24);
 		map.put("itemPricesInLore", new Entry("bool", "物品价格 lore 显示开关"));
-		map.put("flyFeePerSecond", new Entry("money", "付费飞行每秒扣费（元）"));
+		map.put("fly.feePerSecond", new Entry("money", "付费飞行每秒扣费（元）"));
 		map.put("funFishing", new Entry("bool", "趣味钓鱼开关（关闭=原版钓鱼战利品）"));
-		map.put("flyDigSpeedRestore", new Entry("bool", "飞行挖掘速度恢复开关（关闭=原版空中挖掘惩罚）"));
-		map.put("shopSellLog", new Entry("bool", "商店出售结算日志开关（默认关闭，开启后每店每 60 秒一条）"));
+		map.put("fly.digNoSlow", new Entry("bool", "飞行挖掘不减速开关（true=与地面一致，false=原版生存飞行挖掘速度）"));
+		map.put("shop.sellLog", new Entry("bool", "商店出售结算日志开关（默认关闭，开启后每店每 60 秒一条）"));
 		map.put("balop.host", new Entry("string", "数据库管理前端监听地址（/balop 重启后生效）"));
 		map.put("balop.port", new Entry("int", "数据库管理前端端口 1-65535（/balop 重启后生效）"));
 		map.put("home.max", new Entry("int", "家数量上限（0 = 未开放）"));
@@ -151,16 +152,16 @@ public final class EconomyConfig {
 			case "itemPricesInLore" -> {
 				return Boolean.toString(itemPricesInLore);
 			}
-			case "flyFeePerSecond" -> {
+			case "fly.feePerSecond" -> {
 				return Money.format(flyFeeCents);
 			}
 			case "funFishing" -> {
 				return Boolean.toString(funFishing);
 			}
-			case "flyDigSpeedRestore" -> {
-				return Boolean.toString(flyDigSpeedRestore);
+			case "fly.digNoSlow" -> {
+				return Boolean.toString(flyDigNoSlow);
 			}
-			case "shopSellLog" -> {
+			case "shop.sellLog" -> {
 				return Boolean.toString(shopSellLog);
 			}
 			case "balop.host" -> {
@@ -247,10 +248,10 @@ public final class EconomyConfig {
 				PriceLore.enabled = b;
 				return null;
 			}
-			case "flyFeePerSecond" -> {
+			case "fly.feePerSecond" -> {
 				Long cents = parseMoney(value);
 				if (cents == null) {
-					return "flyFeePerSecond 需要非负金额（如 500.00）";
+					return "fly.feePerSecond 需要非负金额（如 500.00）";
 				}
 				flyFeeCents = cents;
 				return null;
@@ -263,18 +264,21 @@ public final class EconomyConfig {
 				funFishing = b;
 				return null;
 			}
-			case "flyDigSpeedRestore" -> {
+			case "fly.digNoSlow" -> {
 				Boolean b = parseBool(value);
 				if (b == null) {
-					return "flyDigSpeedRestore 需要 true 或 false";
+					return "fly.digNoSlow 需要 true 或 false";
 				}
-				flyDigSpeedRestore = b;
+				flyDigNoSlow = b;
+				// 服务端本地立即生效，并同步给全部在线玩家的客户端（本地预测一致）
+				mois.economy.network.FlyConfigSync.digNoSlow = b;
+				mois.economy.network.FlyConfigSync.broadcastToAll();
 				return null;
 			}
-			case "shopSellLog" -> {
+			case "shop.sellLog" -> {
 				Boolean b = parseBool(value);
 				if (b == null) {
-					return "shopSellLog 需要 true 或 false";
+					return "shop.sellLog 需要 true 或 false";
 				}
 				shopSellLog = b;
 				return null;
@@ -463,10 +467,14 @@ public final class EconomyConfig {
 		Files.createDirectories(file.getParent());
 		JsonObject root = new JsonObject();
 		root.addProperty("itemPricesInLore", itemPricesInLore);
-		root.addProperty("flyFeePerSecond", Money.format(flyFeeCents));
 		root.addProperty("funFishing", funFishing);
-		root.addProperty("flyDigSpeedRestore", flyDigSpeedRestore);
-		root.addProperty("shopSellLog", shopSellLog);
+		JsonObject fly = new JsonObject();
+		fly.addProperty("feePerSecond", Money.format(flyFeeCents));
+		fly.addProperty("digNoSlow", flyDigNoSlow);
+		root.add("fly", fly);
+		JsonObject shop = new JsonObject();
+		shop.addProperty("sellLog", shopSellLog);
+		root.add("shop", shop);
 		JsonObject balop = new JsonObject();
 		balop.addProperty("host", balopHost);
 		balop.addProperty("port", balopPort);
@@ -562,7 +570,22 @@ public final class EconomyConfig {
 			if (root.has("itemPricesInLore")) {
 				itemPricesInLore = root.get("itemPricesInLore").getAsBoolean();
 			}
-			if (root.has("flyFeePerSecond")) {
+			// fly 段（旧版顶层 flyFeePerSecond/flyDigSpeedRestore 兼容读取）
+			JsonObject flySection = root.getAsJsonObject("fly");
+			if (flySection != null) {
+				try {
+					if (flySection.has("feePerSecond")) {
+						flyFeeCents = parseCents(flySection.get("feePerSecond").getAsString());
+					}
+				} catch (RuntimeException e) {
+					Economy.LOGGER.warn("fly.feePerSecond 配置无效，使用默认 {} 元/秒", Money.format(DEFAULT_FLY_FEE_CENTS), e);
+					flyFeeCents = DEFAULT_FLY_FEE_CENTS;
+				}
+				if (flySection.has("digNoSlow")) {
+					flyDigNoSlow = flySection.get("digNoSlow").getAsBoolean();
+				}
+			} else if (root.has("flyFeePerSecond")) {
+				// 旧版顶层 key 兼容
 				try {
 					flyFeeCents = parseCents(root.get("flyFeePerSecond").getAsString());
 				} catch (RuntimeException e) {
@@ -570,13 +593,20 @@ public final class EconomyConfig {
 					flyFeeCents = DEFAULT_FLY_FEE_CENTS;
 				}
 			}
+			if (root.has("flyDigSpeedRestore")) {
+				// 旧版顶层 key 兼容
+				flyDigNoSlow = root.get("flyDigSpeedRestore").getAsBoolean();
+			}
 			if (root.has("funFishing")) {
 				funFishing = root.get("funFishing").getAsBoolean();
 			}
-			if (root.has("flyDigSpeedRestore")) {
-				flyDigSpeedRestore = root.get("flyDigSpeedRestore").getAsBoolean();
-			}
-			if (root.has("shopSellLog")) {
+			// shop 段（旧版顶层 shopSellLog 兼容读取）
+			JsonObject shopSection = root.getAsJsonObject("shop");
+			if (shopSection != null) {
+				if (shopSection.has("sellLog")) {
+					shopSellLog = shopSection.get("sellLog").getAsBoolean();
+				}
+			} else if (root.has("shopSellLog")) {
 				shopSellLog = root.get("shopSellLog").getAsBoolean();
 			}
 			if (root.has("balop")) {
@@ -619,9 +649,9 @@ public final class EconomyConfig {
 		return funFishing;
 	}
 
-	/** 飞行挖掘速度恢复开关（开启时飞行挖掘速度与地面一致，关闭时恢复原版空中惩罚）。 */
-	public static boolean flyDigSpeedRestore() {
-		return flyDigSpeedRestore;
+	/** 飞行挖掘不减速开关（true=飞行中挖掘与地面一致，false=原版生存飞行挖掘速度）。 */
+	public static boolean flyDigNoSlow() {
+		return flyDigNoSlow;
 	}
 
 	/** 商店出售结算日志开关（默认关闭：每店每 60 秒一条过于刷屏）。 */
@@ -730,10 +760,9 @@ public final class EconomyConfig {
 		Files.writeString(file, """
 				{
 				  "itemPricesInLore": true,
-				  "flyFeePerSecond": "500.00",
 				  "funFishing": false,
-				  "flyDigSpeedRestore": true,
-				  "shopSellLog": false,
+				  "fly": {"feePerSecond": "500.00", "digNoSlow": true},
+				  "shop": {"sellLog": false},
 				  "balop": {"host": "localhost", "port": 8899},
 				  "home": {"max": 0, "cooldownSeconds": 0, "fixedFee": false, "fixedFeeAmount": "500.00", "perDistanceFee": "1.00", "crossDimensionFee": "1000.00"},
 				  "tpa": {"enabled": false, "cooldownSeconds": 0, "fixedFee": false, "fixedFeeAmount": "500.00", "perDistanceFee": "1.00", "crossDimensionFee": "1000.00", "timeoutSeconds": 60},

@@ -41,6 +41,9 @@ public class Economy implements ModInitializer {
 		// However, some things (like resources) may still be uninitialized.
 		// Proceed with mild caution.
 
+		// 注册 S2C 载荷类型（两端执行；不在同步注册表，纯净端无感知）
+		mois.economy.network.FlyConfigSync.register();
+
 		ServerLifecycleEvents.SERVER_STARTED.register(server -> {
 			// 物品价值配置 + 附魔价值配置 + 主配置 + 资金数据库 + 商店数据。
 			ItemValues.load(FabricLoader.getInstance().getConfigDir());
@@ -50,6 +53,8 @@ public class Economy implements ModInitializer {
 			if (PriceLore.enabled) {
 				PriceLore.selfCheck();
 			}
+			// 飞行挖掘开关同步：服务端权威值（/config 热改时广播给在线玩家）
+			mois.economy.network.FlyConfigSync.onServerStarted(server);
 			Path worldDir = server.getWorldPath(LevelResource.ROOT);
 			EconomyDb.open(worldDir.resolve("economy.db"));
 			ShopManager.init(worldDir);
@@ -64,6 +69,7 @@ public class Economy implements ModInitializer {
 			// 数据库管理前端随服务器一起关闭：关闭全部会话与 HTTP 服务，即使进程残留
 			// （Windows 下 JVM 未完全退出）也不允许端口继续服务
 			mois.economy.balop.BalopServer.shutdownAll();
+			mois.economy.network.FlyConfigSync.onServerStopping();
 			EconomyDb.close();
 		});
 		ServerTickEvents.END_SERVER_TICK.register(ShopManager::onServerTick);
@@ -87,6 +93,8 @@ public class Economy implements ModInitializer {
 			}
 			// 保留的飞行模式恢复飞行能力
 			FlyManager.onJoin(handler.getPlayer());
+			// 下发飞行挖掘开关当前值（客户端本地预测与服务端权威一致）
+			mois.economy.network.FlyConfigSync.sendTo(handler.getPlayer());
 		});
 		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
 			// 下线：清除背包与打开容器的价格标签，退出便捷购买模式，停止飞行扣费（保留飞行模式）
