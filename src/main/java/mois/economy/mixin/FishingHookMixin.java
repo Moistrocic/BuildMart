@@ -2,7 +2,9 @@ package mois.economy.mixin;
 
 import mois.economy.config.EconomyConfig;
 import mois.economy.fishing.FishingManager;
+import mois.economy.spawner.SpawnerManager;
 import net.minecraft.advancements.triggers.CriteriaTriggers;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.stats.Stats;
@@ -13,6 +15,7 @@ import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.FishingHook;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -50,8 +53,16 @@ public abstract class FishingHookMixin {
 		if (loot == null) {
 			return; // 配置未就绪：回退原版
 		}
-		cir.cancel();
 		ServerLevel level = (ServerLevel) hook.level();
+		// 钓鱼产出的刷怪笼自动打上模组标签：与 /spawner give 底版一致的完整
+		// BLOCK_ENTITY_DATA（原版默认参数 + economy_spawner + economy_level），
+		// 放置后即可绑定/升级/挖取，且与 give/挖回物品 NBT 一致可互相堆叠；
+		// fishing.json 里自带 BLOCK_ENTITY_DATA 的自定义物品不覆盖。
+		if (loot.is(Items.SPAWNER) && !loot.has(DataComponents.BLOCK_ENTITY_DATA)) {
+			ItemStack tagged = SpawnerManager.createTaggedSpawnerStack(level.registryAccess());
+			loot.set(DataComponents.BLOCK_ENTITY_DATA, tagged.get(DataComponents.BLOCK_ENTITY_DATA));
+		}
+		cir.cancel();
 		Player player = hook.getPlayerOwner();
 		if (!loot.isEmpty()) {
 			// 命中战利品：成就触发 + 生成（沿用原版方式：鱼钩位置、朝玩家方向的速度（原版双重 sqrt 公式）、经验球）

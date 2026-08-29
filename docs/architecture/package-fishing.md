@@ -30,6 +30,10 @@
   （`hookedIn == null && nibble > 0`）时，用 `FishingManager.roll` 的结果替换原版战利品表。
 - 命中战利品：触发 `FISHING_ROD_HOOKED` 成就、生成 `ItemEntity`（鱼钩位置、原版双重 sqrt 速度公式）、
   经验球（1-6）、鱼标签物品计 `FISH_CAUGHT` 统计。
+- 刷怪笼自动打标：命中的物品为 `minecraft:spawner` 且无 `BLOCK_ENTITY_DATA` 时，
+  用 `SpawnerManager.createTaggedSpawnerStack` 的底版数据补上（含 `economy_spawner`
+  标签 + 原版默认参数），放置后即可绑定/升级/挖取，且与 give/挖回物品 NBT 一致可堆叠；
+  `fishing.json` 自带 `BLOCK_ENTITY_DATA` 的自定义物品不覆盖；原物品其余组件（lore 等）保留。
 - ⚠️ **cancel 后必须补做原版收尾**：`hook.discard()`（否则鱼钩不销毁可重复收竿刷战利品）、
   返回值 `onGround() ? 2 : 1`（原版战利品路径语义）。未命中战利品（EMPTY）同样正常收竿。
 - 关闭开关 / 钩住实体 / 未上钩 / 配置未加载 → 放行原版处理。
