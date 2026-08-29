@@ -78,7 +78,11 @@ public final class SpawnerManager {
 
 	// ---------- 绑定/换绑（刷怪蛋右键，仅带标签笼；可随时更换） ----------
 
-	/** 手持刷怪蛋右键刷怪笼：绑定/更换实体类型（消耗一个蛋，不限制更换）。返回 null = 成功，否则为失败提示。 */
+	/**
+	 * 手持刷怪蛋右键刷怪笼：绑定/更换实体类型（不限制更换）。返回 null = 成功，否则为失败提示。
+	 * 模式规则：**创造模式（instabuild）使用物品不消耗**——不 shrink 刷怪蛋（与原版一致）；
+	 * 生存模式消耗一个蛋。
+	 */
 	public static String bindWithEgg(ServerPlayer player, SpawnerBlockEntity spawner, ItemStack eggStack) {
 		if (!state(spawner).economyTagged()) {
 			return NOT_TAGGED;
@@ -91,7 +95,9 @@ public final class SpawnerManager {
 		spawner.setEntityId(type, player.getRandom());
 		spawner.setChanged();
 		syncToClient(player, spawner);
-		eggStack.shrink(1);
+		if (!player.getAbilities().instabuild) {
+			eggStack.shrink(1); // 生存模式消耗蛋；创造模式不消耗（原版规则）
+		}
 		player.sendSystemMessage(Component.literal(rebind
 				? "已将刷怪笼类型更换为：" + type.getDescription().getString()
 				: "已绑定刷怪笼类型：" + type.getDescription().getString())

@@ -57,6 +57,23 @@
   （mixin 不搜索父类方法，须注入声明处；运行时 instanceof SpawnerBlock）。
 - `SpawnerCommands`：`/spawner info|upgrade|set entity|set 参数|give`。
 
+## 生存/创造模式行为矩阵（模式敏感点清单）
+
+| 功能 | 生存模式 | 创造模式（instabuild） | 说明 |
+|---|---|---|---|
+| 放置带标签刷怪笼 | 恢复标签/等级/绑定/微调 | 同左 | BLOCK_ENTITY_DATA 原版机制，无模式差异 |
+| 刷怪蛋绑定/换绑 | **消耗一个蛋** | **不消耗蛋**（原版规则：创造使用物品不消耗） | `bindWithEgg` 检查 `abilities.instabuild` |
+| `/spawner upgrade` | 扣款升级 | 同左（仍扣钱） | 与模式无关；受 `spawner.upgrade` 开关控制 |
+| `/spawner set` | 微调参数 | 同左 | 纯逻辑，无模式差异 |
+| `/spawner give` | 获得带标签笼 | 同左 | 管理员指令 |
+| 挖掘掉落（镐挖） | **掉落带数据物品** | **不掉落**（与原版一致） | `playerDestroy` 检查 `isCreative`；爆炸等其他破坏路径也不掉落 |
+| 创造中键拾取（getCloneItemStack） | — | 拿到**无标签**空笼 | 原版行为：中键不携带 BlockEntity 数据——放置后为普通空笼（不受玩法影响），已升级数据不随中键复制 |
+| 刷怪笼生成机制 | 激活需附近玩家（含创造） | 同左 | 参数计算与玩家模式无关 |
+| bm 便捷购买（instabuild） | — | — | `ServerPlayerGameModeMixin` 已禁止 buymode 期间破坏方块（含刷怪笼） |
+
+**设计约定**：除上表外，刷怪笼玩法的所有逻辑（升级/参数/标签/持久化）与玩家游戏模式**完全无关**；
+模式差异只存在于「物品消耗（绑定蛋）」与「破坏掉落（创造不掉）」两处——均遵循原版规则。
+
 ## 指令
 
 | 指令 | 说明 |
