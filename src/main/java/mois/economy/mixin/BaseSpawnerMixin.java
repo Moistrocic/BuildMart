@@ -49,6 +49,9 @@ public abstract class BaseSpawnerMixin implements SpawnerAccess {
 	@Shadow
 	private WeightedList<SpawnData> spawnPotentials;
 
+	@Shadow
+	private SpawnData nextSpawnData;
+
 	@Unique
 	@Override
 	public int economyMinDelay() {
@@ -88,7 +91,15 @@ public abstract class BaseSpawnerMixin implements SpawnerAccess {
 	@Unique
 	@Override
 	public boolean economyHasPotentials() {
-		return spawnPotentials != null && !spawnPotentials.isEmpty();
+		// 26.3 setEntityId 只写 nextSpawnData 的 entity id、不填 spawnPotentials——
+		// 绑定判定须两者兼顾：spawnPotentials 非空（原版地牢笼）或 nextSpawnData 有实体 id（蛋绑定）
+		if (spawnPotentials != null && !spawnPotentials.isEmpty()) {
+			return true;
+		}
+		if (nextSpawnData == null) {
+			return false;
+		}
+		return !nextSpawnData.getEntityToSpawn().getString("id").isEmpty();
 	}
 
 	@Inject(method = "serverTick", at = @At("HEAD"))
