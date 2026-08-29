@@ -107,9 +107,16 @@ public final class HongbaoCommands {
 				EconomyDb.TYPE_REDPACKET_SEND, EconomyDb.CHANNEL_REDPACKET, "发出红包", -total);
 		// 同口令覆盖：旧红包失效，剩余金额返还给原发红包人
 		Hongbao prev = HONGBAOS.put(pass, new Hongbao(player.getUUID(), player.getGameProfile().name(), total, count));
+		// 广播中的口令可点击复制（COPY_TO_CLIPBOARD），复制后到聊天框粘贴发言即可领取
 		broadcast(source.getServer(), Component.literal("[红包] " + player.getGameProfile().name()
-				+ " 发出红包：共 " + Money.format(total) + " 元，共 " + count + " 个！"
-				+ "口令「 " + pass + " 」").withStyle(ChatFormatting.GOLD));
+				+ " 发出红包：共 " + Money.format(total) + " 元，共 " + count + " 个！口令「 ")
+				.withStyle(ChatFormatting.GOLD)
+				.append(Component.literal(pass)
+						.withStyle(style -> style.withColor(ChatFormatting.AQUA)
+								.withClickEvent(new net.minecraft.network.chat.ClickEvent.CopyToClipboard(pass))
+								.withHoverEvent(new net.minecraft.network.chat.HoverEvent.ShowText(
+										Component.literal("点击复制口令")))))
+				.append(Component.literal(" 」").withStyle(ChatFormatting.GOLD)));
 		if (prev != null) {
 			refund(source.getServer(), prev, "被新的红包覆盖");
 		}
