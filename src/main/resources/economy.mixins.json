@@ -17,7 +17,8 @@
 		"LevelMixin",
 		"BaseSpawnerMixin",
 		"SpawnerBlockMixin",
-		"SpawnerBlockEntityMixin"
+		"SpawnerBlockEntityMixin",
+		"BlockItemMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
