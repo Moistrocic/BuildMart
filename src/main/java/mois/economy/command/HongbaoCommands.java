@@ -70,10 +70,12 @@ public final class HongbaoCommands {
 
 	public static void register(CommandDispatcher<CommandSourceStack> dispatcher, CommandBuildContext buildContext) {
 		// 发红包：/hongbao 总金额 数量 口令（领取通过聊天发言，见 economy$hongbaoChat）
+		// 口令用 greedyString（原版参数类型）：支持中文与符号（word 只接受字母数字，
+		// 中文/符号会被命令解析拒绝）；口令是最后一个参数，无参数吞并问题。
 		dispatcher.register(Commands.literal("hongbao")
 				.then(Commands.argument("amount", StringArgumentType.word())
 						.then(Commands.argument("count", IntegerArgumentType.integer(1))
-								.then(Commands.argument("口令", StringArgumentType.word())
+								.then(Commands.argument("口令", StringArgumentType.greedyString())
 										.executes(HongbaoCommands::create)))));
 	}
 
