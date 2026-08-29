@@ -39,20 +39,20 @@ public final class SpawnerConfig {
 			long upgradeFeeCents) {
 	}
 
-	/** 内置默认表（Lv 0 = 原版生成机制；生成间隔 ×0.75/级，数量/范围随级增长；费用为升级到该级）。 */
+	/** 内置默认表（Lv 0 = 原版生成机制；费用为升级到该级，Lv 1 免费 = (Lv-1)²×10000 元）。 */
 	private static final String DEFAULT_JSON = """
 			{
 			  "levels": [
-			    {"level": 1, "minDelay": [600, 600], "maxDelay": [800, 800], "count": [4, 4], "nearby": [6, 6], "playerRange": [16, 16], "spawnRange": [4, 4], "upgradeFee": "500.00"},
-			    {"level": 2, "minDelay": [450, 600], "maxDelay": [600, 800], "count": [4, 6], "nearby": [6, 9], "playerRange": [16, 20], "spawnRange": [4, 6], "upgradeFee": "1000.00"},
-			    {"level": 3, "minDelay": [337, 450], "maxDelay": [450, 600], "count": [5, 7], "nearby": [6, 12], "playerRange": [16, 22], "spawnRange": [4, 7], "upgradeFee": "4000.00"},
-			    {"level": 4, "minDelay": [253, 337], "maxDelay": [337, 450], "count": [5, 8], "nearby": [6, 15], "playerRange": [16, 24], "spawnRange": [4, 8], "upgradeFee": "9000.00"},
-			    {"level": 5, "minDelay": [190, 253], "maxDelay": [253, 337], "count": [6, 9], "nearby": [6, 18], "playerRange": [16, 26], "spawnRange": [4, 9], "upgradeFee": "16000.00"},
-			    {"level": 6, "minDelay": [142, 190], "maxDelay": [190, 253], "count": [6, 10], "nearby": [6, 21], "playerRange": [16, 28], "spawnRange": [4, 10], "upgradeFee": "25000.00"},
-			    {"level": 7, "minDelay": [107, 142], "maxDelay": [142, 190], "count": [7, 11], "nearby": [6, 24], "playerRange": [16, 30], "spawnRange": [4, 11], "upgradeFee": "36000.00"},
-			    {"level": 8, "minDelay": [80, 107], "maxDelay": [107, 142], "count": [7, 12], "nearby": [6, 27], "playerRange": [16, 32], "spawnRange": [4, 12], "upgradeFee": "49000.00"},
-			    {"level": 9, "minDelay": [60, 80], "maxDelay": [80, 107], "count": [8, 13], "nearby": [6, 30], "playerRange": [16, 34], "spawnRange": [4, 13], "upgradeFee": "64000.00"},
-			    {"level": 10, "minDelay": [45, 60], "maxDelay": [60, 80], "count": [8, 14], "nearby": [6, 33], "playerRange": [16, 36], "spawnRange": [4, 14], "upgradeFee": "81000.00"}
+			    {"level": 1, "minDelay": [600, 600], "maxDelay": [800, 800], "count": [4, 4], "nearby": [6, 6], "playerRange": [16, 16], "spawnRange": [4, 4], "upgradeFee": "0.00"},
+			    {"level": 2, "minDelay": [450, 600], "maxDelay": [600, 800], "count": [3, 6], "nearby": [6, 9], "playerRange": [14, 20], "spawnRange": [4, 6], "upgradeFee": "10000.00"},
+			    {"level": 3, "minDelay": [337, 600], "maxDelay": [450, 800], "count": [3, 7], "nearby": [6, 12], "playerRange": [12, 22], "spawnRange": [4, 7], "upgradeFee": "40000.00"},
+			    {"level": 4, "minDelay": [253, 600], "maxDelay": [337, 800], "count": [2, 8], "nearby": [6, 15], "playerRange": [10, 24], "spawnRange": [4, 8], "upgradeFee": "90000.00"},
+			    {"level": 5, "minDelay": [190, 600], "maxDelay": [253, 800], "count": [2, 9], "nearby": [6, 18], "playerRange": [8, 26], "spawnRange": [4, 9], "upgradeFee": "160000.00"},
+			    {"level": 6, "minDelay": [142, 600], "maxDelay": [190, 800], "count": [1, 10], "nearby": [6, 21], "playerRange": [6, 28], "spawnRange": [4, 10], "upgradeFee": "250000.00"},
+			    {"level": 7, "minDelay": [107, 600], "maxDelay": [142, 800], "count": [1, 11], "nearby": [6, 24], "playerRange": [4, 30], "spawnRange": [4, 11], "upgradeFee": "360000.00"},
+			    {"level": 8, "minDelay": [80, 600], "maxDelay": [107, 800], "count": [1, 12], "nearby": [6, 27], "playerRange": [2, 32], "spawnRange": [4, 12], "upgradeFee": "490000.00"},
+			    {"level": 9, "minDelay": [60, 600], "maxDelay": [80, 800], "count": [1, 13], "nearby": [6, 30], "playerRange": [2, 34], "spawnRange": [4, 13], "upgradeFee": "640000.00"},
+			    {"level": 10, "minDelay": [45, 600], "maxDelay": [60, 800], "count": [1, 14], "nearby": [6, 33], "playerRange": [2, 36], "spawnRange": [4, 14], "upgradeFee": "810000.00"}
 			  ]
 			}
 			""";
