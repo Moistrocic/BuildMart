@@ -100,8 +100,11 @@ public abstract class BaseSpawnerMixin implements SpawnerAccess {
 		if (!state.economyTagged()) {
 			return; // 原版刷怪笼：不干预
 		}
-		// 生效等级：升级开关关闭时按 Lv 1（升级数据保留，再次开启自动恢复）
-		int effLevel = EconomyConfig.spawnerUpgrade() ? state.economyLevel() : 1;
+		// 生效等级：升级开关关闭或未升级（Lv 0）时按原版生成机制（不写参数）
+		int effLevel = EconomyConfig.spawnerUpgrade() ? state.economyLevel() : 0;
+		if (effLevel <= 0) {
+			return; // Lv 0：直接使用原版刷怪笼生成机制
+		}
 		SpawnerConfig.LevelParams p = SpawnerConfig.level(effLevel);
 		minSpawnDelay = state.economyOverrideMinDelay() >= 0 ? state.economyOverrideMinDelay() : p.minDelayMin();
 		maxSpawnDelay = state.economyOverrideMaxDelay() >= 0 ? state.economyOverrideMaxDelay() : p.maxDelayMin();

@@ -20,8 +20,9 @@ public abstract class SpawnerBlockEntityMixin implements SpawnerStateAccess {
 	@Unique
 	private boolean economyTagged;
 
+	/** 升级等级：0 = 未升级（原版刷怪笼生成机制），1..maxLevel 为配置等级。 */
 	@Unique
-	private int economyLevel = 1;
+	private int economyLevel = 0;
 
 	@Unique
 	private int economyOverrideMinDelay = -1;
@@ -56,7 +57,7 @@ public abstract class SpawnerBlockEntityMixin implements SpawnerStateAccess {
 	@Unique
 	@Override
 	public void economySetLevel(int level) {
-		economyLevel = Math.max(1, level);
+		economyLevel = Math.max(0, level);
 	}
 
 	@Unique
@@ -145,7 +146,7 @@ public abstract class SpawnerBlockEntityMixin implements SpawnerStateAccess {
 	@Inject(method = "loadAdditional", at = @At("RETURN"))
 	private void economy$loadState(ValueInput input, CallbackInfo ci) {
 		economyTagged = input.getBooleanOr("economy_spawner", false);
-		economyLevel = Math.max(1, input.getIntOr("economy_level", 1));
+		economyLevel = Math.max(0, input.getIntOr("economy_level", 0));
 		economyOverrideMinDelay = input.getIntOr("economy_override_min_delay", -1);
 		economyOverrideMaxDelay = input.getIntOr("economy_override_max_delay", -1);
 		economyOverrideCount = input.getIntOr("economy_override_count", -1);

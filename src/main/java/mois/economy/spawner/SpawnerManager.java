@@ -50,11 +50,11 @@ public final class SpawnerManager {
 
 	// ---------- 管理员 give（带标签刷怪笼） ----------
 
-	/** 生成带标签的空刷怪笼物品（放置后为 Lv 1 空笼）。 */
+	/** 生成带标签的空刷怪笼物品（放置后为 Lv 0 空笼，原版生成机制）。 */
 	public static ItemStack createTaggedSpawnerStack() {
 		CompoundTag data = new CompoundTag();
 		data.putBoolean("economy_spawner", true);
-		data.putInt("economy_level", 1);
+		data.putInt("economy_level", 0);
 		BlockEntityType<?> spawnerType = BuiltInRegistries.BLOCK_ENTITY_TYPE
 				.getValue(Identifier.fromNamespaceAndPath("minecraft", "spawner"));
 		ItemStack stack = new ItemStack(Items.SPAWNER);
@@ -89,13 +89,13 @@ public final class SpawnerManager {
 
 	// ---------- 升级（/spawner upgrade） ----------
 
-	/** 升级刷怪笼。返回 null = 成功，否则为失败提示。 */
+	/** 升级刷怪笼（Lv 0 → 1 起，费用/效果来自 spawner.json 分级配置）。返回 null = 成功，否则为失败提示。 */
 	public static String upgrade(ServerPlayer player, SpawnerBlockEntity spawner) {
 		if (!state(spawner).economyTagged()) {
 			return NOT_TAGGED;
 		}
 		if (!EconomyConfig.spawnerUpgrade()) {
-			return "升级功能已关闭（/config spawner.upgrade 可重新开启；已升级效果暂按 Lv 1 生效，数据保留）";
+			return "升级功能已关闭（/config spawner.upgrade 可重新开启；已升级效果暂按原版生成，数据保留）";
 		}
 		SpawnerAccess access = (SpawnerAccess) spawner.getSpawner();
 		if (!access.economyHasPotentials()) {
@@ -105,7 +105,7 @@ public final class SpawnerManager {
 		if (level >= SpawnerConfig.maxLevel()) {
 			return "该刷怪笼已满级（Lv " + SpawnerConfig.maxLevel() + "）";
 		}
-		long fee = SpawnerConfig.level(level).upgradeFeeCents();
+		long fee = SpawnerConfig.level(level + 1).upgradeFeeCents();
 		long balance;
 		try {
 			balance = EconomyDb.getBalance(player.getUUID());
@@ -163,29 +163,15 @@ public final class SpawnerManager {
 
 	// ---------- 参数微调（/spawner set） ----------
 
-	/** 设置实体类型（随时可改）。返回 null = 成功，否则为失败提示。 */
-	public static String setEntity(ServerPlayer player, SpawnerBlockEntity spawner, String entityId) {
-		if (!state(spawner).economyTagged()) {
-			return NOT_TAGGED;
-		}
-		EntityType<?> type = BuiltInRegistries.ENTITY_TYPE.getValue(Identifier.fromNamespaceAndPath("minecraft", entityId));
-		if (type == null) {
-			return "未知实体类型：" + entityId;
-		}
-		spawner.setEntityId(type, player.getRandom());
-		spawner.setChanged();
-		syncToClient(player, spawner);
-		player.sendSystemMessage(Component.literal("刷怪笼类型已改为：" + type.getDescription().getString())
-				.withStyle(ChatFormatting.GREEN), false);
-		return null;
-	}
-
-	/** 设置生成参数微调（值受当前等级允许范围约束）。返回 null = 成功，否则为失败提示。 */
+	/** 设置生成参数微调（值受当前等级允许范围约束；Lv 0 不可微调）。返回 null = 成功，否则为失败提示。 */
 	public static String setParam(ServerPlayer player, SpawnerBlockEntity spawner, String param, int value) {
 		if (!state(spawner).economyTagged()) {
 			return NOT_TAGGED;
 		}
 		int level = state(spawner).economyLevel();
+		if (level <= 0) {
+			return "Lv 0 为原版生成机制，无法微调参数，请先 /spawner upgrade";
+		}
 		SpawnerConfig.LevelParams p = SpawnerConfig.level(level);
 		SpawnerStateAccess s = state(spawner);
 		int min;
@@ -272,32 +258,36 @@ public final class SpawnerManager {
 		}
 		SpawnerAccess access = (SpawnerAccess) spawner.getSpawner();
 		int level = state.economyLevel();
-		int effLevel = EconomyConfig.spawnerUpgrade() ? level : 1;
-		SpawnerConfig.LevelParams p = SpawnerConfig.level(level);
+		int effLevel = EconomyConfig.spawnerUpgrade() ? level : 0;
 		Component bound = access.economyHasPotentials()
 				? Component.literal("已绑定").withStyle(ChatFormatting.GREEN)
-				: Component.literal("未绑定（手持刷怪蛋右键绑定，或 /spawner set entity）").withStyle(ChatFormatting.YELLOW);
+				: Component.literal("未绑定（手持刷怪蛋右键绑定）").withStyle(ChatFormatting.YELLOW);
+		Component levelText = level <= 0
+				? Component.literal("Lv 0（原版生成机制，未升级）").withStyle(ChatFormatting.GRAY)
+				: Component.literal("Lv " + level + "/" + SpawnerConfig.maxLevel()).withStyle(ChatFormatting.AQUA);
 		Component upgradeState = EconomyConfig.spawnerUpgrade()
 				? Component.empty()
-				: Component.literal("　[升级功能已关闭，效果暂按 Lv 1 生效，数据保留]").withStyle(ChatFormatting.RED);
+				: Component.literal("　[升级功能已关闭，效果暂按原版生成，数据保留]").withStyle(ChatFormatting.RED);
 		net.minecraft.network.chat.MutableComponent info = Component.literal("刷怪笼：")
 				.append(bound)
-				.append(Component.literal("　Lv " + level + "/" + SpawnerConfig.maxLevel()).withStyle(ChatFormatting.AQUA))
-				.append(upgradeState)
+				.append(Component.literal("　")).append(levelText).append(upgradeState)
 				.append(Component.literal("\n当前生效：生成间隔 " + access.economyMinDelay() + "~"
 						+ access.economyMaxDelay() + " tick　每次 " + access.economySpawnCount()
 						+ " 只　附近上限 " + access.economyMaxNearby() + "　激活距离 "
 						+ access.economyPlayerRange() + "　范围 " + access.economySpawnRange() + "\n")
-						.withStyle(ChatFormatting.GRAY))
-				.append(Component.literal("Lv " + level + " 参数范围：minDelay " + p.minDelayMin() + "~"
-						+ p.minDelayMax() + "　maxDelay " + p.maxDelayMin() + "~" + p.maxDelayMax()
-						+ "　count " + p.countMin() + "~" + p.countMax() + "　nearby " + p.nearbyMin()
-						+ "~" + p.nearbyMax() + "　playerRange " + p.playerRangeMin() + "~"
-						+ p.playerRangeMax() + "　spawnRange " + p.spawnRangeMin() + "~" + p.spawnRangeMax() + "\n")
-						.withStyle(ChatFormatting.DARK_GRAY));
+						.withStyle(ChatFormatting.GRAY));
+		if (level > 0) {
+			SpawnerConfig.LevelParams p = SpawnerConfig.level(level);
+			info.append(Component.literal("Lv " + level + " 参数范围：minDelay " + p.minDelayMin() + "~"
+					+ p.minDelayMax() + "　maxDelay " + p.maxDelayMin() + "~" + p.maxDelayMax()
+					+ "　count " + p.countMin() + "~" + p.countMax() + "　nearby " + p.nearbyMin()
+					+ "~" + p.nearbyMax() + "　playerRange " + p.playerRangeMin() + "~"
+					+ p.playerRangeMax() + "　spawnRange " + p.spawnRangeMin() + "~" + p.spawnRangeMax() + "\n")
+					.withStyle(ChatFormatting.DARK_GRAY));
+		}
 		if (level < SpawnerConfig.maxLevel()) {
 			info.append(Component.literal("下次升级（Lv " + (level + 1) + "）："
-					+ SpawnerConfig.formatCents(SpawnerConfig.level(level).upgradeFeeCents())
+					+ SpawnerConfig.formatCents(SpawnerConfig.level(level + 1).upgradeFeeCents())
 					+ " 元，/spawner upgrade 升级").withStyle(ChatFormatting.GOLD));
 		} else {
 			info.append(Component.literal("已满级").withStyle(ChatFormatting.GOLD));

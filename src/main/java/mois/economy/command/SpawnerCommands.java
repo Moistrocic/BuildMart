@@ -19,10 +19,9 @@ import net.minecraft.world.level.block.entity.SpawnerBlockEntity;
  * <ul>
  * <li>{@code /spawner info} — 查看准星对准的刷怪笼（类型/等级/生成参数/可调范围/升级费用）；</li>
  * <li>{@code /spawner upgrade} — 升级（纯金钱，等级效果与费用来自 spawner.json；
- *     /config spawner.upgrade 总开关）；</li>
- * <li>{@code /spawner set entity <类型>} — 随时更改刷怪笼刷的实体类型；</li>
+ *     Lv 0 为原版生成机制；/config spawner.upgrade 总开关）；</li>
  * <li>{@code /spawner set <参数> <值>} — 微调生成参数（minDelay/maxDelay/count/nearby/
- *     playerRange/spawnRange），值受当前等级允许范围约束；</li>
+ *     playerRange/spawnRange），值受当前等级允许范围约束（Lv 0 不可微调）；</li>
  * <li>{@code /spawner give} — 管理员获得带标签的刷怪笼物品。</li>
  * </ul>
  */
@@ -42,9 +41,6 @@ public final class SpawnerCommands {
 				.then(Commands.literal("upgrade")
 						.executes(SpawnerCommands::upgrade))
 				.then(Commands.literal("set")
-						.then(Commands.literal("entity")
-								.then(Commands.argument("entity", StringArgumentType.word())
-										.executes(SpawnerCommands::setEntity)))
 						.then(Commands.argument("param", StringArgumentType.word())
 								.suggests((ctx, builder) -> net.minecraft.commands.SharedSuggestionProvider.suggest(
 										java.util.List.of("minDelay", "maxDelay", "count", "nearby",
@@ -75,21 +71,6 @@ public final class SpawnerCommands {
 			throw NOT_SPAWNER.create();
 		}
 		String error = SpawnerManager.upgrade(player, spawner);
-		if (error != null) {
-			ctx.getSource().sendFailure(Component.literal(error));
-			return 0;
-		}
-		return 1;
-	}
-
-	/** /spawner set entity <类型> —— 更改刷怪笼实体类型。 */
-	private static int setEntity(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
-		ServerPlayer player = requirePlayer(ctx.getSource());
-		SpawnerBlockEntity spawner = SpawnerManager.targetedSpawner(player);
-		if (spawner == null) {
-			throw NOT_SPAWNER.create();
-		}
-		String error = SpawnerManager.setEntity(player, spawner, StringArgumentType.getString(ctx, "entity"));
 		if (error != null) {
 			ctx.getSource().sendFailure(Component.literal(error));
 			return 0;

@@ -22,8 +22,10 @@ import java.util.List;
  * <p>
  * 每级定义各生成参数的**允许范围**（[下限, 上限]）与升级费用：
  * 升级后参数默认取范围下限，玩家可用 /spawner set 在范围内调整；
- * 升级费用为「本级 → 下一级」的费用（元字符串，与主配置风格一致）。
- * 文件缺失/解析失败时回退内置默认表（与原公式一致）。
+ * 升级费用为「升级到该等级」的费用（Lv 1 的费用即 Lv 0 → Lv 1，
+ * 元字符串，与主配置风格一致）。**Lv 0 为初始态（原版生成机制），
+ * 不在配置中，不可配置/不可微调**。
+ * 文件缺失/解析失败时回退内置默认表。
  */
 public final class SpawnerConfig {
 	/** 单个等级的参数范围与费用。 */
@@ -37,11 +39,11 @@ public final class SpawnerConfig {
 			long upgradeFeeCents) {
 	}
 
-	/** 内置默认表（生成间隔 ×0.75/级，数量/范围随级增长；费用 1000×等级² 元）。 */
+	/** 内置默认表（Lv 0 = 原版生成机制；生成间隔 ×0.75/级，数量/范围随级增长；费用为升级到该级）。 */
 	private static final String DEFAULT_JSON = """
 			{
 			  "levels": [
-			    {"level": 1, "minDelay": [600, 600], "maxDelay": [800, 800], "count": [4, 4], "nearby": [6, 6], "playerRange": [16, 16], "spawnRange": [4, 4], "upgradeFee": "0.00"},
+			    {"level": 1, "minDelay": [600, 600], "maxDelay": [800, 800], "count": [4, 4], "nearby": [6, 6], "playerRange": [16, 16], "spawnRange": [4, 4], "upgradeFee": "500.00"},
 			    {"level": 2, "minDelay": [450, 600], "maxDelay": [600, 800], "count": [4, 6], "nearby": [6, 9], "playerRange": [16, 20], "spawnRange": [4, 6], "upgradeFee": "1000.00"},
 			    {"level": 3, "minDelay": [337, 450], "maxDelay": [450, 600], "count": [5, 7], "nearby": [6, 12], "playerRange": [16, 22], "spawnRange": [4, 7], "upgradeFee": "4000.00"},
 			    {"level": 4, "minDelay": [253, 337], "maxDelay": [337, 450], "count": [5, 8], "nearby": [6, 15], "playerRange": [16, 24], "spawnRange": [4, 8], "upgradeFee": "9000.00"},
