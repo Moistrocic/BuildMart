@@ -76,26 +76,25 @@ public final class SpawnerManager {
 		return stack;
 	}
 
-	// ---------- 绑定（刷怪蛋右键，仅带标签笼） ----------
+	// ---------- 绑定/换绑（刷怪蛋右键，仅带标签笼；可随时更换） ----------
 
-	/** 手持刷怪蛋右键空刷怪笼：绑定实体类型。返回 null = 成功，否则为失败提示。 */
+	/** 手持刷怪蛋右键刷怪笼：绑定/更换实体类型（消耗一个蛋，不限制更换）。返回 null = 成功，否则为失败提示。 */
 	public static String bindWithEgg(ServerPlayer player, SpawnerBlockEntity spawner, ItemStack eggStack) {
 		if (!state(spawner).economyTagged()) {
 			return NOT_TAGGED;
-		}
-		SpawnerAccess access = (SpawnerAccess) spawner.getSpawner();
-		if (access.economyHasPotentials()) {
-			return "该刷怪笼已绑定实体类型（可用 /spawner set entity 更改）";
 		}
 		EntityType<?> type = SpawnEggItem.getType(eggStack);
 		if (type == null) {
 			return "无法识别该刷怪蛋的实体类型";
 		}
+		boolean rebind = ((SpawnerAccess) spawner.getSpawner()).economyHasPotentials();
 		spawner.setEntityId(type, player.getRandom());
 		spawner.setChanged();
 		syncToClient(player, spawner);
 		eggStack.shrink(1);
-		player.sendSystemMessage(Component.literal("已绑定刷怪笼类型：" + type.getDescription().getString())
+		player.sendSystemMessage(Component.literal(rebind
+				? "已将刷怪笼类型更换为：" + type.getDescription().getString()
+				: "已绑定刷怪笼类型：" + type.getDescription().getString())
 				.withStyle(ChatFormatting.GREEN), false);
 		return null;
 	}
