@@ -56,9 +56,33 @@ public abstract class SpawnerBlockMixin {
 			return;
 		}
 		CompoundTag tag = spawner.saveCustomOnly(level.registryAccess());
+		normalizeForStacking(tag);
 		ItemStack stack = new ItemStack(Items.SPAWNER);
 		stack.set(DataComponents.BLOCK_ENTITY_DATA,
 				TypedEntityData.of(spawnerType, tag));
 		SpawnerBlock.popResource(level, pos, stack);
+	}
+
+	/**
+	 * 归一化掉落物品的 BLOCK_ENTITY_DATA，使其与 /spawner give 底版
+	 * （全新 {@link SpawnerBlockEntity} 的完整存档）完全一致，可互相堆叠：
+	 * <ol>
+	 * <li>{@code Delay}（生成倒计时）是放置后的运行时变量，每次挖回都不同
+	 *     （挖回物品之间也不堆叠）→ 重置为 give 底版的初始值 20；</li>
+	 * <li>未绑定实体的默认 {@code SpawnData}（entity 为空 = 猪）在放置加载后被
+	 *     原版写出，give 底版没有该键 → 移除；绑定过实体（SpawnData.entity 含
+	 *     id/数据）则保留，放置后绑定不丢失。</li>
+	 * </ol>
+	 */
+	private static void normalizeForStacking(CompoundTag tag) {
+		tag.putShort("Delay", (short) 20);
+		// 26.3：getCompound 返回 Optional
+		var spawnData = tag.getCompound("SpawnData");
+		if (spawnData.isPresent()) {
+			var entity = spawnData.get().getCompound("entity");
+			if (entity.isEmpty() || entity.get().isEmpty()) {
+				tag.remove("SpawnData");
+			}
+		}
 	}
 }

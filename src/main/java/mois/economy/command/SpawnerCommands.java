@@ -97,7 +97,8 @@ public final class SpawnerCommands {
 	/** /spawner give —— 管理员获得带标签刷怪笼。 */
 	private static int give(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
 		ServerPlayer player = requirePlayer(ctx.getSource());
-		net.minecraft.world.item.ItemStack stack = SpawnerManager.createTaggedSpawnerStack();
+		net.minecraft.world.item.ItemStack stack = SpawnerManager.createTaggedSpawnerStack(
+				player.level().registryAccess());
 		if (!player.getInventory().add(stack)) {
 			player.spawnAtLocation(player.level(), stack);
 		}

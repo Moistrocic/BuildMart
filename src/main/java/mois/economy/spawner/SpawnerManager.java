@@ -5,6 +5,7 @@ import mois.economy.config.SpawnerConfig;
 import mois.economy.data.EconomyDb;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
@@ -16,6 +17,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.SpawnEggItem;
 import net.minecraft.world.item.component.TypedEntityData;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.entity.SpawnerBlockEntity;
 import net.minecraft.world.phys.BlockHitResult;
@@ -61,15 +63,18 @@ public final class SpawnerManager {
 
 	// ---------- 管理员 give（带标签刷怪笼） ----------
 
-	/** 生成带标签的空刷怪笼物品（放置后为 Lv 0 空笼，原版生成机制）。 */
-	public static ItemStack createTaggedSpawnerStack() {
-		CompoundTag data = new CompoundTag();
-		data.putBoolean("economy_spawner", true);
-		data.putInt("economy_level", 0);
+	/** 生成带标签的空刷怪笼物品（放置后为 Lv 0 空笼，原版生成机制）。
+	 * 底版使用全新 {@link SpawnerBlockEntity} 的完整存档（含原版默认生成参数），
+	 * 保证 give 物品与「放置→挖回」掉落的物品 NBT 完全一致，可互相堆叠。 */
+	public static ItemStack createTaggedSpawnerStack(HolderLookup.Provider lookup) {
 		BlockEntityType<?> spawnerType = spawnerType();
 		if (spawnerType == null) {
 			return ItemStack.EMPTY; // 防御：注册表异常时不给物品
 		}
+		SpawnerBlockEntity fresh = new SpawnerBlockEntity(BlockPos.ZERO, Blocks.SPAWNER.defaultBlockState());
+		CompoundTag data = fresh.saveCustomOnly(lookup);
+		data.putBoolean("economy_spawner", true);
+		data.putInt("economy_level", 0);
 		ItemStack stack = new ItemStack(Items.SPAWNER);
 		stack.set(DataComponents.BLOCK_ENTITY_DATA,
 				TypedEntityData.of(spawnerType, data));
