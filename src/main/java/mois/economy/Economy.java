@@ -88,6 +88,27 @@ public class Economy implements ModInitializer {
 			// 保留的飞行模式恢复飞行能力
 			FlyManager.onJoin(handler.getPlayer());
 		});
+		// 刷怪笼玩法：手持刷怪蛋右键空刷怪笼绑定实体类型（服务端事件，纯净端兼容）
+		net.fabricmc.fabric.api.event.player.UseBlockCallback.EVENT.register((player, world, hand, hitResult) -> {
+			if (world.isClientSide() || !(player instanceof net.minecraft.server.level.ServerPlayer serverPlayer)) {
+				return net.minecraft.world.InteractionResult.PASS;
+			}
+			if (!(world.getBlockEntity(hitResult.getBlockPos())
+					instanceof net.minecraft.world.level.block.entity.SpawnerBlockEntity spawner)) {
+				return net.minecraft.world.InteractionResult.PASS;
+			}
+			net.minecraft.world.item.ItemStack held = player.getItemInHand(hand);
+			if (!(held.getItem() instanceof net.minecraft.world.item.SpawnEggItem)) {
+				return net.minecraft.world.InteractionResult.PASS;
+			}
+			String error = mois.economy.spawner.SpawnerManager.bindWithEgg(serverPlayer, spawner, held);
+			if (error != null) {
+				serverPlayer.sendSystemMessage(net.minecraft.network.chat.Component.literal(error)
+						.withStyle(net.minecraft.ChatFormatting.RED), false);
+				return net.minecraft.world.InteractionResult.FAIL;
+			}
+			return net.minecraft.world.InteractionResult.SUCCESS;
+		});
 		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
 			// 下线：清除背包与打开容器的价格标签，退出便捷购买模式，停止飞行扣费（保留飞行模式）
 			if (handler.getPlayer() != null) {

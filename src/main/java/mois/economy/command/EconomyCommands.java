@@ -70,6 +70,8 @@ public final class EconomyCommands {
 			"/back - 回到最近死亡点",
 			"/suicide - 自杀",
 			"/hongbao 总金额 数量 口令 - 发红包（聊天说出口令即可领取）",
+			"/spawner - 查看刷怪笼信息（钓鱼可获，刷怪蛋右键绑定）",
+			"/spawner upgrade - 升级刷怪笼（等级越高生成越快）",
 			"/balop start - 启动数据库管理前端（仅管理员）",
 			"/balop stop - 关闭数据库管理前端（仅管理员）"
 	};
@@ -83,6 +85,7 @@ public final class EconomyCommands {
 		TeleportCommands.register(dispatcher, buildContext);
 		HongbaoCommands.register(dispatcher, buildContext);
 		ConfigCommands.register(dispatcher, buildContext);
+		SpawnerCommands.register(dispatcher, buildContext);
 
 		dispatcher.register(Commands.literal("suicide")
 				.executes(EconomyCommands::suicide));

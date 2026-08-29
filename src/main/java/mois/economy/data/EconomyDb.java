@@ -52,6 +52,8 @@ public final class EconomyDb {
 	public static final String TYPE_REDPACKET_CLAIM = "REDPACKET_CLAIM";
 	/** 交易类型：红包过期返还。 */
 	public static final String TYPE_REDPACKET_REFUND = "REDPACKET_REFUND";
+	/** 交易类型：刷怪笼升级。 */
+	public static final String TYPE_SPAWNER_UPGRADE = "SPAWNER_UPGRADE";
 	/** 交易渠道：/bm 便捷购买。 */
 	public static final String CHANNEL_BM = "BM";
 	/** 交易渠道：/shop 箱子商店自动出售。 */
@@ -70,6 +72,8 @@ public final class EconomyDb {
 	public static final String CHANNEL_BUY = "BUY";
 	/** 交易渠道：红包。 */
 	public static final String CHANNEL_REDPACKET = "REDPACKET";
+	/** 交易渠道：刷怪笼升级。 */
+	public static final String CHANNEL_SPAWNER = "SPAWNER";
 
 	private static Connection connection;
 	private static Path dbPath;

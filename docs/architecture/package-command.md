@@ -6,7 +6,7 @@
 
 ## `EconomyCommands.java` — 资金指令 + /balhelp
 
-- `PAGE_SIZE = 10`；`HELP_LINES`（String[]，25 行）包含全部 /bal*、/shop*、/fly、传送、/suicide、/hongbao、/balop 帮助行。
+- `PAGE_SIZE = 10`；`HELP_LINES`（String[]，27 行）包含全部 /bal*、/shop*、/fly、传送、/suicide、/hongbao、/spawner、/balop 帮助行。
 - 注册的指令与执行方法：
   | 指令 | 方法 | 说明 |
   |---|---|---|

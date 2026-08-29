@@ -14,7 +14,9 @@
 		"FishingHookMixin",
 		"ExplosionDamageCalculatorMixin",
 		"ServerExplosionMixin",
-		"LevelMixin"
+		"LevelMixin",
+		"BaseSpawnerMixin",
+		"SpawnerBlockMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

@@ -15,8 +15,9 @@
 - [package-buymode.md](package-buymode.md) — `buymode` 包：/bm 便捷购买
 - [package-fly.md](package-fly.md) — `fly` 包：/fly 付费飞行
 - [package-fishing.md](package-fishing.md) — `fishing` 包：趣味钓鱼（自定义战利品 + 概率/补全项 + lore 故事）
+- [package-spawner.md](package-spawner.md) — `spawner` 包：刷怪笼玩法（钓鱼获取/蛋绑定/升级/回收）
 - [package-teleport.md](package-teleport.md) — `teleport` 包：/home /sethome /tpa /tpahere /tpaccept /back
-- [package-mixin.md](package-mixin.md) — 全部 12 个 Mixin（注入点、原因、注意事项）
+- [package-mixin.md](package-mixin.md) — 全部 14 个 Mixin（注入点、原因、注意事项）
 - [package-misc.md](package-misc.md) — util/AdminUtil、client 源集、资源文件（fabric.mod.json、economy.mixins.json）
 
 ## 项目总览
