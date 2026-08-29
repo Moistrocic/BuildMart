@@ -254,6 +254,15 @@ public final class SpawnerManager {
 		syncToClient(player, spawner);
 		player.sendSystemMessage(Component.literal("已设置 " + param + " = " + value
 				+ "（Lv " + level + " 范围 " + min + " ~ " + max + "）").withStyle(ChatFormatting.GREEN), false);
+		// count 超过生效 nearby 时提醒（原版机制：附近实体达到 nearby 上限后整个生成周期暂停）
+		if (param.equals("count")) {
+			int effNearby = s.economyOverrideNearby() >= 0 ? s.economyOverrideNearby() : p.nearbyMin();
+			if (value > effNearby) {
+				player.sendSystemMessage(Component.literal("提示：附近实体上限 nearby = " + effNearby
+						+ "，达到后生成暂停；若希望每次 " + value + " 只同时在场，请 /spawner set nearby " + value)
+						.withStyle(ChatFormatting.YELLOW), false);
+			}
+		}
 		return null;
 	}
 
