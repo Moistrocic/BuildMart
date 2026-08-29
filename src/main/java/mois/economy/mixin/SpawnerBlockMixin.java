@@ -22,8 +22,9 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * 刷怪笼可回收：玩家用镐破坏刷怪笼时掉落带完整数据（实体类型 + 升级参数）的
- * 刷怪笼物品，重新放置即恢复——升级投入不白费。创造模式不掉落（与原版一致）。
+ * 带标签刷怪笼可回收：玩家用镐破坏**本模组生成的刷怪笼**（economy_spawner 标记）时
+ * 掉落带完整数据（实体类型 + 等级 + 参数微调）的刷怪笼物品，重新放置即恢复——
+ * 升级投入不白费。**原版刷怪笼不受影响**（不掉落）；创造模式不掉落。
  * 注入 {@code Block.playerDestroy}（playerDestroy 声明于 Block，mixin 不搜索父类
  * 方法），运行时判断目标是否为刷怪笼。
  */
@@ -40,6 +41,9 @@ public abstract class SpawnerBlockMixin {
 		}
 		if (!(blockEntity instanceof SpawnerBlockEntity spawner)) {
 			return;
+		}
+		if (!((mois.economy.spawner.SpawnerStateAccess) spawner).economyTagged()) {
+			return; // 原版刷怪笼：不掉落
 		}
 		BlockEntityType<?> spawnerType = BuiltInRegistries.BLOCK_ENTITY_TYPE
 				.getValue(Identifier.fromNamespaceAndPath("minecraft", "spawner"));

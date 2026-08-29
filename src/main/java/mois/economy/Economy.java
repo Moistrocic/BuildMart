@@ -42,10 +42,11 @@ public class Economy implements ModInitializer {
 		// Proceed with mild caution.
 
 		ServerLifecycleEvents.SERVER_STARTED.register(server -> {
-			// 物品价值配置 + 附魔价值配置 + 主配置 + 资金数据库 + 商店数据。
+			// 物品价值配置 + 附魔价值配置 + 主配置 + 刷怪笼分级配置 + 资金数据库 + 商店数据。
 			ItemValues.load(FabricLoader.getInstance().getConfigDir());
 			EnchantmentValues.load(FabricLoader.getInstance().getConfigDir());
 			EconomyConfig.load(FabricLoader.getInstance().getConfigDir());
+			mois.economy.config.SpawnerConfig.load(FabricLoader.getInstance().getConfigDir());
 			PriceLore.enabled = EconomyConfig.itemPricesInLore();
 			if (PriceLore.enabled) {
 				PriceLore.selfCheck();

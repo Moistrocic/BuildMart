@@ -41,6 +41,8 @@ public final class EconomyConfig {
 	public static final boolean DEFAULT_FLY_DIG_NO_SLOW = true;
 	/** 默认商店出售结算日志：关闭（每店每 60 秒一条，过多影响后台观感）。 */
 	public static final boolean DEFAULT_SHOP_SELL_LOG = false;
+	/** 默认刷怪笼升级功能：开启（关闭时禁止升级，已升级效果按 Lv 1 生成，数据保留）。 */
+	public static final boolean DEFAULT_SPAWNER_UPGRADE = true;
 	/** 默认数据库管理前端（/balop）监听地址：本机回环，避免暴露到网络。 */
 	public static final String DEFAULT_BALOP_HOST = "localhost";
 	/** 默认数据库管理前端（/balop）端口。 */
@@ -87,6 +89,7 @@ public final class EconomyConfig {
 	private static boolean funFishing = DEFAULT_FUN_FISHING;
 	private static boolean flyDigNoSlow = DEFAULT_FLY_DIG_NO_SLOW;
 	private static boolean shopSellLog = DEFAULT_SHOP_SELL_LOG;
+	private static boolean spawnerUpgrade = DEFAULT_SPAWNER_UPGRADE;
 	private static String balopHost = DEFAULT_BALOP_HOST;
 	private static int balopPort = DEFAULT_BALOP_PORT;
 	private static HomeSettings homeSettings = new HomeSettings(DEFAULT_HOME_MAX, DEFAULT_FEES);
@@ -109,6 +112,7 @@ public final class EconomyConfig {
 		map.put("funFishing", new Entry("bool", "趣味钓鱼开关（关闭=原版钓鱼战利品）"));
 		map.put("fly.digNoSlow", new Entry("bool", "飞行挖掘不减速开关（true=与地面一致，false=原版生存飞行挖掘速度）"));
 		map.put("shop.sellLog", new Entry("bool", "商店出售结算日志开关（默认关闭，开启后每店每 60 秒一条）"));
+		map.put("spawner.upgrade", new Entry("bool", "刷怪笼升级功能开关（关闭时禁止升级，已升级效果按 Lv 1 生成，数据保留）"));
 		map.put("balop.host", new Entry("string", "数据库管理前端监听地址（/balop 重启后生效）"));
 		map.put("balop.port", new Entry("int", "数据库管理前端端口 1-65535（/balop 重启后生效）"));
 		map.put("home.max", new Entry("int", "家数量上限（0 = 未开放）"));
@@ -163,6 +167,9 @@ public final class EconomyConfig {
 			}
 			case "shop.sellLog" -> {
 				return Boolean.toString(shopSellLog);
+			}
+			case "spawner.upgrade" -> {
+				return Boolean.toString(spawnerUpgrade);
 			}
 			case "balop.host" -> {
 				return balopHost;
@@ -280,6 +287,15 @@ public final class EconomyConfig {
 					return "shop.sellLog 需要 true 或 false";
 				}
 				shopSellLog = b;
+				return null;
+			}
+			case "spawner.upgrade" -> {
+				Boolean b = parseBool(value);
+				if (b == null) {
+					return "spawner.upgrade 需要 true 或 false";
+				}
+				spawnerUpgrade = b;
+				// 下一 tick 刷怪笼按新状态计算生效参数（关闭=按 Lv 1，数据保留）
 				return null;
 			}
 			case "balop.host" -> {
@@ -474,6 +490,9 @@ public final class EconomyConfig {
 		JsonObject shop = new JsonObject();
 		shop.addProperty("sellLog", shopSellLog);
 		root.add("shop", shop);
+		JsonObject spawner = new JsonObject();
+		spawner.addProperty("upgrade", spawnerUpgrade);
+		root.add("spawner", spawner);
 		JsonObject balop = new JsonObject();
 		balop.addProperty("host", balopHost);
 		balop.addProperty("port", balopPort);
@@ -622,6 +641,11 @@ public final class EconomyConfig {
 					balopPort = DEFAULT_BALOP_PORT;
 				}
 			}
+			// spawner 段
+			JsonObject spawnerSection = root.getAsJsonObject("spawner");
+			if (spawnerSection != null && spawnerSection.has("upgrade")) {
+				spawnerUpgrade = spawnerSection.get("upgrade").getAsBoolean();
+			}
 			homeSettings = readHome(root.getAsJsonObject("home"));
 			tpaSettings = readTpa(root.getAsJsonObject("tpa"));
 			backSettings = readBack(root.getAsJsonObject("back"));
@@ -656,6 +680,11 @@ public final class EconomyConfig {
 	/** 商店出售结算日志开关（默认关闭：每店每 60 秒一条过于刷屏）。 */
 	public static boolean shopSellLog() {
 		return shopSellLog;
+	}
+
+	/** 刷怪笼升级功能开关（关闭时禁止升级，已升级效果按 Lv 1 生成，数据保留）。 */
+	public static boolean spawnerUpgrade() {
+		return spawnerUpgrade;
 	}
 
 	/** 数据库管理前端监听地址（/balop start 时读取）。 */
@@ -762,6 +791,7 @@ public final class EconomyConfig {
 				  "funFishing": false,
 				  "fly": {"feePerSecond": "500.00", "digNoSlow": true},
 				  "shop": {"sellLog": false},
+				  "spawner": {"upgrade": true},
 				  "balop": {"host": "localhost", "port": 8899},
 				  "home": {"max": 0, "cooldownSeconds": 0, "fixedFee": false, "fixedFeeAmount": "500.00", "perDistanceFee": "1.00", "crossDimensionFee": "1000.00"},
 				  "tpa": {"enabled": false, "cooldownSeconds": 0, "fixedFee": false, "fixedFeeAmount": "500.00", "perDistanceFee": "1.00", "crossDimensionFee": "1000.00", "timeoutSeconds": 60},

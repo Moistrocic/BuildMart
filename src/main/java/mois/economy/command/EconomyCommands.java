@@ -70,8 +70,10 @@ public final class EconomyCommands {
 			"/back - 回到最近死亡点",
 			"/suicide - 自杀",
 			"/hongbao 总金额 数量 口令 - 发红包（聊天说出口令即可领取）",
-			"/spawner - 查看刷怪笼信息（钓鱼可获，刷怪蛋右键绑定）",
+			"/spawner info - 查看刷怪笼信息（钓鱼可获，刷怪蛋右键绑定）",
 			"/spawner upgrade - 升级刷怪笼（等级越高生成越快）",
+			"/spawner set entity 类型 - 更改刷怪笼刷的实体",
+			"/spawner set 参数 值 - 微调刷怪笼参数（受等级范围限制）",
 			"/balop start - 启动数据库管理前端（仅管理员）",
 			"/balop stop - 关闭数据库管理前端（仅管理员）"
 	};

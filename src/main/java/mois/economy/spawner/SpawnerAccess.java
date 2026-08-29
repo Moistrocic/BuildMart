@@ -20,7 +20,4 @@ public interface SpawnerAccess {
 
 	/** 是否已绑定实体类型（spawnPotentials 非空 = 原版地牢笼或已绑定）。 */
 	boolean economyHasPotentials();
-
-	/** 按目标等级应用全部生成参数（升级/绑定后重置用）。 */
-	void economyApplyLevel(int level);
 }

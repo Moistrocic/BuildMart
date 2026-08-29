@@ -1,109 +1,86 @@
 package mois.economy.spawner;
 
+import mois.economy.config.EconomyConfig;
+import mois.economy.config.SpawnerConfig;
 import mois.economy.data.EconomyDb;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.server.level.ServerLevel;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.item.SpawnEggItem;
+import net.minecraft.world.item.component.TypedEntityData;
+import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.entity.SpawnerBlockEntity;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
 
 /**
- * 刷怪笼玩法（休闲经济闭环）：
+ * 刷怪笼玩法（休闲经济闭环）——**仅限带特殊标签（本模组生成）的刷怪笼**：
  * <ul>
- * <li>获取：趣味钓鱼战利品可配置产出刷怪笼（空笼物品，未定价不可交易防倒卖）；</li>
- * <li>绑定：放置空刷怪笼后手持刷怪蛋右键 → 绑定实体类型（消耗一个蛋）；</li>
- * <li>升级：{@code /spawner upgrade} 对准刷怪笼，纯金钱升级（扣款 + 流水
- *   SPAWNER_UPGRADE/SPAWNER），等级越高生成越快、数量越多、范围越大；</li>
- * <li>回收：玩家用镐破坏刷怪笼掉落带完整数据（类型+等级参数）的物品，
- *   放置即恢复，升级投入不白费；</li>
- * <li>产出：刷怪掉落物按物品定价表出售（商店/便捷购买）形成赚钱闭环。</li>
+ * <li>获取：趣味钓鱼战利品可配置产出刷怪笼（带标签物品）；管理员 /spawner give 也可获得；
+ *     刷怪笼定价 -1（不可交易）防倒卖；</li>
+ * <li>绑定：放置后手持刷怪蛋右键绑定实体类型（消耗一个蛋）；之后 /spawner set entity 随时改刷的怪；</li>
+ * <li>升级：/spawner upgrade（纯金钱，费用/效果来自 spawner.json 分级配置；
+ *     /config spawner.upgrade 总开关，关闭时禁止升级且已升级效果按 Lv 1 生成，
+ *     升级数据保留，再次开启自动恢复）；</li>
+ * <li>参数微调：/spawner set 各参数，值受当前等级允许范围约束；</li>
+ * <li>回收：玩家用镐破坏带标签刷怪笼掉落带完整数据物品（重新放置恢复）；
+ *     原版刷怪笼不受任何影响（不可升级/不可挖取/不可绑定）。</li>
  * </ul>
- * 等级 = 由当前生成参数反推（参数完全由等级公式决定，幂等可推）。
  */
 public final class SpawnerManager {
-	/** 最高等级。 */
-	public static final int MAX_LEVEL = 10;
-	/** 基础生成参数（等级 1，与 26.3 原版默认一致）。 */
-	private static final int BASE_MIN_DELAY = 600;
-	private static final int BASE_MAX_DELAY = 800;
-	private static final int BASE_COUNT = 4;
-	private static final int BASE_NEARBY = 6;
-	private static final int BASE_PLAYER_RANGE = 16;
-	private static final int BASE_SPAWN_RANGE = 4;
-	/** 每级间隔衰减系数（0.75^等级）。 */
-	private static final double DELAY_FACTOR = 0.75D;
-	/** 升级费用：1000 × 等级² 元（分）。 */
-	private static final long FEE_BASE_CENTS = 100_000L;
-
 	private SpawnerManager() {
 	}
 
-	// ---------- 等级参数 ----------
+	/** 不可操作的提示（非本模组刷怪笼）。 */
+	public static final String NOT_TAGGED = "该刷怪笼不是本模组生成的刷怪笼，无法操作";
 
-	public static int minDelay(int level) {
-		return Math.max(20, (int) Math.round(BASE_MIN_DELAY * Math.pow(DELAY_FACTOR, level - 1)));
+	// ---------- 状态辅助 ----------
+
+	private static SpawnerStateAccess state(SpawnerBlockEntity spawner) {
+		return (SpawnerStateAccess) spawner;
 	}
 
-	public static int maxDelay(int level) {
-		return Math.max(40, (int) Math.round(BASE_MAX_DELAY * Math.pow(DELAY_FACTOR, level - 1)));
+	// ---------- 管理员 give（带标签刷怪笼） ----------
+
+	/** 生成带标签的空刷怪笼物品（放置后为 Lv 1 空笼）。 */
+	public static ItemStack createTaggedSpawnerStack() {
+		CompoundTag data = new CompoundTag();
+		data.putBoolean("economy_spawner", true);
+		data.putInt("economy_level", 1);
+		BlockEntityType<?> spawnerType = BuiltInRegistries.BLOCK_ENTITY_TYPE
+				.getValue(Identifier.fromNamespaceAndPath("minecraft", "spawner"));
+		ItemStack stack = new ItemStack(Items.SPAWNER);
+		stack.set(DataComponents.BLOCK_ENTITY_DATA,
+				TypedEntityData.of(spawnerType, data));
+		return stack;
 	}
 
-	public static int spawnCount(int level) {
-		return BASE_COUNT + (level - 1);
-	}
+	// ---------- 绑定（刷怪蛋右键，仅带标签笼） ----------
 
-	public static int maxNearby(int level) {
-		return BASE_NEARBY + (level - 1) * 3;
-	}
-
-	public static int playerRange(int level) {
-		return BASE_PLAYER_RANGE + (level - 1) * 2;
-	}
-
-	public static int spawnRange(int level) {
-		return BASE_SPAWN_RANGE + (level - 1);
-	}
-
-	/** 升级费用（分）：等级 n → n+1 收 1000 × n² 元。 */
-	public static long upgradeFeeCents(int level) {
-		return FEE_BASE_CENTS * (long) level * level;
-	}
-
-	/** 由当前最小生成延迟反推等级（参数完全由等级公式决定，遍历找最接近者）。 */
-	public static int inferLevel(int minSpawnDelay) {
-		int best = 1;
-		int bestDiff = Integer.MAX_VALUE;
-		for (int level = 1; level <= MAX_LEVEL; level++) {
-			int diff = Math.abs(minSpawnDelay - minDelay(level));
-			if (diff < bestDiff) {
-				bestDiff = diff;
-				best = level;
-			}
-		}
-		return best;
-	}
-
-	// ---------- 绑定（刷怪蛋右键，由 UseBlockCallback 调用） ----------
-
-	/** 手持刷怪蛋右键空刷怪笼：绑定实体类型。返回是否处理成功（非 null = 失败提示）。 */
+	/** 手持刷怪蛋右键空刷怪笼：绑定实体类型。返回 null = 成功，否则为失败提示。 */
 	public static String bindWithEgg(ServerPlayer player, SpawnerBlockEntity spawner, ItemStack eggStack) {
+		if (!state(spawner).economyTagged()) {
+			return NOT_TAGGED;
+		}
 		SpawnerAccess access = (SpawnerAccess) spawner.getSpawner();
 		if (access.economyHasPotentials()) {
-			return "该刷怪笼已绑定实体类型，无法重新绑定";
+			return "该刷怪笼已绑定实体类型（可用 /spawner set entity 更改）";
 		}
 		EntityType<?> type = SpawnEggItem.getType(eggStack);
 		if (type == null) {
 			return "无法识别该刷怪蛋的实体类型";
 		}
 		spawner.setEntityId(type, player.getRandom());
-		access.economyApplyLevel(1); // 绑定后按等级 1 参数生成
 		spawner.setChanged();
-		BlockPos pos = spawner.getBlockPos();
-		player.level().sendBlockUpdated(pos, spawner.getBlockState(), spawner.getBlockState(), 3);
+		syncToClient(player, spawner);
 		eggStack.shrink(1);
 		player.sendSystemMessage(Component.literal("已绑定刷怪笼类型：" + type.getDescription().getString())
 				.withStyle(ChatFormatting.GREEN), false);
@@ -112,17 +89,23 @@ public final class SpawnerManager {
 
 	// ---------- 升级（/spawner upgrade） ----------
 
-	/** 升级刷怪笼（纯金钱）。返回 null = 成功，否则为失败提示。 */
+	/** 升级刷怪笼。返回 null = 成功，否则为失败提示。 */
 	public static String upgrade(ServerPlayer player, SpawnerBlockEntity spawner) {
+		if (!state(spawner).economyTagged()) {
+			return NOT_TAGGED;
+		}
+		if (!EconomyConfig.spawnerUpgrade()) {
+			return "升级功能已关闭（/config spawner.upgrade 可重新开启；已升级效果暂按 Lv 1 生效，数据保留）";
+		}
 		SpawnerAccess access = (SpawnerAccess) spawner.getSpawner();
-		int level = inferLevel(access.economyMinDelay());
 		if (!access.economyHasPotentials()) {
 			return "该刷怪笼尚未绑定实体类型，请先手持刷怪蛋右键绑定";
 		}
-		if (level >= MAX_LEVEL) {
-			return "该刷怪笼已满级（Lv " + MAX_LEVEL + "）";
+		int level = state(spawner).economyLevel();
+		if (level >= SpawnerConfig.maxLevel()) {
+			return "该刷怪笼已满级（Lv " + SpawnerConfig.maxLevel() + "）";
 		}
-		long fee = upgradeFeeCents(level);
+		long fee = SpawnerConfig.level(level).upgradeFeeCents();
 		long balance;
 		try {
 			balance = EconomyDb.getBalance(player.getUUID());
@@ -130,8 +113,8 @@ public final class SpawnerManager {
 			return "数据库错误，请稍后再试";
 		}
 		if (balance < fee) {
-			return "你的资金不足：升级到 Lv " + (level + 1) + " 需要 " + mois.economy.Money.format(fee)
-					+ " 元（当前 " + mois.economy.Money.format(balance) + " 元）";
+			return "你的资金不足：升级到 Lv " + (level + 1) + " 需要 "
+					+ SpawnerConfig.formatCents(fee) + " 元（当前 " + SpawnerConfig.formatCents(balance) + " 元）";
 		}
 		try {
 			if (!EconomyDb.deduct(player.getUUID(), fee)) {
@@ -148,45 +131,186 @@ public final class SpawnerManager {
 		} catch (EconomyDb.DatabaseException ignored) {
 			// 记录失败静默。
 		}
-		access.economyApplyLevel(level + 1);
+		// 升级：等级 +1，参数微调钳制到新等级范围（保留玩家微调但不越界）
+		state(spawner).economySetLevel(level + 1);
+		clampOverrides(state(spawner), level + 1);
 		spawner.setChanged();
-		BlockPos pos = spawner.getBlockPos();
-		player.level().sendBlockUpdated(pos, spawner.getBlockState(), spawner.getBlockState(), 3);
+		syncToClient(player, spawner);
 		player.sendSystemMessage(Component.literal("刷怪笼已升级到 Lv " + (level + 1)
-				+ "（花费 " + mois.economy.Money.format(fee) + " 元）").withStyle(ChatFormatting.GREEN), false);
+				+ "（花费 " + SpawnerConfig.formatCents(fee) + " 元）").withStyle(ChatFormatting.GREEN), false);
 		return null;
 	}
 
-	// ---------- 信息 ----------
+	/** 参数微调钳制到指定等级允许范围。 */
+	private static void clampOverrides(SpawnerStateAccess state, int level) {
+		SpawnerConfig.LevelParams p = SpawnerConfig.level(level);
+		state.economySetOverrideMinDelay(clamp(state.economyOverrideMinDelay(), p.minDelayMin(), p.minDelayMax()));
+		state.economySetOverrideMaxDelay(clamp(state.economyOverrideMaxDelay(), p.maxDelayMin(), p.maxDelayMax()));
+		state.economySetOverrideCount(clamp(state.economyOverrideCount(), p.countMin(), p.countMax()));
+		state.economySetOverrideNearby(clamp(state.economyOverrideNearby(), p.nearbyMin(), p.nearbyMax()));
+		state.economySetOverridePlayerRange(
+				clamp(state.economyOverridePlayerRange(), p.playerRangeMin(), p.playerRangeMax()));
+		state.economySetOverrideSpawnRange(
+				clamp(state.economyOverrideSpawnRange(), p.spawnRangeMin(), p.spawnRangeMax()));
+	}
 
-	/** 刷怪笼信息文本（/spawner）。 */
-	public static net.minecraft.network.chat.MutableComponent describe(SpawnerBlockEntity spawner) {
+	private static int clamp(int v, int min, int max) {
+		if (v < 0) {
+			return -1; // 未覆盖保持
+		}
+		return Math.max(min, Math.min(max, v));
+	}
+
+	// ---------- 参数微调（/spawner set） ----------
+
+	/** 设置实体类型（随时可改）。返回 null = 成功，否则为失败提示。 */
+	public static String setEntity(ServerPlayer player, SpawnerBlockEntity spawner, String entityId) {
+		if (!state(spawner).economyTagged()) {
+			return NOT_TAGGED;
+		}
+		EntityType<?> type = BuiltInRegistries.ENTITY_TYPE.getValue(Identifier.fromNamespaceAndPath("minecraft", entityId));
+		if (type == null) {
+			return "未知实体类型：" + entityId;
+		}
+		spawner.setEntityId(type, player.getRandom());
+		spawner.setChanged();
+		syncToClient(player, spawner);
+		player.sendSystemMessage(Component.literal("刷怪笼类型已改为：" + type.getDescription().getString())
+				.withStyle(ChatFormatting.GREEN), false);
+		return null;
+	}
+
+	/** 设置生成参数微调（值受当前等级允许范围约束）。返回 null = 成功，否则为失败提示。 */
+	public static String setParam(ServerPlayer player, SpawnerBlockEntity spawner, String param, int value) {
+		if (!state(spawner).economyTagged()) {
+			return NOT_TAGGED;
+		}
+		int level = state(spawner).economyLevel();
+		SpawnerConfig.LevelParams p = SpawnerConfig.level(level);
+		SpawnerStateAccess s = state(spawner);
+		int min;
+		int max;
+		switch (param) {
+			case "minDelay" -> {
+				min = p.minDelayMin();
+				max = p.minDelayMax();
+				s.economySetOverrideMinDelay(value);
+			}
+			case "maxDelay" -> {
+				min = p.maxDelayMin();
+				max = p.maxDelayMax();
+				s.economySetOverrideMaxDelay(value);
+			}
+			case "count" -> {
+				min = p.countMin();
+				max = p.countMax();
+				s.economySetOverrideCount(value);
+			}
+			case "nearby" -> {
+				min = p.nearbyMin();
+				max = p.nearbyMax();
+				s.economySetOverrideNearby(value);
+			}
+			case "playerRange" -> {
+				min = p.playerRangeMin();
+				max = p.playerRangeMax();
+				s.economySetOverridePlayerRange(value);
+			}
+			case "spawnRange" -> {
+				min = p.spawnRangeMin();
+				max = p.spawnRangeMax();
+				s.economySetOverrideSpawnRange(value);
+			}
+			default -> {
+				return "未知参数：" + param + "（可用 minDelay/maxDelay/count/nearby/playerRange/spawnRange）";
+			}
+		}
+		if (value < min || value > max) {
+			// 回滚本次修改
+			setParam(s, param, -1);
+			return "Lv " + level + " 的 " + param + " 允许范围：" + min + " ~ " + max;
+		}
+		// maxDelay 不能小于 minDelay（防御）
+		if (param.equals("maxDelay") && s.economyOverrideMinDelay() >= 0
+				&& value < s.economyOverrideMinDelay()) {
+			setParam(s, param, -1);
+			return "maxDelay 不能小于 minDelay（当前 " + s.economyOverrideMinDelay() + "）";
+		}
+		if (param.equals("minDelay") && s.economyOverrideMaxDelay() >= 0
+				&& value > s.economyOverrideMaxDelay()) {
+			setParam(s, param, -1);
+			return "minDelay 不能大于 maxDelay（当前 " + s.economyOverrideMaxDelay() + "）";
+		}
+		spawner.setChanged();
+		syncToClient(player, spawner);
+		player.sendSystemMessage(Component.literal("已设置 " + param + " = " + value
+				+ "（Lv " + level + " 范围 " + min + " ~ " + max + "）").withStyle(ChatFormatting.GREEN), false);
+		return null;
+	}
+
+	/** 按参数名回滚微调（越界时清理本次写入）。 */
+	private static void setParam(SpawnerStateAccess s, String param, int unused) {
+		switch (param) {
+			case "minDelay" -> s.economySetOverrideMinDelay(-1);
+			case "maxDelay" -> s.economySetOverrideMaxDelay(-1);
+			case "count" -> s.economySetOverrideCount(-1);
+			case "nearby" -> s.economySetOverrideNearby(-1);
+			case "playerRange" -> s.economySetOverridePlayerRange(-1);
+			case "spawnRange" -> s.economySetOverrideSpawnRange(-1);
+			default -> {
+			}
+		}
+	}
+
+	// ---------- 信息（/spawner info，仅带标签笼） ----------
+
+	/** 刷怪笼信息文本。 */
+	public static Component describe(SpawnerBlockEntity spawner) {
+		SpawnerStateAccess state = state(spawner);
+		if (!state.economyTagged()) {
+			return Component.literal(NOT_TAGGED).withStyle(ChatFormatting.RED);
+		}
 		SpawnerAccess access = (SpawnerAccess) spawner.getSpawner();
-		int level = inferLevel(access.economyMinDelay());
+		int level = state.economyLevel();
+		int effLevel = EconomyConfig.spawnerUpgrade() ? level : 1;
+		SpawnerConfig.LevelParams p = SpawnerConfig.level(level);
 		Component bound = access.economyHasPotentials()
 				? Component.literal("已绑定").withStyle(ChatFormatting.GREEN)
-				: Component.literal("未绑定（手持刷怪蛋右键绑定）").withStyle(ChatFormatting.YELLOW);
+				: Component.literal("未绑定（手持刷怪蛋右键绑定，或 /spawner set entity）").withStyle(ChatFormatting.YELLOW);
+		Component upgradeState = EconomyConfig.spawnerUpgrade()
+				? Component.empty()
+				: Component.literal("　[升级功能已关闭，效果暂按 Lv 1 生效，数据保留]").withStyle(ChatFormatting.RED);
 		net.minecraft.network.chat.MutableComponent info = Component.literal("刷怪笼：")
 				.append(bound)
-				.append(Component.literal("　Lv " + level + "/" + MAX_LEVEL + "\n").withStyle(ChatFormatting.AQUA))
-				.append(Component.literal("生成间隔 " + access.economyMinDelay() + "~" + access.economyMaxDelay()
-						+ " tick　每次 " + access.economySpawnCount() + " 只　附近上限 "
-						+ access.economyMaxNearby() + "　激活距离 " + access.economyPlayerRange()
-						+ "　范围 " + access.economySpawnRange() + "\n").withStyle(ChatFormatting.GRAY));
-		if (level < MAX_LEVEL) {
+				.append(Component.literal("　Lv " + level + "/" + SpawnerConfig.maxLevel()).withStyle(ChatFormatting.AQUA))
+				.append(upgradeState)
+				.append(Component.literal("\n当前生效：生成间隔 " + access.economyMinDelay() + "~"
+						+ access.economyMaxDelay() + " tick　每次 " + access.economySpawnCount()
+						+ " 只　附近上限 " + access.economyMaxNearby() + "　激活距离 "
+						+ access.economyPlayerRange() + "　范围 " + access.economySpawnRange() + "\n")
+						.withStyle(ChatFormatting.GRAY))
+				.append(Component.literal("Lv " + level + " 参数范围：minDelay " + p.minDelayMin() + "~"
+						+ p.minDelayMax() + "　maxDelay " + p.maxDelayMin() + "~" + p.maxDelayMax()
+						+ "　count " + p.countMin() + "~" + p.countMax() + "　nearby " + p.nearbyMin()
+						+ "~" + p.nearbyMax() + "　playerRange " + p.playerRangeMin() + "~"
+						+ p.playerRangeMax() + "　spawnRange " + p.spawnRangeMin() + "~" + p.spawnRangeMax() + "\n")
+						.withStyle(ChatFormatting.DARK_GRAY));
+		if (level < SpawnerConfig.maxLevel()) {
 			info.append(Component.literal("下次升级（Lv " + (level + 1) + "）："
-					+ mois.economy.Money.format(upgradeFeeCents(level)) + " 元，/spawner upgrade 升级")
-					.withStyle(ChatFormatting.GOLD));
+					+ SpawnerConfig.formatCents(SpawnerConfig.level(level).upgradeFeeCents())
+					+ " 元，/spawner upgrade 升级").withStyle(ChatFormatting.GOLD));
 		} else {
 			info.append(Component.literal("已满级").withStyle(ChatFormatting.GOLD));
 		}
 		return info;
 	}
 
+	// ---------- 目标与同步 ----------
+
 	/** 目标刷怪笼（准星射线，5 格内）；不是刷怪笼返回 null。 */
 	public static SpawnerBlockEntity targetedSpawner(ServerPlayer player) {
-		net.minecraft.world.phys.HitResult hit = player.pick(5.0D, 1.0F, false);
-		if (!(hit instanceof net.minecraft.world.phys.BlockHitResult blockHit)) {
+		HitResult hit = player.pick(5.0D, 1.0F, false);
+		if (!(hit instanceof BlockHitResult blockHit)) {
 			return null;
 		}
 		if (player.level().getBlockEntity(blockHit.getBlockPos()) instanceof SpawnerBlockEntity spawner) {
@@ -195,8 +319,9 @@ public final class SpawnerManager {
 		return null;
 	}
 
-	/** 刷怪笼方块所在维度（用于提示）。 */
-	public static String dimensionString(ServerLevel level) {
-		return level.dimension().identifier().toString();
+	/** 客户端同步（方块实体数据更新）。 */
+	private static void syncToClient(ServerPlayer player, SpawnerBlockEntity spawner) {
+		BlockPos pos = spawner.getBlockPos();
+		player.level().sendBlockUpdated(pos, spawner.getBlockState(), spawner.getBlockState(), 3);
 	}
 }

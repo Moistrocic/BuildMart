@@ -1,48 +1,65 @@
-# `mois.economy.spawner` 包 — 刷怪笼玩法（休闲经济闭环）
+# `mois.economy.spawner` 包 — 刷怪笼玩法（仅限带标签刷怪笼）
 
 ## 玩法闭环
 
-**钓鱼（休闲获取）→ 刷怪笼（生产资产）→ 升级（投入）→ 刷怪掉落（产出卖钱）**
+**钓鱼（休闲获取）→ 刷怪笼（生产资产）→ 升级/微调（投入）→ 刷怪掉落（产出卖钱）**
 
-1. **获取**：`fishing.json` 战利品可配置产出刷怪笼（空笼物品）。刷怪笼定价 -1（不可交易）——
-   防倒卖，只能自用。
-2. **绑定**：放置空刷怪笼后手持刷怪蛋右键（`UseBlockCallback`，服务端事件）→ 绑定实体类型
-   （消耗一个蛋，等级参数重置为 Lv 1）。已绑定的笼（含原版地牢笼）不可改绑。
-3. **升级**：`/spawner upgrade`（对准刷怪笼，5 格内）——纯金钱升级：
-   - 费用：`1000 × 等级²` 元（1→2 级 1000 元、9→10 级 81000 元），
-     扣款写流水 `SPAWNER_UPGRADE/SPAWNER`（AGENTS.md 第 6 节强制约定）；
-   - 参数随等级提升：生成间隔 ×0.75、每次数量 +1、附近上限 +3、激活距离 +2、范围 +1
-     （Lv 10：约 45~60 tick 一只 ×13 只/次，效率约 15 倍）；
-   - `MAX_LEVEL = 10`。
-4. **回收**：玩家用镐破坏刷怪笼（非创造）掉落**带完整数据**的刷怪笼物品
-   （`BLOCK_ENTITY_DATA` 组件：实体类型 + 升级参数），重新放置即恢复——升级投入不白费；
-   爆炸等非玩家破坏不掉落（仅 `playerDestroy` 路径）。
-5. **产出**：刷怪掉落物按 `items.json` 定价出售（商店自动出售 / /bm）→ 赚钱。
+**只有带特殊标签（本模组生成）的刷怪笼参与玩法；原版刷怪笼（地牢笼等）完全不受影响**：
+不可绑定、不可升级、不可 set、不可挖取掉落。
 
-## `SpawnerManager.java` — 核心逻辑
+## 数据模型（全部存 BlockEntity NBT，随世界存档）
 
-- 等级参数公式：`minDelay = max(20, round(600 × 0.75^(level-1)))`、`maxDelay = max(40, round(800 × 0.75^(level-1)))`、
-  `spawnCount = 4 + (level-1)`、`maxNearby = 6 + (level-1)*3`、`playerRange = 16 + (level-1)*2`、
-  `spawnRange = 4 + (level-1)`。
-- `inferLevel(minDelay)`：**等级 = 由生成参数反推**（参数完全由等级公式决定，遍历 1..10 取最接近者）——
-  无需自定义 NBT 存储等级，原版存档格式不变。
-- `bindWithEgg` / `upgrade` / `describe` / `targetedSpawner`（准星射线，同 BalshopCommands 模式）。
+| key | 含义 |
+|---|---|
+| `economy_spawner` | 标签（bool）：是否为模组刷怪笼——钓鱼/管理员 give 的物品经 `BLOCK_ENTITY_DATA` 组件携带，放置时由 `SpawnerBlockEntityMixin.loadAdditional` 读取 |
+| `economy_level` | 升级等级（独立于生成参数——升级开关关闭时参数按 Lv 1 生成，但等级数据保留，再次开启自动恢复） |
+| `economy_override_*` | `/spawner set` 的参数微调（-1 = 未覆盖，受当前等级允许范围约束，升级时钳制到新等级范围） |
 
-## `SpawnerAccess.java` + `BaseSpawnerMixin`
+## 获取
 
-- `BaseSpawner` 生成参数均为私有字段且无公开 setter → mixin 实现 `SpawnerAccess` 接口
-  （min/maxDelay、spawnCount、maxNearby、playerRange、spawnRange、hasPotentials、applyLevel）。
-- `economyApplyLevel` 同时重置当前生成倒计时（升级立即生效）。
+- **钓鱼**：`fishing.json` 战利品可配置产出刷怪笼（物品自带标签）。刷怪笼定价 -1（不可交易）防倒卖。
+- **管理员**：`/spawner give`（仅管理员）获得带标签空刷怪笼。
 
-## `SpawnerBlockMixin`（目标 `Block`）
+## 绑定与改怪
 
-- 注入 `Block.playerDestroy`（mixin 不搜索父类方法，须注入声明处；运行时
-  `instanceof SpawnerBlock` 判断）：非创造玩家破坏刷怪笼 → `saveCustomOnly` 序列化
-  BlockEntity 数据 → `TypedEntityData.of(BLOCK_ENTITY_TYPE 注册表取值, tag)` 写入
-  `BLOCK_ENTITY_DATA` 组件 → `popResource` 掉落。
+- 放置后**手持刷怪蛋右键**绑定实体类型（消耗一个蛋；`UseBlockCallback`，仅标签笼）；
+- **`/spawner set entity <类型>`** 随时更改刷的实体（仅标签笼）。
 
-## `SpawnerCommands.java` — 指令
+## 升级与参数（分级配置驱动）
 
-- `/spawner`：查看准星对准的刷怪笼（类型/等级/生成参数/下次升级费用）。
-- `/spawner upgrade`：升级（余额检查 → 扣款 → 流水 → 应用参数 → 客户端同步）。
-- 已加入 `/balhelp` 帮助列表；注册于 `EconomyCommands.register`。
+- **`config/economy/spawner.json`**（`SpawnerConfig`）：每级定义各参数的**允许范围**（`[min, max]`）
+  与升级费用（本级 → 下一级，元字符串）。升级后参数默认取**范围下限**；
+  `/spawner set <参数> <值>` 在范围内微调（minDelay/maxDelay/count/nearby/playerRange/spawnRange，
+  maxDelay ≥ minDelay 校验）。文件缺失回退内置默认表（10 级）。
+- **`/config spawner.upgrade`**（默认 true）：总开关——关闭时：
+  - `/spawner upgrade` 拒绝；
+  - 已升级效果**按 Lv 1 生成**（`BaseSpawnerMixin.serverTick` 每 tick 计算生效参数时
+    `effLevel = 开关 ? 等级 : 1`），**升级数据（等级/微调）保留**，再次开启自动恢复；
+  - 原版笼不参与任何计算。
+- 升级费用：配置 `upgradeFee`；扣款写流水 `SPAWNER_UPGRADE/SPAWNER`。
+
+## 回收
+
+玩家用镐破坏**带标签**刷怪笼（非创造）→ 掉落带完整数据物品（`saveCustomOnly` 序列化，
+含标签/等级/微调/实体类型）→ 重新放置恢复。原版笼不掉落。
+
+## 实现
+
+- `SpawnerManager`：give/绑定/升级/set/info/targetedSpawner（准星射线 5 格）。
+- `SpawnerStateAccess` + `SpawnerBlockEntityMixin`：NBT 状态读写
+  （`loadAdditional`/`saveAdditional` RETURN 注入，ValueInput/ValueOutput）。
+- `SpawnerAccess` + `BaseSpawnerMixin`：生成参数读取 + `serverTick` HEAD 每 tick
+  按「等级/微调/开关」计算写入（仅标签笼，1 tick 内生效）。
+- `SpawnerBlockMixin`（目标 `Block`）：`playerDestroy` HEAD——仅标签笼掉落
+  （mixin 不搜索父类方法，须注入声明处；运行时 instanceof SpawnerBlock）。
+- `SpawnerCommands`：`/spawner info|upgrade|set entity|set 参数|give`。
+
+## 指令
+
+| 指令 | 说明 |
+|---|---|
+| `/spawner info` | 查看信息（类型/等级/生效参数/可调范围/升级费用）——仅标签笼 |
+| `/spawner upgrade` | 升级（纯金钱）——仅标签笼，受 `spawner.upgrade` 开关控制 |
+| `/spawner set entity <类型>` | 更改刷的实体 |
+| `/spawner set <参数> <值>` | 微调生成参数（受等级范围约束） |
+| `/spawner give` | 管理员获得带标签刷怪笼 |

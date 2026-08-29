@@ -16,7 +16,8 @@
 		"ServerExplosionMixin",
 		"LevelMixin",
 		"BaseSpawnerMixin",
-		"SpawnerBlockMixin"
+		"SpawnerBlockMixin",
+		"SpawnerBlockEntityMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
