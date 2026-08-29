@@ -1,4 +1,4 @@
-# `mois.economy.mixin` 包 — 全部 12 个 Mixin
+# `mois.economy.mixin` 包 — 全部 16 个 Mixin
 
 注册表：`src/main/resources/economy.mixins.json`（`required: true`，`compatibilityLevel: JAVA_21`，
 `defaultRequire: 1`）。全部位于 `src/main`（两端加载，单人游戏内置服务器同样生效；
@@ -161,6 +161,37 @@
 - ⚠️ **cancel 后必须补做原版收尾**：`hook.discard()`（否则鱼钩不销毁可重复收竿刷战利品）、
   返回值 `onGround() ? 2 : 1`。详见 package-fishing.md。
 
+## `BaseSpawnerMixin`（目标 `BaseSpawner`）— 刷怪笼生成参数重算
+
+- `serverTick` @HEAD `economy$recomputeParams`：方块实体为带标签刷怪笼时按
+  「等级/微调/开关」计算并写入生成参数（`effLevel <= 0` 不写 = 原版机制）。
+  详见 package-spawner.md。
+
+## `SpawnerBlockMixin`（目标 `Block`）— 带标签刷怪笼可回收
+
+- `playerDestroy` @HEAD `economy$dropSpawnerItem`：非创造 + `instanceof SpawnerBlock` +
+  带标签（`SpawnerStateAccess.economyTagged`）→ 掉落带完整数据物品
+  （`saveCustomOnly` + `normalizeForStacking` 归一化：`Delay` 重置为 20、
+  移除默认 `SpawnData`，与 `/spawner give` 底版 NBT 完全一致 → 可互相堆叠）。
+- ⚠️ `playerDestroy` 声明于 `Block`，mixin 不搜索父类方法，须注入 `Block` 并在运行时
+  `instanceof SpawnerBlock` 判断。
+
+## `SpawnerBlockEntityMixin`（目标 `SpawnerBlockEntity`）— 刷怪笼玩法状态持久化
+
+- `loadAdditional` / `saveAdditional` @RETURN：读写 `economy_spawner` / `economy_level` /
+  `economy_override_*`（ValueInput/ValueOutput），实现 `SpawnerStateAccess`。
+- 原版加载/保存忽略未知 key，与模组 key 互不影响。
+
+## `BlockItemMixin`（目标 `BlockItem`）— 非 OP 玩家可放置带标签刷怪笼
+
+- `updateCustomBlockEntityTag` 内 `Player.canUseGameMasterBlocks()` 调用点 @Redirect
+  `economy$allowTaggedSpawnerPlacement`：物品 `BLOCK_ENTITY_DATA` 携带 `economy_spawner`
+  标签时返回 true（放行原版 `onlyOpCanSetNbt` 检查），否则原逻辑。
+- 背景：`MOB_SPAWNER` 属于 `OP_ONLY_CUSTOM_DATA`（命令方块/告示牌/刷怪笼等），非 OP
+  生存玩家放置时原版直接跳过 `loadInto` → 标签/等级/绑定全部丢失（变原版空笼）。
+- 安全性：模组笼生成参数每 tick 被 `BaseSpawnerMixin` 覆盖，伪造 NBT 不生效；
+  原版刷怪笼物品不受影响（无标签 → 仍走原版权限规则）。
+
 ## 引用关系一览
 
 - 商店保护：`ServerPlayerGameModeMixin` / `ExplosionDamageCalculatorMixin` /
@@ -172,4 +203,6 @@
   `Economy.java` DISCONNECT → `BuyModeManager`；结算工具在 `BuyModeSettlement`。
 - 红包：`ServerGamePacketListenerImplMixin.economy$hongbaoChat`（聊天领取）→ `HongbaoCommands`。
 - 钓鱼：`FishingHookMixin` → `FishingManager` / `EconomyConfig.funFishing`。
+- 刷怪笼：`BaseSpawnerMixin`（参数重算）+ `SpawnerBlockMixin`（掉落回收）+
+  `SpawnerBlockEntityMixin`（状态持久化）+ `BlockItemMixin`（非 OP 放置放行）→ `SpawnerManager`。
 - 红名：`ServerPlayerMixin.getTabListDisplayName` + `PlayerMixin.getDisplayName` → `AdminUtil`。

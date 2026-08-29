@@ -14,6 +14,15 @@ repositories {
 loom {
 	splitEnvironmentSourceSets()
 
+	runs {
+		client {
+			// 开发验证：离线用户名 + 自动连接本地服务器（27.0 起需配合 server.properties 关闭正版/白名单）
+			programArgs '--username', 'TestPlayer'
+			programArgs '--server', '127.0.0.1'
+			programArgs '--port', '25565'
+		}
+	}
+
 	mods {
 		"economy" {
 			sourceSet sourceSets.main

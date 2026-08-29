@@ -18,7 +18,9 @@
 ## 获取
 
 - **钓鱼**：`fishing.json` 战利品可配置产出刷怪笼（物品自带标签）。刷怪笼定价 -1（不可交易）防倒卖。
-- **管理员**：`/spawner give`（仅管理员）获得带标签空刷怪笼。
+- **管理员**：`/spawner give`（仅管理员）获得带标签空刷怪笼——物品的 `BLOCK_ENTITY_DATA`
+  使用**全新 `SpawnerBlockEntity` 的完整存档作底版**（原版默认生成参数 + 标签 + 全部
+  override 键），与「放置→挖回」掉落的物品 NBT 完全一致，**可互相堆叠**。
 
 ## 绑定与改怪
 
@@ -45,6 +47,11 @@
 
 玩家用镐破坏**带标签**刷怪笼（非创造）→ 掉落带完整数据物品（`saveCustomOnly` 序列化，
 含标签/等级/微调/实体类型）→ 重新放置恢复。原版笼不掉落。
+掉落物品经 `normalizeForStacking` 归一化，与 `/spawner give` 底版 NBT 完全一致：
+- `Delay`（生成倒计时）是放置后的运行时变量（每次挖回都不同，挖回物品之间也不堆叠）→
+  重置为底版初始值 20；
+- 未绑定实体的默认 `SpawnData`（entity 为空 = 猪）在放置加载后被原版写出，底版没有该键
+  → 移除；**绑定过实体（SpawnData.entity 含 id）则保留**，放置后绑定不丢失。
 
 ## 实现
 
@@ -54,14 +61,17 @@
 - `SpawnerAccess` + `BaseSpawnerMixin`：生成参数读取 + `serverTick` HEAD 每 tick
   按「等级/微调/开关」计算写入（仅标签笼，1 tick 内生效）。
 - `SpawnerBlockMixin`（目标 `Block`）：`playerDestroy` HEAD——仅标签笼掉落
-  （mixin 不搜索父类方法，须注入声明处；运行时 instanceof SpawnerBlock）。
+  （mixin 不搜索父类方法，须注入声明处；运行时 instanceof SpawnerBlock；掉落归一化见「回收」）。
+- `BlockItemMixin`（目标 `BlockItem`）：`updateCustomBlockEntityTag` 内
+  `canUseGameMasterBlocks` 调用点 @Redirect——带 `economy_spawner` 标签的物品放行
+  `onlyOpCanSetNbt` 检查，非 OP 玩家也能放置（见模式矩阵）。
 - `SpawnerCommands`：`/spawner info|upgrade|set entity|set 参数|give`。
 
 ## 生存/创造模式行为矩阵（模式敏感点清单）
 
 | 功能 | 生存模式 | 创造模式（instabuild） | 说明 |
 |---|---|---|---|
-| 放置带标签刷怪笼 | 恢复标签/等级/绑定/微调 | 同左 | BLOCK_ENTITY_DATA 原版机制，无模式差异 |
+| 放置带标签刷怪笼 | 恢复标签/等级/绑定/微调 | 同左 | `BlockItemMixin` 放行原版 `onlyOpCanSetNbt` 检查（`MOB_SPAWNER` 属 OP-only 类型，非 OP 放置时原版会跳过 BLOCK_ENTITY_DATA 加载）——仅对带 `economy_spawner` 标签的物品放行，原版笼不受影响 |
 | 刷怪蛋绑定/换绑 | **消耗一个蛋** | **不消耗蛋**（原版规则：创造使用物品不消耗） | `bindWithEgg` 检查 `abilities.instabuild` |
 | `/spawner upgrade` | 扣款升级 | 同左（仍扣钱） | 与模式无关；受 `spawner.upgrade` 开关控制 |
 | `/spawner set` | 微调参数 | 同左 | 纯逻辑，无模式差异 |
