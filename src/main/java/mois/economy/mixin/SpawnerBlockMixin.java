@@ -45,8 +45,16 @@ public abstract class SpawnerBlockMixin {
 		if (!((mois.economy.spawner.SpawnerStateAccess) spawner).economyTagged()) {
 			return; // 原版刷怪笼：不掉落
 		}
+		// 注册 ID 为 minecraft:mob_spawner（spawner 兜底）；注册表异常时不掉落
 		BlockEntityType<?> spawnerType = BuiltInRegistries.BLOCK_ENTITY_TYPE
-				.getValue(Identifier.fromNamespaceAndPath("minecraft", "spawner"));
+				.getValue(Identifier.fromNamespaceAndPath("minecraft", "mob_spawner"));
+		if (spawnerType == null) {
+			spawnerType = BuiltInRegistries.BLOCK_ENTITY_TYPE
+					.getValue(Identifier.fromNamespaceAndPath("minecraft", "spawner"));
+		}
+		if (spawnerType == null) {
+			return;
+		}
 		CompoundTag tag = spawner.saveCustomOnly(level.registryAccess());
 		ItemStack stack = new ItemStack(Items.SPAWNER);
 		stack.set(DataComponents.BLOCK_ENTITY_DATA,

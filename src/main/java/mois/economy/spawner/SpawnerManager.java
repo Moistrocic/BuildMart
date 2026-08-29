@@ -48,6 +48,17 @@ public final class SpawnerManager {
 		return (SpawnerStateAccess) spawner;
 	}
 
+	/** 刷怪笼方块实体类型（注册 ID 为 minecraft:mob_spawner；spawner 兜底）。 */
+	private static BlockEntityType<?> spawnerType() {
+		BlockEntityType<?> t = BuiltInRegistries.BLOCK_ENTITY_TYPE
+				.getValue(Identifier.fromNamespaceAndPath("minecraft", "mob_spawner"));
+		if (t == null) {
+			t = BuiltInRegistries.BLOCK_ENTITY_TYPE
+					.getValue(Identifier.fromNamespaceAndPath("minecraft", "spawner"));
+		}
+		return t;
+	}
+
 	// ---------- 管理员 give（带标签刷怪笼） ----------
 
 	/** 生成带标签的空刷怪笼物品（放置后为 Lv 0 空笼，原版生成机制）。 */
@@ -55,8 +66,10 @@ public final class SpawnerManager {
 		CompoundTag data = new CompoundTag();
 		data.putBoolean("economy_spawner", true);
 		data.putInt("economy_level", 0);
-		BlockEntityType<?> spawnerType = BuiltInRegistries.BLOCK_ENTITY_TYPE
-				.getValue(Identifier.fromNamespaceAndPath("minecraft", "spawner"));
+		BlockEntityType<?> spawnerType = spawnerType();
+		if (spawnerType == null) {
+			return ItemStack.EMPTY; // 防御：注册表异常时不给物品
+		}
 		ItemStack stack = new ItemStack(Items.SPAWNER);
 		stack.set(DataComponents.BLOCK_ENTITY_DATA,
 				TypedEntityData.of(spawnerType, data));
