@@ -16,7 +16,7 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.item.component.BundleContents;
 import net.minecraft.world.item.component.ItemContainerContents;
 import net.minecraft.world.item.component.ItemLore;
-import net.minecraft.world.item.slot.SlotSelector;
+import net.minecraft.world.item.ItemStackTemplate;
 import net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity;
 import net.minecraft.world.level.block.entity.BrewingStandBlockEntity;
 
@@ -62,11 +62,16 @@ public final class PriceLore {
 		stack.set(DataComponents.LORE, base.withLineAdded(line));
 	}
 
-	/** 清除价格标签（递归清除容器内容物中的标签）。 */
-	public static void untag(ItemStack stack) {
+	/**
+	 * 清除价格标签（递归清除容器内容物中的标签）。返回是否实际修改了任何组件。
+	 * 26.2 无 ItemContainerContents/BundleContents 的 Mutable API，采用
+	 * 「读出全部内容 → 修改 → 重建组件」的方式，仅在实际有改动时写回。
+	 */
+	public static boolean untag(ItemStack stack) {
 		if (stack == null || stack.isEmpty()) {
-			return;
+			return false;
 		}
+		boolean changed = false;
 		ItemLore lore = stack.get(DataComponents.LORE);
 		if (lore != null) {
 			List<Component> kept = lore.lines().stream().filter(line -> !isPriceLine(line)).toList();
@@ -76,32 +81,44 @@ public final class PriceLore {
 				} else {
 					stack.set(DataComponents.LORE, new ItemLore(kept));
 				}
+				changed = true;
 			}
 		}
 		ItemContainerContents container = stack.get(DataComponents.CONTAINER);
 		if (container != null) {
-			ItemContainerContents.Mutable mutable = container.asMutable();
-			mutable.modifySlots(access -> {
-				ItemStack inner = access.get();
-				if (!inner.isEmpty()) {
-					untag(inner);
-					access.set(inner);
+			List<ItemStack> items = container.allItemsCopyStream().toList();
+			boolean innerChanged = false;
+			for (int i = 0; i < items.size(); i++) {
+				ItemStack inner = items.get(i);
+				if (!inner.isEmpty() && untag(inner)) {
+					items.set(i, inner);
+					innerChanged = true;
 				}
-			}, SlotSelector.ANY_SLOT);
-			stack.set(DataComponents.CONTAINER, mutable.toImmutable());
+			}
+			if (innerChanged) {
+				stack.set(DataComponents.CONTAINER, ItemContainerContents.fromItems(items));
+				changed = true;
+			}
 		}
 		BundleContents bundle = stack.get(DataComponents.BUNDLE_CONTENTS);
 		if (bundle != null) {
-			BundleContents.Mutable mutable = bundle.asMutable();
-			mutable.modifySlots(access -> {
-				ItemStack inner = access.get();
-				if (!inner.isEmpty()) {
-					untag(inner);
-					access.set(inner);
+			List<ItemStackTemplate> rebuilt = new java.util.ArrayList<>();
+			boolean innerChanged = false;
+			for (ItemStackTemplate tpl : bundle.items()) {
+				ItemStack inner = tpl.create();
+				if (!inner.isEmpty() && untag(inner)) {
+					rebuilt.add(ItemStackTemplate.fromStack(inner));
+					innerChanged = true;
+				} else {
+					rebuilt.add(tpl);
 				}
-			}, SlotSelector.ANY_SLOT);
-			stack.set(DataComponents.BUNDLE_CONTENTS, mutable.toImmutable());
+			}
+			if (innerChanged) {
+				stack.set(DataComponents.BUNDLE_CONTENTS, new BundleContents(rebuilt));
+				changed = true;
+			}
 		}
+		return changed;
 	}
 
 	/** 打开容器：给界面所有槽位打标签（含玩家背包部分，幂等）。 */

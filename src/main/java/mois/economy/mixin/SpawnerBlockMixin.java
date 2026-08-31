@@ -7,9 +7,11 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.component.TypedEntityData;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SpawnerBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -27,13 +29,17 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * 升级投入不白费。**原版刷怪笼不受影响**（不掉落）；创造模式不掉落。
  * 注入 {@code Block.playerDestroy}（playerDestroy 声明于 Block，mixin 不搜索父类
  * 方法），运行时判断目标是否为刷怪笼。
+ * 26.2 签名：playerDestroy(Level, Player, BlockPos, BlockState, BlockEntity, ItemStack)。
  */
 @Mixin(Block.class)
 public abstract class SpawnerBlockMixin {
 	@Inject(method = "playerDestroy", at = @At("HEAD"))
-	private void economy$dropSpawnerItem(ServerLevel level, ServerPlayer player, BlockPos pos,
+	private void economy$dropSpawnerItem(Level level, Player player, BlockPos pos,
 			BlockState state, BlockEntity blockEntity, ItemStack tool, CallbackInfo ci) {
-		if (player.isCreative()) {
+		if (!(level instanceof ServerLevel serverLevel) || !(player instanceof ServerPlayer serverPlayer)) {
+			return;
+		}
+		if (serverPlayer.isCreative()) {
 			return; // 创造模式不掉落
 		}
 		if (!((Object) this instanceof SpawnerBlock)) {
@@ -55,12 +61,12 @@ public abstract class SpawnerBlockMixin {
 		if (spawnerType == null) {
 			return;
 		}
-		CompoundTag tag = spawner.saveCustomOnly(level.registryAccess());
+		CompoundTag tag = spawner.saveCustomOnly(serverLevel.registryAccess());
 		normalizeForStacking(tag);
 		ItemStack stack = new ItemStack(Items.SPAWNER);
 		stack.set(DataComponents.BLOCK_ENTITY_DATA,
 				TypedEntityData.of(spawnerType, tag));
-		SpawnerBlock.popResource(level, pos, stack);
+		SpawnerBlock.popResource(serverLevel, pos, stack);
 	}
 
 	/**

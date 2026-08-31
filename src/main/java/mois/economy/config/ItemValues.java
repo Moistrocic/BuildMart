@@ -313,7 +313,7 @@ public final class ItemValues {
 		}
 		BundleContents bundle = stack.get(DataComponents.BUNDLE_CONTENTS);
 		if (bundle != null) {
-			for (ItemStack inner : bundle.itemCopies().toList()) {
+			for (ItemStack inner : bundle.itemCopyStream().toList()) {
 				if (!isTradable(inner)) {
 					return false;
 				}
@@ -409,7 +409,7 @@ public final class ItemValues {
 			}
 			BundleContents bundle = stack.get(DataComponents.BUNDLE_CONTENTS);
 			if (bundle != null) {
-				for (ItemStack inner : bundle.itemCopies().toList()) {
+				for (ItemStack inner : bundle.itemCopyStream().toList()) {
 					total = satAdd(total, satMul(pricePerItem(inner, depth - 1), inner.getCount()));
 				}
 			}

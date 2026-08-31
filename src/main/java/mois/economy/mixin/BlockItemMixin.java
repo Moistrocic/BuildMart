@@ -27,8 +27,9 @@ import org.spongepowered.asm.mixin.injection.Redirect;
  */
 @Mixin(BlockItem.class)
 public abstract class BlockItemMixin {
-	@Redirect(method = "updateCustomBlockEntityTag", at = @At(value = "INVOKE",
-			target = "Lnet/minecraft/world/entity/player/Player;canUseGameMasterBlocks()Z"))
+	@Redirect(method = "updateCustomBlockEntityTag(Lnet/minecraft/world/level/Level;Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/item/ItemStack;)Z",
+			at = @At(value = "INVOKE",
+					target = "Lnet/minecraft/world/entity/player/Player;canUseGameMasterBlocks()Z"))
 	private static boolean economy$allowTaggedSpawnerPlacement(Player player, Level level,
 			Player placingPlayer, BlockPos pos, ItemStack stack) {
 		TypedEntityData<?> data = stack.get(DataComponents.BLOCK_ENTITY_DATA);

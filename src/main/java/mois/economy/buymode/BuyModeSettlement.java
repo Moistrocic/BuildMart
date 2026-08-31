@@ -17,7 +17,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundContainerSetSlotPacket;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.util.Prediction;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.Item;
@@ -118,7 +117,7 @@ public final class BuyModeSettlement {
 		if (!approveBuy(player, drop, cost)) {
 			return false;
 		}
-		player.drop(drop.copy(), true, Prediction.PREDICTED);
+		player.drop(drop.copy(), false, true);
 		sendBuy(player, ItemStack.EMPTY, drop, cost);
 		return true;
 	}
