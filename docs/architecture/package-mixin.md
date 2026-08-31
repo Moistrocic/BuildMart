@@ -3,7 +3,7 @@
 注册表：`src/main/resources/economy.mixins.json`（`required: true`，`compatibilityLevel: JAVA_21`，
 `defaultRequire: 1`）。全部位于 `src/main`（两端加载，单人游戏内置服务器同样生效；
 客户端环境无 `ServerPlayer` 实例时各注入点按条件恒假无害返回）。
-目标版本：Minecraft 26.3-snapshot-9（mojmap 方法名）。
+目标版本：Minecraft 26.2（mojmap 方法名；本分支为 26.2 适配，差异注记见各条目）。
 
 ## `ServerPlayerMixin`（目标 `ServerPlayer`）
 
@@ -175,6 +175,8 @@
   移除默认 `SpawnData`，与 `/spawner give` 底版 NBT 完全一致 → 可互相堆叠）。
 - ⚠️ `playerDestroy` 声明于 `Block`，mixin 不搜索父类方法，须注入 `Block` 并在运行时
   `instanceof SpawnerBlock` 判断。
+- ⚠️ **26.2 差异**：`playerDestroy(Level, Player, ...)` 参数非协变（26.3 为
+  `ServerLevel/ServerPlayer`），handler 用 `Level/Player` 并在内部 `instanceof` 转型。
 
 ## `SpawnerBlockEntityMixin`（目标 `SpawnerBlockEntity`）— 刷怪笼玩法状态持久化
 
@@ -184,9 +186,12 @@
 
 ## `BlockItemMixin`（目标 `BlockItem`）— 非 OP 玩家可放置带标签刷怪笼
 
-- `updateCustomBlockEntityTag` 内 `Player.canUseGameMasterBlocks()` 调用点 @Redirect
+- `updateCustomBlockEntityTag(L...;L...;L...;L...)Z`（完整描述符）内
+  `Player.canUseGameMasterBlocks()` 调用点 @Redirect
   `economy$allowTaggedSpawnerPlacement`：物品 `BLOCK_ENTITY_DATA` 携带 `economy_spawner`
   标签时返回 true（放行原版 `onlyOpCanSetNbt` 检查），否则原逻辑。
+- ⚠️ **26.2 差异**：存在 protected 重载 `updateCustomBlockEntityTag(BlockPos, Level, Player,
+  ItemStack, BlockState)`，method 必须用完整描述符限定（26.3 无此重载）。
 - 背景：`MOB_SPAWNER` 属于 `OP_ONLY_CUSTOM_DATA`（命令方块/告示牌/刷怪笼等），非 OP
   生存玩家放置时原版直接跳过 `loadInto` → 标签/等级/绑定全部丢失（变原版空笼）。
 - 安全性：模组笼生成参数每 tick 被 `BaseSpawnerMixin` 覆盖，伪造 NBT 不生效；

@@ -23,9 +23,13 @@
 ## 项目总览
 
 - **类型**：Fabric 模组（`net.fabricmc.fabric-loom`），服务端经济系统 + 少量客户端无关代码。
-- **版本链**（`gradle.properties`）：Minecraft `26.3-snapshot-9`（mojmap 命名），Loader `0.19.3`，
-  Fabric API `0.158.0+26.3`，Loom `1.17-SNAPSHOT`，Java 25（`it.options.release = 25`）。
+- **版本链**（`gradle.properties`）：Minecraft `26.2`（mojmap 命名），Loader `0.19.3`，
+  Fabric API `0.158.0+26.2`，Loom `1.17-SNAPSHOT`，Java 25（`it.options.release = 25`）。
    当前模组版本见 `version=`（最近一次为 `6.1`）。
+   本分支为 **26.2 适配分支**；行为描述中的「26.3」指 26.2/26.3 共有行为（26.2 与
+   26.3-snapshot-9 差异点：`Block.playerDestroy` 参数非协变、无 `Prediction`/
+  `SlotSelector`/容器 Mutable API、`BlockItem.updateCustomBlockEntityTag` 有 protected
+  重载需完整描述符限定注入）。
 - **依赖打包**：sqlite-jdbc 以 `include(...)` 打入 jar（排除其 slf4j-api，Minecraft 自带 slf4j）。
 - **SourceSet**：`splitEnvironmentSourceSets()` —— `src/main` 两端共用（**所有服务端逻辑必须放这里**，
   保证单人游戏内置服务器也加载，见规则书 3.3）；`src/client` 仅客户端（目前只有空的 `EconomyClient`）。

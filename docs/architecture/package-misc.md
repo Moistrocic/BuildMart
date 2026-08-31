@@ -21,7 +21,7 @@
 - id `economy`，name `Economy`，license `CC0-1.0`，`environment: "*"`（双端）。
 - entrypoints：main `mois.economy.Economy`；client `mois.economy.client.EconomyClient`。
 - mixins：`economy.mixins.json`。
-- depends：fabricloader ≥0.19.3、minecraft `~26.3-`、java ≥25、fabric-api `*`。
+- depends：fabricloader ≥0.19.3、minecraft `~26.2`、java ≥25、fabric-api `*`。
 - `version` 由 `processResources` 从 `gradle.properties` 展开（`${version}`）。
 
 ### `src/main/resources/economy.mixins.json`
