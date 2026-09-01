@@ -18,6 +18,8 @@
 | `economy_looting` | 抢夺等级 0-3（解锁随等级：8-10 级 0-3、5-7 级 0-2、2-4 级 0-1、1 级及以下仅 0；仅作用于转化掉落） |
 | `economy_auto_sell` | 自动出售（bool）：每 60 秒批量出售存储掉落物给收款人 |
 | `economy_sell_timer` | 自动出售周期倒计时（tick，-1 = 未初始化） |
+| `economy_hopper` | 漏斗（bool）：白名单物品自动放入同 y 水平相邻箱子 |
+| `economy_hopper_whitelist` | 漏斗白名单（物品注册表 ID 列表，匹配按 ID） |
 | `economy_drops` | 转化掉落物存储：**键值对（物品完整数据 → 数量）**，随方块存档（挖掉时随刷怪笼物品保存防丢失） |
 | `economy_converted` | 已转化实体数（存储掉落物来源计数；取出/出售时清零） |
 | `economy_owner_*` | 创建人（放置时由 `BlockItemMixin` 记录） |
@@ -97,6 +99,12 @@
   必须已注册资金账户）；流水 `SELL/SPAWNER`；结算日志受 `/config shop.sellLog` 控制；
   开启时显示金色悬浮（与 shop 一致）：创建人/收款人/出售倒计时。
 - **取出**（`/spawner take`）：存储掉落物发到背包（按单堆上限拆分），放不下的掉落脚下。
+- **漏斗**（`/spawner set hopper true`）：转化掉落物中白名单物品直接放入**同 y 水平相邻**
+  箱子（优先堆叠已有同种、再空槽，支持多个相邻箱子，放不下回退存储）；白名单
+  `/spawner hopper add|remove|list 物品`（按注册表 ID 匹配）；开启/添加/移除白名单时
+  各触发**一次**迁移（把已积累的白名单物品搬进箱子，无轮询开销）。
+- info 与 `/spawner hopper list` 显示漏斗白名单列表（金色标题 + 逐行中文名（英文 ID），
+  不显示数量，与存储掉落物列表样式一致，共用 `whitelistDisplay`）。
 
 ## 生存/创造模式行为矩阵（模式敏感点清单）
 
