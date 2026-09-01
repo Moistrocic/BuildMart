@@ -44,9 +44,34 @@ public final class SpawnerCommands {
 						.then(Commands.argument("param", StringArgumentType.word())
 								.suggests((ctx, builder) -> net.minecraft.commands.SharedSuggestionProvider.suggest(
 										java.util.List.of("minDelay", "maxDelay", "count", "nearby",
-												"playerRange", "spawnRange"), builder))
-								.then(Commands.argument("value", IntegerArgumentType.integer(1))
+												"playerRange", "spawnRange", "autoconvert", "looting",
+												"autosell", "payee"), builder))
+								.then(Commands.argument("value", StringArgumentType.greedyString())
+										.suggests((ctx, builder) -> {
+											// 规范：枚举类型参数必须全部列出（tab 补全）
+											String param = StringArgumentType.getString(ctx, "param");
+											return switch (param) {
+												case "autoconvert", "autosell" ->
+														net.minecraft.commands.SharedSuggestionProvider.suggest(
+																new String[]{"true", "false"}, builder);
+												case "looting" ->
+														net.minecraft.commands.SharedSuggestionProvider.suggest(
+																new String[]{"0", "1", "2", "3"}, builder);
+												case "payee" -> {
+													java.util.List<String> names = new java.util.ArrayList<>();
+													for (var p : ctx.getSource().getServer().getPlayerList()
+															.getPlayers()) {
+														names.add(p.getGameProfile().name());
+													}
+													yield net.minecraft.commands.SharedSuggestionProvider.suggest(
+															names, builder);
+												}
+												default -> builder.buildFuture();
+											};
+										})
 										.executes(SpawnerCommands::setParam))))
+				.then(Commands.literal("take")
+						.executes(SpawnerCommands::take))
 				.then(Commands.literal("give")
 						.requires(Commands.hasPermission(Commands.LEVEL_ADMINS))
 						.executes(SpawnerCommands::give)));
@@ -78,7 +103,7 @@ public final class SpawnerCommands {
 		return 1;
 	}
 
-	/** /spawner set <参数> <值> —— 微调生成参数（受等级范围约束）。 */
+	/** /spawner set <参数> <值> —— 生成参数/配置（数值参数受等级范围约束）。 */
 	private static int setParam(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
 		ServerPlayer player = requirePlayer(ctx.getSource());
 		SpawnerBlockEntity spawner = SpawnerManager.targetedSpawner(player);
@@ -86,7 +111,22 @@ public final class SpawnerCommands {
 			throw NOT_SPAWNER.create();
 		}
 		String error = SpawnerManager.setParam(player, spawner,
-				StringArgumentType.getString(ctx, "param"), IntegerArgumentType.getInteger(ctx, "value"));
+				StringArgumentType.getString(ctx, "param"), StringArgumentType.getString(ctx, "value"));
+		if (error != null) {
+			ctx.getSource().sendFailure(Component.literal(error));
+			return 0;
+		}
+		return 1;
+	}
+
+	/** /spawner take —— 取出存储的转化掉落物。 */
+	private static int take(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+		ServerPlayer player = requirePlayer(ctx.getSource());
+		SpawnerBlockEntity spawner = SpawnerManager.targetedSpawner(player);
+		if (spawner == null) {
+			throw NOT_SPAWNER.create();
+		}
+		String error = SpawnerManager.takeDrops(player, spawner);
 		if (error != null) {
 			ctx.getSource().sendFailure(Component.literal(error));
 			return 0;
