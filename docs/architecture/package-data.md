@@ -42,6 +42,7 @@
   | `open(Path)` / `close()` | 生命周期；open 内 `initSchema` + `runSelfTest` |
   | `getBalance(UUID)` | 查余额；无账户返回 0 |
   | `ensureAccount(UUID, name)` | 建行或更新名字（`ON CONFLICT ... DO UPDATE`）；name 为 null 时存“未知玩家” |
+  | `hasAccount(UUID)` | 账户是否已注册（payee 离线设置校验用） |
   | `credit(UUID, name, amount)` | 入账；账户不存在自动创建；amount 非负校验 |
   | `deduct(UUID, amount)` | 单笔扣款；余额不足返回 false 且不改 |
   | `deductMany(List<UUID>, amount)` | 批量扣款，事务原子（任一不足整体回滚） |

@@ -14,6 +14,15 @@
 | `economy_spawner` | 标签（bool）：是否为模组刷怪笼——钓鱼/管理员 give 的物品经 `BLOCK_ENTITY_DATA` 组件携带，放置时由 `SpawnerBlockEntityMixin.loadAdditional` 读取 |
 | `economy_level` | 升级等级：**0 = 初始态（Lv 0 直接使用原版刷怪笼生成机制，不在配置中、不可配置/不可微调）**；1..maxLevel 为配置等级（独立于生成参数——升级开关关闭时按 Lv 0 生成，但等级数据保留，再次开启自动恢复） |
 | `economy_override_*` | `/spawner set` 的参数微调（-1 = 未覆盖，受当前等级允许范围约束，升级时钳制到新等级范围） |
+| `economy_auto_convert` | 直接转化（bool）：不生成生物，原本生成的生物按击杀掉落表转化为掉落物 |
+| `economy_looting` | 抢夺等级 0-3（解锁随等级：8-10 级 0-3、5-7 级 0-2、2-4 级 0-1、1 级及以下仅 0；仅作用于转化掉落） |
+| `economy_auto_sell` | 自动出售（bool）：每 60 秒批量出售存储掉落物给收款人 |
+| `economy_sell_timer` | 自动出售周期倒计时（tick，-1 = 未初始化） |
+| `economy_drops` | 转化掉落物存储：**键值对（物品完整数据 → 数量）**，随方块存档（挖掉时随刷怪笼物品保存防丢失） |
+| `economy_converted` | 已转化实体数（存储掉落物来源计数；取出/出售时清零） |
+| `economy_owner_*` | 创建人（放置时由 `BlockItemMixin` 记录） |
+| `economy_payee_*` | 收款人（`/spawner set payee`，默认 = 创建人） |
+| `economy_display_uuid` | 自动出售悬浮实体 UUID（重建用） |
 
 ## 获取
 
@@ -55,17 +64,39 @@
 
 ## 实现
 
-- `SpawnerManager`：give/绑定/升级/set/info/targetedSpawner（准星射线 5 格）。
+- `SpawnerManager`：give/绑定/升级/set/info/take/targetedSpawner（准星射线 5 格）。
 - `SpawnerStateAccess` + `SpawnerBlockEntityMixin`：NBT 状态读写
-  （`loadAdditional`/`saveAdditional` RETURN 注入，ValueInput/ValueOutput）。
+  （`loadAdditional`/`saveAdditional` RETURN 注入，ValueInput/ValueOutput；
+  掉落物存储用 `ItemStack.OPTIONAL_CODEC.listOf()` 编解码）。
 - `SpawnerAccess` + `BaseSpawnerMixin`：生成参数读取 + `serverTick` HEAD 每 tick
-  按「等级/微调/开关」计算写入（仅标签笼，1 tick 内生效）。
+  按「等级/微调/开关」计算写入（仅标签笼，1 tick 内生效）；**直接转化**：`spawnDelay ≤ 0`
+  时改为逐只（`spawnCount` 只/周期）计算击杀掉落存入方块并重置倒计时；**自动出售**：
+  每 60 秒（`economy_sell_timer`）批量出售存储掉落物 + 刷新金色悬浮。
 - `SpawnerBlockMixin`（目标 `Block`）：`playerDestroy` HEAD——仅标签笼掉落
-  （mixin 不搜索父类方法，须注入声明处；运行时 instanceof SpawnerBlock；掉落归一化见「回收」）。
+  （mixin 不搜索父类方法，须注入声明处；运行时 instanceof SpawnerBlock；掉落归一化见「回收」；
+  挖掉时移除悬浮实体）。
 - `BlockItemMixin`（目标 `BlockItem`）：`updateCustomBlockEntityTag` 内
   `canUseGameMasterBlocks` 调用点 @Redirect——带 `economy_spawner` 标签的物品放行
-  `onlyOpCanSetNbt` 检查，非 OP 玩家也能放置（见模式矩阵）。
-- `SpawnerCommands`：`/spawner info|upgrade|set entity|set 参数|give`。
+  `onlyOpCanSetNbt` 检查，非 OP 玩家也能放置（见模式矩阵）；首次放置记录创建人。
+- `SpawnerCommands`：`/spawner info|upgrade|set|take|give`（set 的 value 为字符串，
+  枚举参数 true/false、looting 0-3、payee 在线玩家名全部提供 tab 补全）。
+
+## 直接转化 / 抢夺 / 自动出售
+
+- **直接转化**（`/spawner set autoconvert true`）：不生成生物，每个生成周期按原版
+  `spawnCount` 逐只独立计算击杀掉落（loot table + 假实体击杀上下文），掉落物按
+  **物品完整数据合并存储**（键值对：物品 → 数量）；转化强制提供
+  `LAST_DAMAGE_PLAYER`（优先创建人在线，否则笼子附近最近玩家）——`killed_by_player`
+  条件只检查该参数是否存在，**凋灵骷髅头颅等特殊掉落物正常产出**。
+- **抢夺**（`/spawner set looting 0-3`）：解锁随等级（8-10 级 0-3、5-7 级 0-2、2-4 级
+  0-1、1 级及以下仅 0）；作用于转化掉落——26.3 的 looting 由附魔效果组件
+  （`enchanted_count_increase` 等）读取 `ATTACKING_ENTITY` 的附魔等级，转化时创建
+  同类假实体作攻击者并挂 Looting N 的剑模拟。
+- **自动出售**（`/spawner set autosell true`）：每 60 秒批量出售**全部**存储掉落物
+  （含开启前积累的）给收款人（默认创建人；`/spawner set payee` 可改，允许离线玩家但
+  必须已注册资金账户）；流水 `SELL/SPAWNER`；结算日志受 `/config shop.sellLog` 控制；
+  开启时显示金色悬浮（与 shop 一致）：创建人/收款人/出售倒计时。
+- **取出**（`/spawner take`）：存储掉落物发到背包（按单堆上限拆分），放不下的掉落脚下。
 
 ## 生存/创造模式行为矩阵（模式敏感点清单）
 
@@ -88,7 +119,8 @@
 
 | 指令 | 说明 |
 |---|---|
-| `/spawner info` | 查看信息（类型/等级/生效参数/可调范围/升级费用）——仅标签笼 |
+| `/spawner info` | 查看信息（Lv/绑定生物/所有者/参数区间/直接转化/抢夺/自动出售/存储掉落物列表）——仅标签笼；格式与颜色规范：前 3 行白色、区间行蓝色、可设置属性按状态（开蓝/关灰）、存储标题金色、Lv 当前<上限红色=绿色 |
 | `/spawner upgrade` | 升级（纯金钱；Lv 0 → 1 起）——仅标签笼，受 `spawner.upgrade` 开关控制 |
-| `/spawner set <参数> <值>` | 微调生成参数（受等级范围约束；Lv 0 不可微调） |
+| `/spawner set <参数> <值>` | 生成参数（minDelay/maxDelay/count/nearby/playerRange/spawnRange，受等级范围约束；Lv 0 不可微调）与配置：`autoconvert true|false`、`looting 0-3`（等级解锁）、`autosell true|false`、`payee 玩家名`（离线需已注册账户）——枚举值全部可 tab 补全 |
+| `/spawner take` | 取出存储的转化掉落物（放不下的掉落脚下） |
 | `/spawner give` | 管理员获得带标签刷怪笼 |
