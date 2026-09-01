@@ -32,7 +32,10 @@
 - `/shop setpayee 玩家` — 设置收款人（`NameAndId.createOffline` 回退；服务器账户收款已移除）。
 - `/price 物品` — 查基础价（`ItemValues.get`），提示完整价值 = 基础价 + 附魔 + 容器内容物。
 - `/buy 物品 数量` — `ItemArgument.item` 解析 → `ItemValues.price` 计价 →
-  `EconomyDb.deduct` 只扣玩家资金（不入服务器资产）→ `inventory.add`，放不下掉落脚下。
+  `EconomyDb.deduct` 只扣玩家资金（不入服务器资产）→ `giveOrDrop` 发放：
+  **绕过原版 `ItemInput.createItemStack` 的 overstacked 校验**（26.2/26.3 对
+  count > 单堆上限抛「只可以堆叠到 N」），手动按同参数构造堆后**按单堆上限分块
+  放入背包（可跨槽堆叠），背包放不下的溢出部分掉落到玩家脚下**。
 - `/bm` — 切换 `BuyModeManager`（见 package-buymode.md）。
 - 异常：NOT_CHEST / NOT_SHOP / ALREADY_SHOP / NOT_OWNER / PLAYER_ONLY / DB_ERROR / PAYER_INSUFFICIENT。
 - 注册：`/shop` 为商店主命令（原 /balshop 已移除）；`/price`、`/buy`、`/bm` 为顶层简化入口，

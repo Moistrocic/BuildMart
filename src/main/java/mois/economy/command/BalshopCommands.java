@@ -165,7 +165,9 @@ public final class BalshopCommands {
 		if (!ItemValues.isTradable(input.item().value())) {
 			throw new SimpleCommandExceptionType(Component.literal("该物品不可购买或出售")).create();
 		}
-		ItemStack stack = input.createItemStack(count);
+		// 绕过原版 ItemInput.createItemStack 的 overstacked 校验（购买数量可超过单堆上限）：
+		// 手动按同参数构造堆；发放时拆分放入背包，溢出部分掉落脚下。
+		ItemStack stack = new ItemStack(input.item(), count, input.components());
 		long total = ItemValues.price(stack);
 
 		long balance = readBalance(player.getUUID());
@@ -194,10 +196,7 @@ public final class BalshopCommands {
 		}
 
 		Inventory inventory = player.getInventory();
-		if (!inventory.add(stack)) {
-			// 背包放不下的部分掉落在玩家脚下
-			player.spawnAtLocation(player.level(), stack);
-		}
+		giveOrDrop(player, stack);
 		String id = BuiltInRegistries.ITEM.getKey(input.item().value()).toString();
 		long balanceAfter = readBalance(player.getUUID());
 		source.sendSuccess(() -> text("已购买 ", ChatFormatting.GREEN)
@@ -224,6 +223,31 @@ public final class BalshopCommands {
 	}
 
 	// ---------- 工具 ----------
+
+	/**
+	 * 购买物品发放：背包可容纳的部分全部放入（自动拆分到多个堆叠槽），
+	 * 放不下的溢出部分直接掉落到玩家脚下。26.3/26.2 的 Inventory.add 对
+	 * 单堆可拆分放置（addResource 逐槽），但 add 失败时整块未放入——
+	 * 故按单堆上限分块调用，失败即剩余全部掉落。
+	 */
+	private static void giveOrDrop(ServerPlayer player, ItemStack stack) {
+		int remaining = stack.getCount();
+		Inventory inventory = player.getInventory();
+		int max = stack.getMaxStackSize();
+		while (remaining > 0) {
+			int chunk = Math.min(remaining, max);
+			ItemStack part = stack.copy();
+			part.setCount(chunk);
+			if (!inventory.add(part)) {
+				// 背包已满：剩余部分掉落到玩家脚下
+				ItemStack drop = stack.copy();
+				drop.setCount(remaining);
+				player.spawnAtLocation(player.level(), drop);
+				return;
+			}
+			remaining -= chunk;
+		}
+	}
 
 	private static ServerPlayer requirePlayer(CommandSourceStack source) throws CommandSyntaxException {
 		ServerPlayer player = source.getPlayer();
