@@ -52,7 +52,7 @@ public abstract class SpawnerBlockMixin {
 			return; // 原版刷怪笼：不掉落
 		}
 		// 挖掉时移除自动出售悬浮实体
-		mois.economy.spawner.SpawnerManager.removeDisplay(level, spawner);
+		mois.economy.spawner.SpawnerManager.removeDisplay(serverLevel, spawner);
 		// 注册 ID 为 minecraft:mob_spawner（spawner 兜底）；注册表异常时不掉落
 		BlockEntityType<?> spawnerType = BuiltInRegistries.BLOCK_ENTITY_TYPE
 				.getValue(Identifier.fromNamespaceAndPath("minecraft", "mob_spawner"));
