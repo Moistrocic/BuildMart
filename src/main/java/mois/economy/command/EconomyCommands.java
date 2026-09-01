@@ -73,7 +73,8 @@ public final class EconomyCommands {
 			"/hongbao 总金额 数量 口令 - 发红包（聊天说出口令即可领取）",
 			"/spawner info - 查看刷怪笼信息（钓鱼可获，刷怪蛋右键绑定）",
 			"/spawner upgrade - 升级刷怪笼（Lv 0 原版生成，升级后更快）",
-			"/spawner set 参数 值 - 微调刷怪笼参数（受等级范围限制）",
+			"/spawner set 参数 值 - 微调刷怪笼参数/配置（autoconvert/looting/autosell/payee）",
+			"/spawner take - 取出刷怪笼存储的转化掉落物",
 			"/balop start - 启动数据库管理前端（仅管理员）",
 			"/balop stop - 关闭数据库管理前端（仅管理员）"
 	};

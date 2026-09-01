@@ -33,6 +33,14 @@ public abstract class BlockItemMixin {
 			Player placingPlayer, BlockPos pos, ItemStack stack) {
 		TypedEntityData<?> data = stack.get(DataComponents.BLOCK_ENTITY_DATA);
 		if (data != null && data.contains("economy_spawner")) {
+			// 记录创建人（首次放置时；自动出售悬浮与收款人默认值用）
+			if (placingPlayer != null
+					&& level.getBlockEntity(pos) instanceof net.minecraft.world.level.block.entity.SpawnerBlockEntity spawner
+					&& spawner instanceof mois.economy.spawner.SpawnerStateAccess access
+					&& access.economyOwnerUuid() == null) {
+				access.economySetOwner(placingPlayer.getUUID(), placingPlayer.getGameProfile().name());
+				spawner.setChanged();
+			}
 			return true; // 模组刷怪笼：非 OP 也可放置，BLOCK_ENTITY_DATA 正常加载
 		}
 		return player.canUseGameMasterBlocks();
