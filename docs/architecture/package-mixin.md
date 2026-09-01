@@ -161,18 +161,24 @@
 - ⚠️ **cancel 后必须补做原版收尾**：`hook.discard()`（否则鱼钩不销毁可重复收竿刷战利品）、
   返回值 `onGround() ? 2 : 1`。详见 package-fishing.md。
 
-## `BaseSpawnerMixin`（目标 `BaseSpawner`）— 刷怪笼生成参数重算
+## `BaseSpawnerMixin`（目标 `BaseSpawner`）— 刷怪笼生成参数重算 + 转化/自动出售
 
-- `serverTick` @HEAD `economy$recomputeParams`：方块实体为带标签刷怪笼时按
+- `serverTick` @HEAD `economy$applyComputedParams`：方块实体为带标签刷怪笼时按
   「等级/微调/开关」计算并写入生成参数（`effLevel <= 0` 不写 = 原版机制）。
-  详见 package-spawner.md。
+- **直接转化**：`autoConvert` 且 `spawnDelay <= 0`（本 tick 原版将生成）→
+  `SpawnerManager.convertToDrops` 逐只（`spawnCount` 只/周期）计算击杀掉落存入方块，
+  并重置倒计时让原版逻辑走递减分支（不生成生物）。
+- **自动出售**：`autoSell` 时维护 60 秒出售周期（`economy_sell_timer`），到点批量
+  `sellStoredDrops`；每 tick 同步金色悬浮（创建人/收款人/倒计时），关闭时移除残留。
+- 详见 package-spawner.md。
 
 ## `SpawnerBlockMixin`（目标 `Block`）— 带标签刷怪笼可回收
 
 - `playerDestroy` @HEAD `economy$dropSpawnerItem`：非创造 + `instanceof SpawnerBlock` +
   带标签（`SpawnerStateAccess.economyTagged`）→ 掉落带完整数据物品
   （`saveCustomOnly` + `normalizeForStacking` 归一化：`Delay` 重置为 20、
-  移除默认 `SpawnData`，与 `/spawner give` 底版 NBT 完全一致 → 可互相堆叠）。
+  移除默认 `SpawnData`，与 `/spawner give` 底版 NBT 完全一致 → 可互相堆叠；
+  存储的转化掉落物随方块物品保存防丢失）；同时移除自动出售悬浮实体。
 - ⚠️ `playerDestroy` 声明于 `Block`，mixin 不搜索父类方法，须注入 `Block` 并在运行时
   `instanceof SpawnerBlock` 判断。
 - ⚠️ **26.2 差异**：`playerDestroy(Level, Player, ...)` 参数非协变（26.3 为
@@ -181,7 +187,8 @@
 ## `SpawnerBlockEntityMixin`（目标 `SpawnerBlockEntity`）— 刷怪笼玩法状态持久化
 
 - `loadAdditional` / `saveAdditional` @RETURN：读写 `economy_spawner` / `economy_level` /
-  `economy_override_*`（ValueInput/ValueOutput），实现 `SpawnerStateAccess`。
+  `economy_override_*` / 直接转化三配置 / `economy_drops`（`ItemStack.OPTIONAL_CODEC.listOf()`）
+  / `economy_converted` / 创建人收款人 / 出售周期 / 悬浮 UUID，实现 `SpawnerStateAccess`。
 - 原版加载/保存忽略未知 key，与模组 key 互不影响。
 
 ## `BlockItemMixin`（目标 `BlockItem`）— 非 OP 玩家可放置带标签刷怪笼
@@ -194,6 +201,7 @@
   ItemStack, BlockState)`，method 必须用完整描述符限定（26.3 无此重载）。
 - 背景：`MOB_SPAWNER` 属于 `OP_ONLY_CUSTOM_DATA`（命令方块/告示牌/刷怪笼等），非 OP
   生存玩家放置时原版直接跳过 `loadInto` → 标签/等级/绑定全部丢失（变原版空笼）。
+- 放置时**首次记录创建人**（自动出售悬浮与收款人默认值用）。
 - 安全性：模组笼生成参数每 tick 被 `BaseSpawnerMixin` 覆盖，伪造 NBT 不生效；
   原版刷怪笼物品不受影响（无标签 → 仍走原版权限规则）。
 
