@@ -146,6 +146,15 @@ public final class BalshopCommands {
 		Shop shop = requireOwnedShop(source, player, chest);
 		NameAndId profile = GameProfileArgument.getGameProfiles(ctx, "player").iterator().next();
 		UUID uuid = profile.id() != null ? profile.id() : NameAndId.createOffline(profile.name()).id();
+		// 收款人必须已注册资金账户（离线解析的玩家同样校验）
+		try {
+			if (!EconomyDb.hasAccount(uuid)) {
+				throw new SimpleCommandExceptionType(
+						Component.literal("该玩家尚未创建资金账户（需先上线或产生资金记录）")).create();
+			}
+		} catch (EconomyDb.DatabaseException e) {
+			throw DB_ERROR.create();
+		}
 		ShopManager.setPayee(shop, uuid, profile.name());
 		source.sendSuccess(() -> text("收款人已设置为 ", ChatFormatting.GREEN)
 				.append(profile.name()), false);

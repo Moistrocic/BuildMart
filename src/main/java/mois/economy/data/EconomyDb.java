@@ -393,6 +393,20 @@ public final class EconomyDb {
 		}
 	}
 
+	/** 账户是否已注册（该玩家创建过资金账户）。 */
+	public static synchronized boolean hasAccount(UUID uuid) {
+		requireOpen();
+		try (PreparedStatement ps = connection.prepareStatement(
+				"SELECT 1 FROM economy_accounts WHERE uuid = ?")) {
+			ps.setString(1, uuid.toString());
+			try (ResultSet rs = ps.executeQuery()) {
+				return rs.next();
+			}
+		} catch (SQLException e) {
+			throw new DatabaseException("查询账户失败", e);
+		}
+	}
+
 	/** 入账（无来源），例如服务器资产初始资金；账户不存在时按给定名字创建。 */
 	public static synchronized void credit(UUID uuid, String name, long amount) {
 		requireOpen();
