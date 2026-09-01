@@ -57,6 +57,7 @@ public final class EconomyCommands {
 			"/shop setpayee 玩家 - 设置收款人",
 			"/price 物品 - 查看物品价格",
 			"/buy 物品 数量 - 购买物品",
+			"/buypack 物品 盒数 - 购买一盒物品（1 潜影盒 + 27 满堆，价值=潜影盒+27×堆叠上限×单价）",
 			"/bm - 进入快捷购买模式",
 			"/fly - 开启或关闭飞行模式",
 			"/fly warn - 开启或关闭飞行提醒",

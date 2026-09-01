@@ -37,8 +37,12 @@
   count > 单堆上限抛「只可以堆叠到 N」），手动按同参数构造堆后**按单堆上限分块
   放入背包（可跨槽堆叠），背包放不下的溢出部分掉落到玩家脚下**。
 - `/bm` — 切换 `BuyModeManager`（见 package-buymode.md）。
+- `/buypack 物品 盒数` — 购买整盒物品：每盒 = 1 个潜影盒（`Items.SHULKER_BOX` +
+  `DataComponents.CONTAINER` 27 格）+ 27 × 堆叠上限 个该物品（带参数组件）；
+  每盒价值 = `ItemValues.price(空盒)` + 27 × `ItemValues.price(满堆)`；
+  盒上限 `MAX_BUY_PACK_BOXES = 1024`；发放复用 `giveOrDrop`（逐盒放入，溢出掉落脚下）。
 - 异常：NOT_CHEST / NOT_SHOP / ALREADY_SHOP / NOT_OWNER / PLAYER_ONLY / DB_ERROR / PAYER_INSUFFICIENT。
-- 注册：`/shop` 为商店主命令（原 /balshop 已移除）；`/price`、`/buy`、`/bm` 为顶层简化入口，
+- 注册：`/shop` 为商店主命令（原 /balshop 已移除）；`/price`、`/buy`、`/buypack`、`/bm` 为顶层简化入口，
   `/shop getprice|buy|buymode` 仍保留作为子命令。
 
 ## `HongbaoCommands.java` — 红包

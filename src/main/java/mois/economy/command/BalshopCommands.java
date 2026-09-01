@@ -20,6 +20,7 @@ import net.minecraft.commands.arguments.GameProfileArgument;
 import net.minecraft.commands.arguments.item.ItemArgument;
 import net.minecraft.commands.arguments.item.ItemInput;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
@@ -27,11 +28,16 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.players.NameAndId;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.component.ItemContainerContents;
 import net.minecraft.world.level.block.entity.ChestBlockEntity;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import java.util.function.Predicate;
 
@@ -41,6 +47,9 @@ import java.util.function.Predicate;
  */
 public final class BalshopCommands {
 	private static final int MAX_BUY_COUNT = 17280;
+
+	/** /buypack 单次盒数上限（防总价溢出；每盒 = 1 潜影盒 + 27 满堆物品）。 */
+	private static final int MAX_BUY_PACK_BOXES = 1024;
 
 	private static final SimpleCommandExceptionType NOT_CHEST =
 			new SimpleCommandExceptionType(Component.literal("请对准一个箱子"));
@@ -70,6 +79,10 @@ public final class BalshopCommands {
 				.then(Commands.argument("item", ItemArgument.item(buildContext))
 						.then(Commands.argument("count", IntegerArgumentType.integer(1, MAX_BUY_COUNT))
 								.executes(BalshopCommands::buy))));
+		dispatcher.register(Commands.literal("buypack")
+				.then(Commands.argument("item", ItemArgument.item(buildContext))
+						.then(Commands.argument("count", IntegerArgumentType.integer(1, MAX_BUY_PACK_BOXES))
+								.executes(BalshopCommands::buyPack))));
 		dispatcher.register(Commands.literal("bm")
 				.executes(BalshopCommands::buyMode));
 	}
@@ -202,6 +215,67 @@ public final class BalshopCommands {
 		source.sendSuccess(() -> text("已购买 ", ChatFormatting.GREEN)
 				.append(String.valueOf(count)).append(" 个 ").append(id)
 				.append("，花费 ").append(Money.format(total)).append(" 元，当前资金：")
+				.append(Money.format(balanceAfter)).append(" 元"), false);
+		return 1;
+	}
+
+	/**
+	 * /buypack 物品 盒数 —— 购买整盒物品：每盒 = 1 个潜影盒 + 27 格 × 堆叠上限 个该物品。
+	 * 每盒价值 = 空潜影盒价值 + 27 × 满堆价值（ItemValues.price，含附魔/组件）。
+	 */
+	private static int buyPack(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+		CommandSourceStack source = ctx.getSource();
+		ServerPlayer player = requirePlayer(source);
+		ItemInput input = ItemArgument.getItem(ctx, "item");
+		int boxes = IntegerArgumentType.getInteger(ctx, "count");
+		Item item = input.item().value();
+		if (!ItemValues.isTradable(item)) {
+			throw new SimpleCommandExceptionType(Component.literal("该物品不可购买或出售")).create();
+		}
+		int maxStack = new ItemStack(input.item()).getMaxStackSize();
+		// 每盒价值 = 空潜影盒 + 27 个满堆
+		long perBox = ItemValues.price(new ItemStack(Items.SHULKER_BOX))
+				+ 27L * ItemValues.price(new ItemStack(input.item(), maxStack, input.components()));
+		long total = perBox * boxes;
+
+		long balance = readBalance(player.getUUID());
+		if (balance < total) {
+			throw PAYER_INSUFFICIENT.create();
+		}
+		try {
+			if (!EconomyDb.deduct(player.getUUID(), total)) {
+				throw PAYER_INSUFFICIENT.create();
+			}
+		} catch (EconomyDb.DatabaseException e) {
+			Economy.LOGGER.error("balshop buypack 数据库错误", e);
+			throw DB_ERROR.create();
+		}
+		// 构建盒子：27 格 × 满堆（带组件）
+		List<ItemStack> contents = new ArrayList<>(27);
+		for (int i = 0; i < 27; i++) {
+			contents.add(new ItemStack(input.item(), maxStack, input.components()));
+		}
+		ItemStack box = new ItemStack(Items.SHULKER_BOX);
+		box.set(DataComponents.CONTAINER, ItemContainerContents.fromItems(contents));
+		// 资金流水：BUY 交易记录（含盒内容物完整组件数据）；记录失败静默
+		try {
+			EconomyDb.recordTransaction(player.getUUID(), player.getGameProfile().name(),
+					EconomyDb.TYPE_BUY, EconomyDb.CHANNEL_BUY,
+					BuiltInRegistries.ITEM.getKey(box.getItem()).toString(),
+					box.getHoverName().getString(),
+					mois.economy.ItemCodec.encode(box, player.level().registryAccess()),
+					boxes, total);
+		} catch (EconomyDb.DatabaseException ignored) {
+			// 记录失败静默。
+		}
+		// 发放：逐盒放入（潜影盒堆叠上限 1），放不下的溢出掉落脚下
+		giveOrDrop(player, box.copyWithCount(boxes));
+		String id = BuiltInRegistries.ITEM.getKey(item).toString();
+		long balanceAfter = readBalance(player.getUUID());
+		source.sendSuccess(() -> text("已购买 ", ChatFormatting.GREEN)
+				.append(String.valueOf(boxes)).append(" 盒 ").append(id)
+				.append("（每盒 1 潜影盒 + 27×").append(String.valueOf(maxStack)).append(" 个），花费 ")
+				.append(Money.format(total)).append(" 元，当前资金：")
 				.append(Money.format(balanceAfter)).append(" 元"), false);
 		return 1;
 	}
