@@ -45,13 +45,13 @@ public final class SpawnerCommands {
 								.suggests((ctx, builder) -> net.minecraft.commands.SharedSuggestionProvider.suggest(
 										java.util.List.of("minDelay", "maxDelay", "count", "nearby",
 												"playerRange", "spawnRange", "autoconvert", "looting",
-												"autosell", "payee"), builder))
+												"autosell", "hopper", "payee"), builder))
 								.then(Commands.argument("value", StringArgumentType.greedyString())
 										.suggests((ctx, builder) -> {
 											// 规范：枚举类型参数必须全部列出（tab 补全）
 											String param = StringArgumentType.getString(ctx, "param");
 											return switch (param) {
-												case "autoconvert", "autosell" ->
+												case "autoconvert", "autosell", "hopper" ->
 														net.minecraft.commands.SharedSuggestionProvider.suggest(
 																new String[]{"true", "false"}, builder);
 												case "looting" ->
@@ -70,6 +70,17 @@ public final class SpawnerCommands {
 											};
 										})
 										.executes(SpawnerCommands::setParam))))
+				.then(Commands.literal("hopper")
+						.then(Commands.literal("add")
+								.then(Commands.argument("item", net.minecraft.commands.arguments.item.ItemArgument
+										.item(buildContext))
+										.executes(SpawnerCommands::hopperAdd)))
+						.then(Commands.literal("remove")
+								.then(Commands.argument("item", net.minecraft.commands.arguments.item.ItemArgument
+										.item(buildContext))
+										.executes(SpawnerCommands::hopperRemove)))
+						.then(Commands.literal("list")
+								.executes(SpawnerCommands::hopperList)))
 				.then(Commands.literal("take")
 						.executes(SpawnerCommands::take))
 				.then(Commands.literal("give")
@@ -131,6 +142,51 @@ public final class SpawnerCommands {
 			ctx.getSource().sendFailure(Component.literal(error));
 			return 0;
 		}
+		return 1;
+	}
+
+	/** /spawner hopper add <物品> —— 添加漏斗白名单物品。 */
+	private static int hopperAdd(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+		ServerPlayer player = requirePlayer(ctx.getSource());
+		SpawnerBlockEntity spawner = SpawnerManager.targetedSpawner(player);
+		if (spawner == null) {
+			throw NOT_SPAWNER.create();
+		}
+		net.minecraft.world.item.Item item = net.minecraft.commands.arguments.item.ItemArgument
+				.getItem(ctx, "item").item().value();
+		String error = SpawnerManager.hopperAdd(player, spawner, item);
+		if (error != null) {
+			ctx.getSource().sendFailure(Component.literal(error));
+			return 0;
+		}
+		return 1;
+	}
+
+	/** /spawner hopper remove <物品> —— 移除漏斗白名单物品。 */
+	private static int hopperRemove(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+		ServerPlayer player = requirePlayer(ctx.getSource());
+		SpawnerBlockEntity spawner = SpawnerManager.targetedSpawner(player);
+		if (spawner == null) {
+			throw NOT_SPAWNER.create();
+		}
+		net.minecraft.world.item.Item item = net.minecraft.commands.arguments.item.ItemArgument
+				.getItem(ctx, "item").item().value();
+		String error = SpawnerManager.hopperRemove(player, spawner, item);
+		if (error != null) {
+			ctx.getSource().sendFailure(Component.literal(error));
+			return 0;
+		}
+		return 1;
+	}
+
+	/** /spawner hopper list —— 查看漏斗白名单。 */
+	private static int hopperList(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+		ServerPlayer player = requirePlayer(ctx.getSource());
+		SpawnerBlockEntity spawner = SpawnerManager.targetedSpawner(player);
+		if (spawner == null) {
+			throw NOT_SPAWNER.create();
+		}
+		SpawnerManager.hopperList(player, spawner);
 		return 1;
 	}
 

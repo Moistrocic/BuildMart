@@ -62,6 +62,14 @@ public abstract class SpawnerBlockEntityMixin implements SpawnerStateAccess {
 	@Unique
 	private int economySellTimer = -1;
 
+	/** 漏斗功能（白名单物品放入相邻箱子）。 */
+	@Unique
+	private boolean economyHopper;
+
+	/** 漏斗白名单：物品注册表 ID 列表。 */
+	@Unique
+	private List<String> economyHopperWhitelist = new ArrayList<>();
+
 	/** 转化掉落物存储：物品完整数据 → 数量（同物品数据合并）。 */
 	@Unique
 	private List<ItemStack> economyDrops = new ArrayList<>();
@@ -236,6 +244,40 @@ public abstract class SpawnerBlockEntityMixin implements SpawnerStateAccess {
 		economySellTimer = v;
 	}
 
+	// ---------- 漏斗 ----------
+
+	@Unique
+	@Override
+	public boolean economyHopper() {
+		return economyHopper;
+	}
+
+	@Unique
+	@Override
+	public void economySetHopper(boolean v) {
+		economyHopper = v;
+	}
+
+	@Unique
+	@Override
+	public List<String> economyHopperWhitelist() {
+		return List.copyOf(economyHopperWhitelist);
+	}
+
+	@Unique
+	@Override
+	public void economyHopperAdd(String itemId) {
+		if (itemId != null && !itemId.isEmpty() && !economyHopperWhitelist.contains(itemId)) {
+			economyHopperWhitelist.add(itemId);
+		}
+	}
+
+	@Unique
+	@Override
+	public void economyHopperRemove(String itemId) {
+		economyHopperWhitelist.remove(itemId);
+	}
+
 	// ---------- 转化掉落物存储（键值对：物品完整数据 → 数量） ----------
 
 	@Unique
@@ -348,6 +390,9 @@ public abstract class SpawnerBlockEntityMixin implements SpawnerStateAccess {
 		economyLooting = Math.max(0, Math.min(3, input.getIntOr("economy_looting", 0)));
 		economyAutoSell = input.getBooleanOr("economy_auto_sell", false);
 		economySellTimer = input.getIntOr("economy_sell_timer", -1);
+		economyHopper = input.getBooleanOr("economy_hopper", false);
+		economyHopperWhitelist = new ArrayList<>(input.read("economy_hopper_whitelist",
+				net.minecraft.util.ExtraCodecs.NON_EMPTY_STRING.listOf()).orElse(List.of()));
 		economyDrops = new ArrayList<>(input.read("economy_drops", ItemStack.OPTIONAL_CODEC.listOf())
 				.orElse(List.of()));
 		economyConverted = Math.max(0, input.getIntOr("economy_converted", 0));
@@ -372,6 +417,9 @@ public abstract class SpawnerBlockEntityMixin implements SpawnerStateAccess {
 		output.putInt("economy_looting", economyLooting);
 		output.putBoolean("economy_auto_sell", economyAutoSell);
 		output.putInt("economy_sell_timer", economySellTimer);
+		output.putBoolean("economy_hopper", economyHopper);
+		output.store("economy_hopper_whitelist", net.minecraft.util.ExtraCodecs.NON_EMPTY_STRING.listOf(),
+				economyHopperWhitelist);
 		output.store("economy_drops", ItemStack.OPTIONAL_CODEC.listOf(), economyDrops);
 		output.putInt("economy_converted", economyConverted);
 		output.storeNullable("economy_owner_uuid", UUIDUtil.CODEC, economyOwnerUuid);

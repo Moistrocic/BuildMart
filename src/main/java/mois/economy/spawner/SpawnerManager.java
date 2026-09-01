@@ -278,6 +278,28 @@ public final class SpawnerManager {
 				}
 				return null;
 			}
+			case "hopper" -> {
+				Boolean b = parseBool(value);
+				if (b == null) {
+					return "hopper 需要 true 或 false";
+				}
+				s.economySetHopper(b);
+				spawner.setChanged();
+				if (b) {
+					// 开启时立即迁移已积累的白名单物品
+					migrateWhitelistedToChest((ServerLevel) player.level(), spawner, s);
+				}
+				syncToClient(player, spawner);
+				if (b) {
+					player.sendSystemMessage(Component.literal("已开启漏斗（白名单物品自动放入同高度相邻箱子；"
+							+ "当前白名单 " + s.economyHopperWhitelist().size() + " 种，/spawner hopper add 物品 添加）")
+							.withStyle(ChatFormatting.GREEN), false);
+				} else {
+					player.sendSystemMessage(Component.literal("已关闭漏斗（转化掉落物全部存回刷怪笼）")
+							.withStyle(ChatFormatting.GREEN), false);
+				}
+				return null;
+			}
 			case "payee" -> {
 				if (value.isEmpty()) {
 					return "payee 需要玩家名";
@@ -455,7 +477,13 @@ public final class SpawnerManager {
 		int entities = Math.max(1, access.economySpawnCount());
 		for (int i = 0; i < entities; i++) {
 			for (ItemStack drop : table.getRandomItems(params)) {
-				if (!drop.isEmpty()) {
+				if (drop.isEmpty()) {
+					continue;
+				}
+				// 漏斗：白名单物品放入同 y 水平相邻的箱子（放不下的回退存储）
+				if (state.economyHopper() && hopperIsWhitelisted(drop, state)) {
+					hopperInsert(level, spawner, drop, state);
+				} else {
 					state.economyAddDrop(drop);
 				}
 			}
@@ -463,6 +491,92 @@ public final class SpawnerManager {
 		state.economySetConverted(state.economyConverted() + entities);
 		spawner.setChanged();
 		return true;
+	}
+
+	// ---------- 漏斗（白名单物品自动放入相邻箱子） ----------
+
+	/** 白名单匹配（按注册表 ID）。 */
+	private static boolean hopperIsWhitelisted(ItemStack drop, SpawnerStateAccess state) {
+		String id = BuiltInRegistries.ITEM.getKey(drop.getItem()).toString();
+		return state.economyHopperWhitelist().contains(id);
+	}
+
+	/**
+	 * 把掉落物放入同 y 水平相邻的箱子（优先堆叠已有同种，再找空槽；支持多个相邻箱子）；
+	 * 箱子不存在或放不下时剩余部分回退到刷怪笼存储。
+	 */
+	private static void hopperInsert(ServerLevel level, SpawnerBlockEntity spawner, ItemStack stack,
+			SpawnerStateAccess state) {
+		int remaining = stack.getCount();
+		BlockPos pos = spawner.getBlockPos();
+		for (net.minecraft.core.Direction dir : net.minecraft.core.Direction.Plane.HORIZONTAL) {
+			if (remaining <= 0) {
+				break;
+			}
+			BlockPos neighbor = pos.relative(dir); // 同 y 且水平相邻
+			if (!(level.getBlockEntity(neighbor) instanceof net.minecraft.world.Container container)) {
+				continue;
+			}
+			remaining = insertIntoContainer(container, stack, remaining);
+		}
+		if (remaining > 0) {
+			state.economyAddDrop(stack.copyWithCount(remaining));
+		}
+	}
+
+	/** 往容器放入 count 个（优先堆叠到已有同种槽，再找空槽）；返回剩余数量。 */
+	private static int insertIntoContainer(net.minecraft.world.Container container, ItemStack template, int count) {
+		int remaining = count;
+		for (int i = 0; i < container.getContainerSize() && remaining > 0; i++) {
+			ItemStack existing = container.getItem(i);
+			if (existing.isEmpty()) {
+				continue;
+			}
+			if (ItemStack.isSameItemSameComponents(existing, template)) {
+				int space = existing.getMaxStackSize() - existing.getCount();
+				if (space > 0) {
+					int put = Math.min(space, remaining);
+					existing.grow(put);
+					container.setItem(i, existing);
+					remaining -= put;
+				}
+			}
+		}
+		for (int i = 0; i < container.getContainerSize() && remaining > 0; i++) {
+			if (container.getItem(i).isEmpty()) {
+				int put = Math.min(template.getMaxStackSize(), remaining);
+				container.setItem(i, template.copyWithCount(put));
+				remaining -= put;
+			}
+		}
+		return remaining;
+	}
+
+	/**
+	 * 把存储中符合白名单的掉落物迁移到相邻箱子（放不下的回退存储）。
+	 * 覆盖「开启漏斗/添加白名单之前已积累的掉落物」场景——在开启漏斗、
+	 * 添加/移除白名单时各触发一次；转化时白名单物品直接进箱子（不走存储）。
+	 */
+	public static void migrateWhitelistedToChest(ServerLevel level, SpawnerBlockEntity spawner,
+			SpawnerStateAccess state) {
+		if (!state.economyHopper()) {
+			return;
+		}
+		List<ItemStack> all = state.economyTakeDrops();
+		if (all.isEmpty()) {
+			return;
+		}
+		for (ItemStack drop : all) {
+			if (drop.isEmpty()) {
+				continue;
+			}
+			if (hopperIsWhitelisted(drop, state)) {
+				hopperInsert(level, spawner, drop, state); // 放不下自动回退存储
+			} else {
+				state.economyAddDrop(drop);
+			}
+		}
+		spawner.setChanged();
 	}
 
 	/** 转化击杀者：优先创建人（在线），否则笼子激活范围内的最近玩家；都没有返回 null。 */
@@ -606,8 +720,78 @@ public final class SpawnerManager {
 		return state.economyOwnerName() != null ? state.economyOwnerName() : "未知";
 	}
 
-	// ---------- 取出存储掉落物（/spawner take） ----------
+	// ---------- 漏斗白名单（/spawner hopper add|remove|list） ----------
 
+	/** 添加白名单物品。返回 null = 成功，否则为失败提示。 */
+	public static String hopperAdd(ServerPlayer player, SpawnerBlockEntity spawner, net.minecraft.world.item.Item item) {
+		SpawnerStateAccess s = state(spawner);
+		if (!s.economyTagged()) {
+			return NOT_TAGGED;
+		}
+		String id = BuiltInRegistries.ITEM.getKey(item).toString();
+		if (s.economyHopperWhitelist().contains(id)) {
+			player.sendSystemMessage(Component.literal("白名单已有：" + id).withStyle(ChatFormatting.YELLOW), false);
+			return null;
+		}
+		s.economyHopperAdd(id);
+		spawner.setChanged();
+		// 立即迁移：之前积累的该物品也进箱子
+		migrateWhitelistedToChest((ServerLevel) player.level(), spawner, s);
+		syncToClient(player, spawner);
+		player.sendSystemMessage(Component.literal("已添加漏斗白名单：" + id
+				+ "（当前 " + s.economyHopperWhitelist().size() + " 种）").withStyle(ChatFormatting.GREEN), false);
+		return null;
+	}
+
+	/** 移除白名单物品。返回 null = 成功，否则为失败提示。 */
+	public static String hopperRemove(ServerPlayer player, SpawnerBlockEntity spawner, net.minecraft.world.item.Item item) {
+		SpawnerStateAccess s = state(spawner);
+		if (!s.economyTagged()) {
+			return NOT_TAGGED;
+		}
+		String id = BuiltInRegistries.ITEM.getKey(item).toString();
+		if (!s.economyHopperWhitelist().contains(id)) {
+			player.sendSystemMessage(Component.literal("白名单中没有：" + id).withStyle(ChatFormatting.YELLOW), false);
+			return null;
+		}
+		s.economyHopperRemove(id);
+		spawner.setChanged();
+		syncToClient(player, spawner);
+		player.sendSystemMessage(Component.literal("已移除漏斗白名单：" + id
+				+ "（剩余 " + s.economyHopperWhitelist().size() + " 种）").withStyle(ChatFormatting.GREEN), false);
+		return null;
+	}
+
+	/** 查看白名单（样式与 info 一致：金色标题 + 逐行中文名（英文 ID），不显示数量）。 */
+	public static void hopperList(ServerPlayer player, SpawnerBlockEntity spawner) {
+		SpawnerStateAccess s = state(spawner);
+		player.sendSystemMessage(whitelistDisplay(s.economyHopperWhitelist()), false);
+	}
+
+	/** 白名单列表组件：金色标题 + 逐行中文名（英文 ID），与存储掉落物列表样式一致（不显示数量）。 */
+	public static MutableComponent whitelistDisplay(List<String> whitelist) {
+		MutableComponent msg = Component.literal("漏斗白名单列表（" + whitelist.size() + " 种）：")
+				.withStyle(ChatFormatting.GOLD);
+		if (whitelist.isEmpty()) {
+			msg.append(Component.literal("\n（空，/spawner hopper add 物品 添加）").withStyle(ChatFormatting.DARK_GRAY));
+		} else {
+			for (String id : whitelist) {
+				MutableComponent line = Component.literal("\n").withStyle(ChatFormatting.AQUA);
+				net.minecraft.world.item.Item item = BuiltInRegistries.ITEM.getValue(Identifier.tryParse(id));
+				if (item != null) {
+					// translatable 组件由客户端翻译显示中文
+					line.append(new ItemStack(item).getHoverName().copy().withStyle(ChatFormatting.AQUA));
+				} else {
+					line.append(Component.literal(id).withStyle(ChatFormatting.AQUA));
+				}
+				line.append(Component.literal("（" + id + "）").withStyle(ChatFormatting.AQUA));
+				msg.append(line);
+			}
+		}
+		return msg;
+	}
+
+	// ---------- 取出存储掉落物（/spawner take） ----------
 	/** 取出全部存储掉落物（背包优先，放不下的掉落在脚下）。返回 null = 成功。 */
 	public static String takeDrops(ServerPlayer player, SpawnerBlockEntity spawner) {
 		SpawnerStateAccess s = state(spawner);
@@ -775,6 +959,15 @@ public final class SpawnerManager {
 				.withStyle(state.economyAutoSell() ? ChatFormatting.BLUE : ChatFormatting.GRAY));
 		info.append(Component.literal(state.economyAutoSell() ? "开（收款人：" + payeeDisplayName(state) + "）" : "关")
 				.withStyle(state.economyAutoSell() ? ChatFormatting.GREEN : ChatFormatting.DARK_GRAY));
+
+		// 漏斗：开/关（可设置激活属性：开启蓝/关闭灰）
+		info.append(Component.literal("\n漏斗：")
+				.withStyle(state.economyHopper() ? ChatFormatting.BLUE : ChatFormatting.GRAY));
+		info.append(Component.literal(state.economyHopper() ? "开" : "关")
+				.withStyle(state.economyHopper() ? ChatFormatting.GREEN : ChatFormatting.DARK_GRAY));
+
+		// 漏斗白名单列表（样式与存储掉落物列表一致：金色标题 + 中文名（英文 ID）逐行；仅不显示数量）
+		info.append(Component.literal("\n").append(whitelistDisplay(state.economyHopperWhitelist())));
 
 		// 存储掉落物列表（实体数，种类，掉落物总数）：金色
 		List<ItemStack> drops = state.economyDrops();

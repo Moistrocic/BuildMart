@@ -82,6 +82,20 @@ public interface SpawnerStateAccess {
 
 	void economySetSellTimer(int v);
 
+	// ---------- 漏斗（白名单物品自动放入相邻箱子） ----------
+
+	/** 漏斗功能（bool）：开启时转化掉落物中白名单物品直接放入同 y 水平相邻的箱子。 */
+	boolean economyHopper();
+
+	void economySetHopper(boolean v);
+
+	/** 白名单物品 ID 列表（如 minecraft:coal；匹配按注册表 ID）。 */
+	List<String> economyHopperWhitelist();
+
+	void economyHopperAdd(String itemId);
+
+	void economyHopperRemove(String itemId);
+
 	// ---------- 转化掉落物存储（键值对：物品完整数据 → 数量） ----------
 
 	/** 当前存储的掉落物（不可修改列表）。 */
