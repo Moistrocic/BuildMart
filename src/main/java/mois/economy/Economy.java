@@ -72,6 +72,9 @@ public class Economy implements ModInitializer {
 		ServerTickEvents.END_SERVER_TICK.register(TeleportManager::onServerTick);
 		ServerTickEvents.END_SERVER_TICK.register(BuyModeManager::onServerTick);
 
+		// 快速投影购买：注册 C2S payload（/fastbuy 关闭时 handler 直接忽略）
+		mois.economy.fastbuy.FastbuyManager.register();
+
 		// 玩家进入服务器时：同步名字到数据库（首次进服自动建行），并发送红色公告。
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
 			try {
@@ -125,7 +128,7 @@ public class Economy implements ModInitializer {
 
 		CommandRegistrationCallback.EVENT.register((dispatcher, buildContext, selection) -> {
 			EconomyCommands.register(dispatcher, buildContext);
-			LOGGER.info("命令注册完成（bal/pay/baltop/balhelp/announcement/eco/shop/price/buy/bm/fly/home/sethome/delhome/listhome/tpa/tpahere/tpaccept/back/suicide/hongbao/config）");
+			LOGGER.info("命令注册完成（bal/pay/baltop/balhelp/announcement/eco/shop/price/buy/bm/fastbuy/fly/home/sethome/delhome/listhome/tpa/tpahere/tpaccept/back/suicide/hongbao/config）");
 		});
 
 		LOGGER.info("Economy Mod Loaded!");

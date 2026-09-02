@@ -179,33 +179,34 @@ public final class BalshopCommands {
 		return 1;
 	}
 
-	private static int buy(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
-		CommandSourceStack source = ctx.getSource();
-		ServerPlayer player = requirePlayer(source);
-		ItemInput input = ItemArgument.getItem(ctx, "item");
-		int count = IntegerArgumentType.getInteger(ctx, "count");
-		if (!ItemValues.isTradable(input.item().value())) {
-			throw new SimpleCommandExceptionType(Component.literal("该物品不可购买或出售")).create();
+	/**
+	 * 执行一次购买：校验可交易 → 按完整价值扣款（只扣玩家资金，不入服务器资产）→
+	 * BUY 流水（含物品完整组件数据，记录失败静默）→ 发放（拆分入包，溢出掉落脚下）。
+	 * 返回 null = 成功，否则为失败提示（未扣款）。
+	 */
+	public static String purchase(ServerPlayer player, ItemStack stack) {
+		if (!ItemValues.isTradable(stack.getItem())) {
+			return "该物品不可购买或出售";
 		}
-		// 绕过原版 ItemInput.createItemStack 的 overstacked 校验（购买数量可超过单堆上限）：
-		// 手动按同参数构造堆；发放时拆分放入背包，溢出部分掉落脚下。
-		ItemStack stack = new ItemStack(input.item(), count, input.components());
 		long total = ItemValues.price(stack);
-
-		long balance = readBalance(player.getUUID());
+		long balance;
+		try {
+			balance = EconomyDb.getBalance(player.getUUID());
+		} catch (EconomyDb.DatabaseException e) {
+			return "数据库错误，请稍后再试";
+		}
 		if (balance < total) {
-			throw PAYER_INSUFFICIENT.create();
+			return "你的资金不足（需要 " + Money.format(total) + " 元，当前 "
+					+ Money.format(balance) + " 元）";
 		}
 		try {
-			// 购买：只扣玩家资金，不入服务器资产（服务器资产仅来自商店收款与玩家主动存入）
 			if (!EconomyDb.deduct(player.getUUID(), total)) {
-				throw PAYER_INSUFFICIENT.create();
+				return "你的资金不足";
 			}
 		} catch (EconomyDb.DatabaseException e) {
-			Economy.LOGGER.error("balshop buy 数据库错误", e);
-			throw DB_ERROR.create();
+			Economy.LOGGER.error("purchase 数据库错误", e);
+			return "数据库错误，请稍后再试";
 		}
-		// 资金流水：BUY 交易记录（含物品完整组件数据）；记录失败静默
 		try {
 			EconomyDb.recordTransaction(player.getUUID(), player.getGameProfile().name(),
 					EconomyDb.TYPE_BUY, EconomyDb.CHANNEL_BUY,
@@ -216,14 +217,27 @@ public final class BalshopCommands {
 		} catch (EconomyDb.DatabaseException ignored) {
 			// 记录失败静默。
 		}
-
-		Inventory inventory = player.getInventory();
 		giveOrDrop(player, stack);
+		return null;
+	}
+
+	private static int buy(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+		CommandSourceStack source = ctx.getSource();
+		ServerPlayer player = requirePlayer(source);
+		ItemInput input = ItemArgument.getItem(ctx, "item");
+		int count = IntegerArgumentType.getInteger(ctx, "count");
+		// 绕过原版 ItemInput.createItemStack 的 overstacked 校验（购买数量可超过单堆上限）：
+		// 手动按同参数构造堆；发放时拆分放入背包，溢出部分掉落脚下。
+		ItemStack stack = new ItemStack(input.item(), count, input.components());
+		String error = purchase(player, stack);
+		if (error != null) {
+			throw new SimpleCommandExceptionType(Component.literal(error)).create();
+		}
 		String id = BuiltInRegistries.ITEM.getKey(input.item().value()).toString();
 		long balanceAfter = readBalance(player.getUUID());
 		source.sendSuccess(() -> text("已购买 ", ChatFormatting.GREEN)
 				.append(String.valueOf(count)).append(" 个 ").append(id)
-				.append("，花费 ").append(Money.format(total)).append(" 元，当前资金：")
+				.append("，花费 ").append(Money.format(ItemValues.price(stack))).append(" 元，当前资金：")
 				.append(Money.format(balanceAfter)).append(" 元"), false);
 		return 1;
 	}

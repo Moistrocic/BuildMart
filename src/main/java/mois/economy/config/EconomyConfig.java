@@ -43,6 +43,8 @@ public final class EconomyConfig {
 	public static final boolean DEFAULT_SHOP_SELL_LOG = false;
 	/** 默认刷怪笼升级功能：开启（关闭时禁止升级，已升级效果按 Lv 1 生成，数据保留）。 */
 	public static final boolean DEFAULT_SPAWNER_UPGRADE = true;
+	/** 默认快速投影购买（/fastbuy）：关闭（关闭时不处理任何 fastbuy 请求，不修改任何逻辑）。 */
+	public static final boolean DEFAULT_FASTBUY = false;
 	/** 默认数据库管理前端（/balop）监听地址：本机回环，避免暴露到网络。 */
 	public static final String DEFAULT_BALOP_HOST = "localhost";
 	/** 默认数据库管理前端（/balop）端口。 */
@@ -90,6 +92,7 @@ public final class EconomyConfig {
 	private static boolean flyDigNoSlow = DEFAULT_FLY_DIG_NO_SLOW;
 	private static boolean shopSellLog = DEFAULT_SHOP_SELL_LOG;
 	private static boolean spawnerUpgrade = DEFAULT_SPAWNER_UPGRADE;
+	private static boolean fastbuy = DEFAULT_FASTBUY;
 	private static String balopHost = DEFAULT_BALOP_HOST;
 	private static int balopPort = DEFAULT_BALOP_PORT;
 	private static HomeSettings homeSettings = new HomeSettings(DEFAULT_HOME_MAX, DEFAULT_FEES);
@@ -113,6 +116,7 @@ public final class EconomyConfig {
 		map.put("fly.digNoSlow", new Entry("bool", "飞行挖掘不减速开关（true=与地面一致，false=原版生存飞行挖掘速度）"));
 		map.put("shop.sellLog", new Entry("bool", "商店出售结算日志开关（默认关闭，开启后每店每 60 秒一条）"));
 		map.put("spawner.upgrade", new Entry("bool", "刷怪笼升级功能开关（关闭时禁止升级，已升级效果按 Lv 1 生成，数据保留）"));
+		map.put("fastbuy", new Entry("bool", "快速投影购买开关（投影中键拾取无物品时自动购买一组；需客户端安装本模组）"));
 		map.put("balop.host", new Entry("string", "数据库管理前端监听地址（/balop 重启后生效）"));
 		map.put("balop.port", new Entry("int", "数据库管理前端端口 1-65535（/balop 重启后生效）"));
 		map.put("home.max", new Entry("int", "家数量上限（0 = 未开放）"));
@@ -170,6 +174,9 @@ public final class EconomyConfig {
 			}
 			case "spawner.upgrade" -> {
 				return Boolean.toString(spawnerUpgrade);
+			}
+			case "fastbuy" -> {
+				return Boolean.toString(fastbuy);
 			}
 			case "balop.host" -> {
 				return balopHost;
@@ -296,6 +303,15 @@ public final class EconomyConfig {
 				}
 				spawnerUpgrade = b;
 				// 下一 tick 刷怪笼按新状态计算生效参数（关闭=按 Lv 1，数据保留）
+				return null;
+			}
+			case "fastbuy" -> {
+				Boolean b = parseBool(value);
+				if (b == null) {
+					return "fastbuy 需要 true 或 false";
+				}
+				fastbuy = b;
+				// 关闭时不处理任何 fastbuy 请求（不修改任何逻辑）
 				return null;
 			}
 			case "balop.host" -> {
@@ -493,6 +509,7 @@ public final class EconomyConfig {
 		JsonObject spawner = new JsonObject();
 		spawner.addProperty("upgrade", spawnerUpgrade);
 		root.add("spawner", spawner);
+		root.addProperty("fastbuy", fastbuy);
 		JsonObject balop = new JsonObject();
 		balop.addProperty("host", balopHost);
 		balop.addProperty("port", balopPort);
@@ -618,6 +635,9 @@ public final class EconomyConfig {
 			if (root.has("funFishing")) {
 				funFishing = root.get("funFishing").getAsBoolean();
 			}
+			if (root.has("fastbuy")) {
+				fastbuy = root.get("fastbuy").getAsBoolean();
+			}
 			// shop 段（旧版顶层 shopSellLog 兼容读取）
 			JsonObject shopSection = root.getAsJsonObject("shop");
 			if (shopSection != null) {
@@ -685,6 +705,16 @@ public final class EconomyConfig {
 	/** 刷怪笼升级功能开关（关闭时禁止升级，已升级效果按 Lv 1 生成，数据保留）。 */
 	public static boolean spawnerUpgrade() {
 		return spawnerUpgrade;
+	}
+
+	/** 快速投影购买开关（默认关闭；关闭时不处理任何 fastbuy 请求，不修改任何逻辑）。 */
+	public static boolean fastbuy() {
+		return fastbuy;
+	}
+
+	/** 切换快速投影购买（/fastbuy 指令用）。 */
+	public static void setFastbuy(boolean v) {
+		fastbuy = v;
 	}
 
 	/** 数据库管理前端监听地址（/balop start 时读取）。 */
