@@ -14,6 +14,8 @@
     （未领取红包作废返还，需在数据库关闭前）+ `EconomyDb.close()`。
   - `ServerTickEvents.END_SERVER_TICK`：`ShopManager::onServerTick`、`FlyManager::onServerTick`、
     `TeleportManager::onServerTick`、`BuyModeManager::onServerTick`（结算挂起的面板 ctrl+q 购买）。
+  - `FastbuyManager.register()`（onInitialize 直接调用）：注册 C2S payload
+    `economy:fastbuy`（快速投影购买，见 package-misc.md / package-command.md）。
   - `ServerPlayConnectionEvents.JOIN`：`EconomyDb.ensureAccount`（同步玩家名，首次自动建行）、
     发送红色公告（`EconomyDb.getAnnouncement`）、`FlyManager.onJoin`（恢复飞行）。
   - `ServerPlayConnectionEvents.DISCONNECT`：`PriceLore.untagPlayerAndMenu`、`FlyManager.onDisconnect`

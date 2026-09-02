@@ -9,10 +9,16 @@
 
 ## client 源集（`src/client`）
 
-- `mois.economy.client.EconomyClient`：空 `ClientModInitializer`（`onInitializeClient` 无逻辑）。
+- `mois.economy.client.EconomyClient`：`ClientModInitializer`，仅调用 `FastbuyClient.init()`。
+- `mois.economy.client.FastbuyClient`：**快速投影购买客户端模块（可选增强）**——
+  通过**反射**接入 litematica 的 `SchematicPickBlockEventHandler`（动态代理实现
+  `ISchematicPickBlockEventListener`），在 `onSchematicPickBlockPrePick` 检查
+  生存玩家背包是否有该物品——没有则发送 `FastbuyRequestPayload`（C2S，服务端
+  `/fastbuy` 开启时自动购买一组）。litematica 未安装时 `ClassNotFound` 静默跳过；
+  服务端未注册 payload 时 `canSend` 检查不发；不修改 litematica 拾取流程本身。
 - 价格提示完全由服务端线路层真实 lore 提供（纯净端同样可见）；飞行挖掘加速经原版
   属性同步（BLOCK_BREAK_SPEED 修改器）自动下发，无需自定义网络；
-  未来客户端增强功能（HUD、快捷键等）放这里，必须保持可选（规则书 3.2）。
+  客户端增强必须保持可选（规则书 3.2），服务端逻辑禁止放客户端。
 
 ## 资源文件
 
