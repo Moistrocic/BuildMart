@@ -57,7 +57,7 @@
 
 本类最复杂，共 5 个注入点：
 
-1. `handleSetCreativeModeSlot` @HEAD（cancellable）`economy$handleBuyMode` — **buymode 主结算**：
+1. `handleSetCreativeModeSlot` @HEAD（cancellable）`buildmart$handleBuyMode` — **buymode 主结算**：
    - 非 buymode 直接放行（原版处理）。
    - `slotNum < 0`（创造界面丢弃包，原版会生成实体）→ `ci.cancel()` + `handleBuyModeDrop`：
      匹配会话暂存（先拿起再丢）→ **卖出**（按丢弃数量退款，不生成实体）；
@@ -99,21 +99,21 @@
      menu.incrementStateId(), slotNum, newStack.copy()))`** ——原版 `setRemoteSlot` 会把槽位标记为
      “客户端已知”而不再下发，必须显式补发才能让客户端立即看到价格标签
      （统一走 `BuyModeSettlement.setSlotAndSync`）。
-2. `handleSetCreativeModeSlot` @RETURN `economy$syncCreativeSlotTag` — **普通创造模式补发**：
+2. `handleSetCreativeModeSlot` @RETURN `buildmart$syncCreativeSlotTag` — **普通创造模式补发**：
    非 buymode 且 `hasInfiniteMaterials()` 的玩家，原版处理完成后把打标后的权威槽位补发一次
    （守卫：slotNum 1..45、非空、数量合法、`PriceLore.enabled`）。与上一条互斥。
-3. `handleContainerClick` @HEAD（cancellable）`economy$buyModeClickHead` — buymode 点击包快照：
-   - 记录 `economy$beforeItems`（全部槽位拷贝）+ `economy$settleClick` 标记；
+3. `handleContainerClick` @HEAD（cancellable）`buildmart$buyModeClickHead` — buymode 点击包快照：
+   - 记录 `buildmart$beforeItems`（全部槽位拷贝）+ `buildmart$settleClick` 标记；
    - `slotNum == -999` 且光标有物品（点击外部丢弃）→ 清空光标 + `ci.cancel()`
      （26.3 创造界面实际不发点击包，此路径为防御保留；光标物品由暂存模型结算）。
-4. `handleContainerClick` @RETURN `economy$buyModeClickSettle` — buymode 点击包结算（防御）：
+4. `handleContainerClick` @RETURN `buildmart$buyModeClickSettle` — buymode 点击包结算（防御）：
    - 对比 before/current：不可交易整体回滚；按各槽位 `ItemValues.price` 净变化结算
      （`SlotDelta(int slot, before, after, delta)` record 记录变化槽位）；
      **购买方向（netDelta>0）同样执行严格比对**（任一价值增加槽位不匹配 → 整体回滚）；
      余额不足回滚 + 全量同步；
    - 结算完成后对每个变化槽位 `PriceLore.tag` + 补发 `ClientboundContainerSetSlotPacket`
      （结算发生在原版 `broadcastChanges` 之后，补发保证界面内标签立即刷新）。
-5. `handleChat` @HEAD（cancellable）`economy$hongbaoChat` — **红包聊天领取**：
+5. `handleChat` @HEAD（cancellable）`buildmart$hongbaoChat` — **红包聊天领取**：
    发言与某红包口令完全一致（trim 精确匹配）→ `HongbaoCommands.claimByPass` 自动领取，
    **发言照常进入公屏**（不取消原版处理）；领取失败私聊红字；非口令发言完全不受影响。
 - **结算工具已提取到 `BuyModeSettlement`**（mixin 不允许非 private 方法，会被合并进 target
@@ -153,7 +153,7 @@
 
 ## `FishingHookMixin`（目标 `FishingHook`）— 趣味钓鱼战利品替换
 
-- `retrieve(ItemStack)` @HEAD（cancellable）`economy$customFishingLoot`：`funFishing` 开关开启 +
+- `retrieve(ItemStack)` @HEAD（cancellable）`buildmart$customFishingLoot`：`funFishing` 开关开启 +
   服务端 + 战利品路径（`hookedIn == null && nibble > 0`，@Shadow 字段）→
   `FishingManager.roll` 按概率取战利品替换原版战利品表。
 - 命中：触发 `FISHING_ROD_HOOKED` 成就 + 生成 `ItemEntity`（原版双重 sqrt 速度公式）+ 经验球 +
@@ -163,7 +163,7 @@
 
 ## `BaseSpawnerMixin`（目标 `BaseSpawner`）— 刷怪笼生成参数重算 + 转化/自动出售
 
-- `serverTick` @HEAD `economy$applyComputedParams`：方块实体为带标签刷怪笼时按
+- `serverTick` @HEAD `buildmart$applyComputedParams`：方块实体为带标签刷怪笼时按
   「等级/微调/开关」计算并写入生成参数（`effLevel <= 0` 不写 = 原版机制）。
 - **直接转化**：`autoConvert` 且 `spawnDelay <= 0`（本 tick 原版将生成）→
   `SpawnerManager.convertToDrops` 逐只（`spawnCount` 只/周期）计算击杀掉落存入方块，
@@ -174,7 +174,7 @@
 
 ## `SpawnerBlockMixin`（目标 `Block`）— 带标签刷怪笼可回收
 
-- `playerDestroy` @HEAD `economy$dropSpawnerItem`：非创造 + `instanceof SpawnerBlock` +
+- `playerDestroy` @HEAD `buildmart$dropSpawnerItem`：非创造 + `instanceof SpawnerBlock` +
   带标签（`SpawnerStateAccess.economyTagged`）→ 掉落带完整数据物品
   （`saveCustomOnly` + `normalizeForStacking` 归一化：`Delay` 重置为 20、
   移除默认 `SpawnData`，与 `/spawner give` 底版 NBT 完全一致 → 可互相堆叠；
@@ -192,7 +192,7 @@
 ## `BlockItemMixin`（目标 `BlockItem`）— 非 OP 玩家可放置带标签刷怪笼
 
 - `updateCustomBlockEntityTag` 内 `Player.canUseGameMasterBlocks()` 调用点 @Redirect
-  `economy$allowTaggedSpawnerPlacement`：物品 `BLOCK_ENTITY_DATA` 携带 `economy_spawner`
+  `buildmart$allowTaggedSpawnerPlacement`：物品 `BLOCK_ENTITY_DATA` 携带 `economy_spawner`
   标签时返回 true（放行原版 `onlyOpCanSetNbt` 检查），否则原逻辑。
 - 背景：`MOB_SPAWNER` 属于 `OP_ONLY_CUSTOM_DATA`（命令方块/告示牌/刷怪笼等），非 OP
   生存玩家放置时原版直接跳过 `loadInto` → 标签/等级/绑定全部丢失（变原版空笼）。
@@ -209,7 +209,7 @@
   `LivingEntityMixin`（掉落清除）、`ServerGamePacketListenerImplMixin`（创造/buymode 补发）。
 - buymode：`ServerGamePacketListenerImplMixin` + `ServerPlayerMixin.doCloseContainer` +
   `BuildMart.java` DISCONNECT → `BuyModeManager`；结算工具在 `BuyModeSettlement`。
-- 红包：`ServerGamePacketListenerImplMixin.economy$hongbaoChat`（聊天领取）→ `HongbaoCommands`。
+- 红包：`ServerGamePacketListenerImplMixin.buildmart$hongbaoChat`（聊天领取）→ `HongbaoCommands`。
 - 钓鱼：`FishingHookMixin` → `FishingManager` / `EconomyConfig.funFishing`。
 - 刷怪笼：`BaseSpawnerMixin`（参数重算）+ `SpawnerBlockMixin`（掉落回收）+
   `SpawnerBlockEntityMixin`（状态持久化）+ `BlockItemMixin`（非 OP 放置放行）→ `SpawnerManager`。

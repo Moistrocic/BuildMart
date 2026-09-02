@@ -64,7 +64,7 @@
    （`homes` / `back_points` 表）。
 9. **自检**：启动时 `PriceLore.selfCheck()`（仅开启时）与 `EconomyDb.runSelfTest()`（open 时）自动执行，
    改动相关逻辑后这两处自检若失败会直接报错，务必保证通过。
-10. **指令注册中枢**：`EconomyCommands.register`（由 `Economy.onInitialize` 的
+10. **指令注册中枢**：`EconomyCommands.register`（由 `BuildMart.onInitialize` 的
     `CommandRegistrationCallback` 调用），内部再委托 `BalshopCommands`、`FlyCommands`、
     `TeleportCommands`、`HongbaoCommands`、`ConfigCommands`；新增指令要同步更新
     `BuildMart.java` 的“命令注册完成”日志与 `/bmhelp` 的 `HELP_LINES`（/config 除外）。

@@ -1,6 +1,6 @@
 # `mois.buildmart.command` 包 — 全部指令
 
-注册中枢：`EconomyCommands.register(dispatcher, buildContext)`（由 `Economy.onInitialize` 调用），
+注册中枢：`EconomyCommands.register(dispatcher, buildContext)`（由 `BuildMart.onInitialize` 调用），
 内部再委托 `BalshopCommands.register`、`FlyCommands.register`、`TeleportCommands.register`
 与 `HongbaoCommands.register`（传送指令见 package-teleport.md；红包指令见下）。
 
@@ -57,7 +57,7 @@
 - 发红包：`Money.parseCents` 解析金额 → 校验 总金额 ≥ 数量（每个至少 0.01 元）→
   `EconomyDb.deduct` 扣发红包者余额 → 存入内存表（口令 → 红包，同口令覆盖）→ 全员广播；
   资金流水 REDPACKET_SEND（channel=REDPACKET，`logQuietly` 静默）。
-- **领取走聊天**：`ServerGamePacketListenerImplMixin.economy$hongbaoChat` 拦截
+- **领取走聊天**：`ServerGamePacketListenerImplMixin.buildmart$hongbaoChat` 拦截
   `handleChat`——发言与某口令完全一致（trim 精确匹配）即自动领取，**口令发言照常进入公屏**；
   领取金额 = 随机 1 ~ (总金额 / 数量) × 2 分（最后一个红包领剩余全部，保证总额守恒；
   随机时给后续红包至少留 1 分）→ `EconomyDb.credit` 入账 → 全员广播

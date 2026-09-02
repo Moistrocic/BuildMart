@@ -24,7 +24,7 @@
 
 ### `src/main/resources/fabric.mod.json`
 
-- id `economy`，name `Economy`，license `CC0-1.0`，`environment: "*"`（双端）。
+- id `buildmart`，name `BuildMart`，license `CC0-1.0`，`environment: "*"`（双端）。
 - entrypoints：main `mois.buildmart.BuildMart`；client `mois.buildmart.client.BuildMartClient`。
 - mixins：`buildmart.mixins.json`。
 - depends：fabricloader ≥0.19.3、minecraft `~26.3-`、java ≥25、fabric-api `*`。
@@ -39,7 +39,7 @@
   ServerPlayerGameModeMixin、FishingHookMixin、ExplosionDamageCalculatorMixin、
   ServerExplosionMixin、LevelMixin。
 
-### `assets/economy/icon.png`
+### `assets/buildmart/icon.png`
 
 - 模组图标（fabric.mod.json 引用）。
 
