@@ -292,14 +292,26 @@ public abstract class SpawnerBlockEntityMixin implements SpawnerStateAccess {
 		if (stack == null || stack.isEmpty()) {
 			return;
 		}
-		for (int i = 0; i < economyDrops.size(); i++) {
+		// 单条目上限 99：buildmart_drops 用 ItemStack.OPTIONAL_CODEC.listOf() 编码，
+		// 其 count 字段范围 [1;99]，超限会序列化失败（保存刷屏/数据丢失）。
+		// 同物品条目填满后自动另开条目，取出/出售时按条目累加不受影响。
+		int remaining = stack.getCount();
+		for (int i = 0; i < economyDrops.size() && remaining > 0; i++) {
 			ItemStack existing = economyDrops.get(i);
 			if (ItemStack.isSameItemSameComponents(existing, stack)) {
-				economyDrops.set(i, existing.copyWithCount(existing.getCount() + stack.getCount()));
-				return;
+				int space = 99 - existing.getCount();
+				if (space > 0) {
+					int put = Math.min(space, remaining);
+					economyDrops.set(i, existing.copyWithCount(existing.getCount() + put));
+					remaining -= put;
+				}
 			}
 		}
-		economyDrops.add(stack.copy());
+		while (remaining > 0) {
+			int put = Math.min(99, remaining);
+			economyDrops.add(stack.copyWithCount(put));
+			remaining -= put;
+		}
 	}
 
 	@Unique
