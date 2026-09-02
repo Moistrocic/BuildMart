@@ -378,29 +378,61 @@ public abstract class SpawnerBlockEntityMixin implements SpawnerStateAccess {
 
 	@Inject(method = "loadAdditional", at = @At("RETURN"))
 	private void buildmart$loadState(ValueInput input, CallbackInfo ci) {
-		economyTagged = input.getBooleanOr("buildmart_spawner", false);
-		economyLevel = Math.max(0, input.getIntOr("buildmart_level", 0));
-		economyOverrideMinDelay = input.getIntOr("buildmart_override_min_delay", -1);
-		economyOverrideMaxDelay = input.getIntOr("buildmart_override_max_delay", -1);
-		economyOverrideCount = input.getIntOr("buildmart_override_count", -1);
-		economyOverrideNearby = input.getIntOr("buildmart_override_nearby", -1);
-		economyOverridePlayerRange = input.getIntOr("buildmart_override_player_range", -1);
-		economyOverrideSpawnRange = input.getIntOr("buildmart_override_spawn_range", -1);
-		economyAutoConvert = input.getBooleanOr("buildmart_auto_convert", false);
-		economyLooting = Math.max(0, Math.min(3, input.getIntOr("buildmart_looting", 0)));
-		economyAutoSell = input.getBooleanOr("buildmart_auto_sell", false);
-		economySellTimer = input.getIntOr("buildmart_sell_timer", -1);
-		economyHopper = input.getBooleanOr("buildmart_hopper", false);
-		economyHopperWhitelist = new ArrayList<>(input.read("buildmart_hopper_whitelist",
-				net.minecraft.util.ExtraCodecs.NON_EMPTY_STRING.listOf()).orElse(List.of()));
-		economyDrops = new ArrayList<>(input.read("buildmart_drops", ItemStack.OPTIONAL_CODEC.listOf())
-				.orElse(List.of()));
-		economyConverted = Math.max(0, input.getIntOr("buildmart_converted", 0));
-		economyOwnerUuid = input.read("buildmart_owner_uuid", UUIDUtil.CODEC).orElse(null);
-		economyOwnerName = input.read("buildmart_owner_name", ExtraCodecs.NON_EMPTY_STRING).orElse(null);
-		economyPayeeUuid = input.read("buildmart_payee_uuid", UUIDUtil.CODEC).orElse(null);
-		economyPayeeName = input.read("buildmart_payee_name", ExtraCodecs.NON_EMPTY_STRING).orElse(null);
-		economyDisplayUuid = input.read("buildmart_display_uuid", UUIDUtil.CODEC).orElse(null);
+		// 旧版（Economy 时代）NBT 键兼容：新键 buildmart_* 优先；但放置路径
+		// （loadInto）会先保存 BE 当前状态（含新键默认值）再 merge 物品 tag，
+		// 旧键物品放置后两套键并存——因此旧键「真值」必须覆盖新键默认值：
+		// 布尔用或（任一 true 即带标签），数值用取大（新键默认 0/-1 < 旧键真值），
+		// 列表在新键为空时回退旧键。加载后字段已就位，下次 saveAdditional 只写
+		// 新键 → 存档自然迁移为 buildmart_*。
+		economyTagged = input.getBooleanOr("buildmart_spawner", false)
+				|| input.getBooleanOr("economy_spawner", false);
+		economyLevel = Math.max(0, Math.max(input.getIntOr("buildmart_level", 0),
+				input.getIntOr("economy_level", 0)));
+		economyOverrideMinDelay = Math.max(input.getIntOr("buildmart_override_min_delay", -1),
+				input.getIntOr("economy_override_min_delay", -1));
+		economyOverrideMaxDelay = Math.max(input.getIntOr("buildmart_override_max_delay", -1),
+				input.getIntOr("economy_override_max_delay", -1));
+		economyOverrideCount = Math.max(input.getIntOr("buildmart_override_count", -1),
+				input.getIntOr("economy_override_count", -1));
+		economyOverrideNearby = Math.max(input.getIntOr("buildmart_override_nearby", -1),
+				input.getIntOr("economy_override_nearby", -1));
+		economyOverridePlayerRange = Math.max(input.getIntOr("buildmart_override_player_range", -1),
+				input.getIntOr("economy_override_player_range", -1));
+		economyOverrideSpawnRange = Math.max(input.getIntOr("buildmart_override_spawn_range", -1),
+				input.getIntOr("economy_override_spawn_range", -1));
+		economyAutoConvert = input.getBooleanOr("buildmart_auto_convert", false)
+				|| input.getBooleanOr("economy_auto_convert", false);
+		economyLooting = Math.max(0, Math.min(3, Math.max(input.getIntOr("buildmart_looting", 0),
+				input.getIntOr("economy_looting", 0))));
+		economyAutoSell = input.getBooleanOr("buildmart_auto_sell", false)
+				|| input.getBooleanOr("economy_auto_sell", false);
+		economySellTimer = Math.max(input.getIntOr("buildmart_sell_timer", -1),
+				input.getIntOr("economy_sell_timer", -1));
+		economyHopper = input.getBooleanOr("buildmart_hopper", false)
+				|| input.getBooleanOr("economy_hopper", false);
+		List<String> bmWhitelist = input.read("buildmart_hopper_whitelist",
+				net.minecraft.util.ExtraCodecs.NON_EMPTY_STRING.listOf()).orElse(List.of());
+		economyHopperWhitelist = new ArrayList<>(bmWhitelist.isEmpty()
+				? input.read("economy_hopper_whitelist",
+						net.minecraft.util.ExtraCodecs.NON_EMPTY_STRING.listOf()).orElse(List.of())
+				: bmWhitelist);
+		List<ItemStack> bmDrops = input.read("buildmart_drops", ItemStack.OPTIONAL_CODEC.listOf())
+				.orElse(List.of());
+		economyDrops = new ArrayList<>(bmDrops.isEmpty()
+				? input.read("economy_drops", ItemStack.OPTIONAL_CODEC.listOf()).orElse(List.of())
+				: bmDrops);
+		economyConverted = Math.max(input.getIntOr("buildmart_converted", 0),
+				input.getIntOr("economy_converted", 0));
+		economyOwnerUuid = input.read("buildmart_owner_uuid", UUIDUtil.CODEC)
+				.orElse(input.read("economy_owner_uuid", UUIDUtil.CODEC).orElse(null));
+		economyOwnerName = input.read("buildmart_owner_name", ExtraCodecs.NON_EMPTY_STRING)
+				.orElse(input.read("economy_owner_name", ExtraCodecs.NON_EMPTY_STRING).orElse(null));
+		economyPayeeUuid = input.read("buildmart_payee_uuid", UUIDUtil.CODEC)
+				.orElse(input.read("economy_payee_uuid", UUIDUtil.CODEC).orElse(null));
+		economyPayeeName = input.read("buildmart_payee_name", ExtraCodecs.NON_EMPTY_STRING)
+				.orElse(input.read("economy_payee_name", ExtraCodecs.NON_EMPTY_STRING).orElse(null));
+		economyDisplayUuid = input.read("buildmart_display_uuid", UUIDUtil.CODEC)
+				.orElse(input.read("economy_display_uuid", UUIDUtil.CODEC).orElse(null));
 	}
 
 	@Inject(method = "saveAdditional", at = @At("RETURN"))

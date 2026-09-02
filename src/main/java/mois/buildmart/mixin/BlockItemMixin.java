@@ -34,7 +34,8 @@ public abstract class BlockItemMixin {
 	private static boolean buildmart$allowTaggedSpawnerPlacement(Player player, Level level,
 			Player placingPlayer, BlockPos pos, ItemStack stack) {
 		TypedEntityData<?> data = stack.get(DataComponents.BLOCK_ENTITY_DATA);
-		if (data != null && data.contains("buildmart_spawner")) {
+		// 新旧键兼容：buildmart_spawner（改名后）/ economy_spawner（Economy 时代物品）
+		if (data != null && (data.contains("buildmart_spawner") || data.contains("economy_spawner"))) {
 			// 记录创建人（首次放置时；自动出售悬浮与收款人默认值用）
 			if (placingPlayer != null
 					&& level.getBlockEntity(pos) instanceof net.minecraft.world.level.block.entity.SpawnerBlockEntity spawner
