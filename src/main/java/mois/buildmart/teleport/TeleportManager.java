@@ -9,7 +9,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
-import mois.buildmart.Economy;
+import mois.buildmart.BuildMart;
 import mois.buildmart.Money;
 import mois.buildmart.config.EconomyConfig;
 import mois.buildmart.data.EconomyDb;
@@ -171,7 +171,7 @@ public final class TeleportManager {
 					player.level().dimension().identifier().toString(),
 					pos.x(), pos.y(), pos.z());
 		} catch (EconomyDb.DatabaseException e) {
-			Economy.LOGGER.error("记录死亡点失败", e);
+			BuildMart.LOGGER.error("记录死亡点失败", e);
 		}
 	}
 
@@ -204,7 +204,7 @@ public final class TeleportManager {
 			try {
 				balance = EconomyDb.getBalance(payerUuid);
 			} catch (EconomyDb.DatabaseException e) {
-				Economy.LOGGER.error("传送扣费读取余额失败", e);
+				BuildMart.LOGGER.error("传送扣费读取余额失败", e);
 				return new TpOutcome(false, "数据库错误，请稍后再试", 0);
 			}
 			if (balance < cost) {
@@ -216,7 +216,7 @@ public final class TeleportManager {
 					return new TpOutcome(false, "你的资金不足（传送费用 " + Money.format(cost) + " 元）", 0);
 				}
 			} catch (EconomyDb.DatabaseException e) {
-				Economy.LOGGER.error("传送扣费失败", e);
+				BuildMart.LOGGER.error("传送扣费失败", e);
 				return new TpOutcome(false, "数据库错误，请稍后再试", 0);
 			}
 			// 资金流水；记录失败静默

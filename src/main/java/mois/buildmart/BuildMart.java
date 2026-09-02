@@ -35,7 +35,7 @@ import java.nio.file.Path;
  * 资金数据库文件仍为 world/economy.db、配置目录仍为 config/economy/、
  * 数据库表名仍为 economy_accounts / economy_transactions。
  */
-public class Economy implements ModInitializer {
+public class BuildMart implements ModInitializer {
 	public static final String MOD_ID = "buildmart";
 
 	// This logger is used to write text to the console and the log file.

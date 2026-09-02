@@ -17,9 +17,9 @@
   - `exit(ServerPlayer)` — **先结算**（`session.settleAndClear`：暂存剩余统一按卖出退款，
     pendingDrop 作废）再还原 instabuild 并 `onUpdateAbilities()`。
   - `onServerTick(MinecraftServer)` — 结算挂起超过宽限期的 pendingDrop（面板 ctrl+q 购买），
-    由 `Economy.java` 的 END_SERVER_TICK 注册。
+    由 `BuildMart.java` 的 END_SERVER_TICK 注册。
 - 退出时机（外部触发）：`ServerPlayerMixin` 的 `doCloseContainer`（关界面）与
-  `Economy.java` 的 DISCONNECT（下线）——两条路径都走 `exit`，结算时机天然统一。
+  `BuildMart.java` 的 DISCONNECT（下线）——两条路径都走 `exit`，结算时机天然统一。
 - 内存状态：服务器重启清空；玩家下线时退出（`BuyModeManager.exit` 幂等）。
 
 ## `BuyModeSession.java` — 会话追踪状态与结算（判定模型核心）

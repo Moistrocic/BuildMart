@@ -223,6 +223,6 @@ public final class PriceLore {
 		if (after == null || after.lines().size() != 1 || !after.lines().get(0).getString().equals("自定义")) {
 			throw new IllegalStateException("价格标签清除失败");
 		}
-		Economy.LOGGER.info("价格lore自检通过");
+		BuildMart.LOGGER.info("价格lore自检通过");
 	}
 }

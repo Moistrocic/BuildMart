@@ -1,6 +1,6 @@
 package mois.buildmart.spawner;
 
-import mois.buildmart.Economy;
+import mois.buildmart.BuildMart;
 import mois.buildmart.config.EconomyConfig;
 import mois.buildmart.config.ItemValues;
 import mois.buildmart.config.SpawnerConfig;
@@ -631,12 +631,12 @@ public final class SpawnerManager {
 				EconomyDb.recordMoneyLog(payeeUuid, payeeName, EconomyDb.TYPE_SELL, EconomyDb.CHANNEL_SPAWNER,
 						"刷怪笼自动出售 " + count + " 件（" + spawner.getBlockPos().toShortString() + "）", total);
 				if (mois.buildmart.config.EconomyConfig.shopSellLog()) {
-					Economy.LOGGER.info("刷怪笼自动出售结算：{} {} → {}（{} 元）",
+					BuildMart.LOGGER.info("刷怪笼自动出售结算：{} {} → {}（{} 元）",
 							level.dimension().identifier(), spawner.getBlockPos().toShortString(),
 							payeeName, mois.buildmart.Money.format(total));
 				}
 			} catch (EconomyDb.DatabaseException e) {
-				Economy.LOGGER.warn("刷怪笼自动出售入账失败", e);
+				BuildMart.LOGGER.warn("刷怪笼自动出售入账失败", e);
 				// 入账失败：掉落物不丢失，转存方块
 				for (ItemStack drop : stored) {
 					if (!drop.isEmpty() && ItemValues.price(drop) >= 0) {

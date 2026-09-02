@@ -1,6 +1,6 @@
 package mois.buildmart.client;
 
-import mois.buildmart.Economy;
+import mois.buildmart.BuildMart;
 import mois.buildmart.fastbuy.FastbuyRequestPayload;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.Minecraft;
@@ -67,11 +67,11 @@ public final class FastbuyClient {
 			Method register = handlerClass.getMethod("registerSchematicPickBlockEventListener", listenerIface);
 			register.invoke(handler, proxy);
 			registered = true;
-			Economy.LOGGER.info("已接入 litematica 拾取事件（快速投影购买客户端模块）");
+			BuildMart.LOGGER.info("已接入 litematica 拾取事件（快速投影购买客户端模块）");
 		} catch (ClassNotFoundException e) {
 			// litematica 未安装：静默跳过（可选模块）
 		} catch (Exception e) {
-			Economy.LOGGER.warn("接入 litematica 拾取事件失败（快速购买不可用）", e);
+			BuildMart.LOGGER.warn("接入 litematica 拾取事件失败（快速购买不可用）", e);
 		}
 	}
 

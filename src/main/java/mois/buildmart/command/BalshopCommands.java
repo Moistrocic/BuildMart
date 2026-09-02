@@ -5,7 +5,7 @@ import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
-import mois.buildmart.Economy;
+import mois.buildmart.BuildMart;
 import mois.buildmart.Money;
 import mois.buildmart.buymode.BuyModeManager;
 import mois.buildmart.config.ItemValues;
@@ -204,7 +204,7 @@ public final class BalshopCommands {
 				return "你的资金不足";
 			}
 		} catch (EconomyDb.DatabaseException e) {
-			Economy.LOGGER.error("purchase 数据库错误", e);
+			BuildMart.LOGGER.error("purchase 数据库错误", e);
 			return "数据库错误，请稍后再试";
 		}
 		try {
@@ -270,7 +270,7 @@ public final class BalshopCommands {
 				throw PAYER_INSUFFICIENT.create();
 			}
 		} catch (EconomyDb.DatabaseException e) {
-			Economy.LOGGER.error("balshop buypack 数据库错误", e);
+			BuildMart.LOGGER.error("balshop buypack 数据库错误", e);
 			throw DB_ERROR.create();
 		}
 		// 构建盒子：27 格 × 满堆（带组件）
@@ -388,7 +388,7 @@ public final class BalshopCommands {
 		try {
 			return EconomyDb.getBalance(uuid);
 		} catch (EconomyDb.DatabaseException e) {
-			Economy.LOGGER.error("读取余额失败", e);
+			BuildMart.LOGGER.error("读取余额失败", e);
 			throw DB_ERROR.create();
 		}
 	}

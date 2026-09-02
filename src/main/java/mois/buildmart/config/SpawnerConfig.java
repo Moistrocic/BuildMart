@@ -6,7 +6,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import mois.buildmart.Economy;
+import mois.buildmart.BuildMart;
 import mois.buildmart.Money;
 
 import java.io.IOException;
@@ -115,9 +115,9 @@ public final class SpawnerConfig {
 				LEVELS.clear();
 				LEVELS.addAll(parsed);
 			}
-			Economy.LOGGER.info("刷怪笼配置已加载：{}（{} 级）", file, LEVELS.size());
+			BuildMart.LOGGER.info("刷怪笼配置已加载：{}（{} 级）", file, LEVELS.size());
 		} catch (Exception e) {
-			Economy.LOGGER.warn("刷怪笼配置加载失败，使用内置默认表", e);
+			BuildMart.LOGGER.warn("刷怪笼配置加载失败，使用内置默认表", e);
 			loadDefault();
 		}
 	}

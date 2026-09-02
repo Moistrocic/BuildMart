@@ -64,7 +64,7 @@
      不匹配 → 挂起 `session.pendingDrop`，由下一个槽位包用「槽位原内容」判定
      （匹配 = 背包 ctrl+q 直接丢 → 卖出；不匹配 = 面板 ctrl+q → **购买** + 生成实体）；
      **挂起 ≥2 tick 仍无槽位包认领（面板 ctrl+q 无后续包）→ 服务端 tick 直接结算为购买**
-     （`Economy.java` END_SERVER_TICK → `BuyModeManager.onServerTick` →
+     （`BuildMart.java` END_SERVER_TICK → `BuyModeManager.onServerTick` →
      `BuyModeSettlement.settlePendingDrop`，避免滞后一拍）；
      不可交易物品丢弃 → 作废。挂起的旧 pendingDrop 被新丢弃包触发时按面板购买结算。
    - `slotNum > 45` 放行（原版同样忽略）。
@@ -213,7 +213,7 @@
   `AbstractContainerMenuMixin`（快捷移动合并前兜底）、`ServerPlayerMixin`（开关容器）、
   `LivingEntityMixin`（掉落清除）、`ServerGamePacketListenerImplMixin`（创造/buymode 补发）。
 - buymode：`ServerGamePacketListenerImplMixin` + `ServerPlayerMixin.doCloseContainer` +
-  `Economy.java` DISCONNECT → `BuyModeManager`；结算工具在 `BuyModeSettlement`。
+  `BuildMart.java` DISCONNECT → `BuyModeManager`；结算工具在 `BuyModeSettlement`。
 - 红包：`ServerGamePacketListenerImplMixin.economy$hongbaoChat`（聊天领取）→ `HongbaoCommands`。
 - 钓鱼：`FishingHookMixin` → `FishingManager` / `EconomyConfig.funFishing`。
 - 刷怪笼：`BaseSpawnerMixin`（参数重算）+ `SpawnerBlockMixin`（掉落回收）+

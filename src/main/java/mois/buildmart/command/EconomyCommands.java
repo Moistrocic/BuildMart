@@ -6,7 +6,7 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
-import mois.buildmart.Economy;
+import mois.buildmart.BuildMart;
 import mois.buildmart.Money;
 import mois.buildmart.data.EconomyDb;
 import net.minecraft.ChatFormatting;
@@ -357,7 +357,7 @@ public final class EconomyCommands {
 						EconomyDb.TYPE_ADMIN_ADD, EconomyDb.CHANNEL_ECO, "管理员加钱", amount);
 			}
 		} catch (EconomyDb.DatabaseException e) {
-			Economy.LOGGER.error("eco add 数据库错误", e);
+			BuildMart.LOGGER.error("eco add 数据库错误", e);
 			throw DB_ERROR.create();
 		}
 		MutableComponent summary;
@@ -393,7 +393,7 @@ public final class EconomyCommands {
 		try {
 			ok = EconomyDb.deductMany(uuids, amount);
 		} catch (EconomyDb.DatabaseException e) {
-			Economy.LOGGER.error("eco remove 数据库错误", e);
+			BuildMart.LOGGER.error("eco remove 数据库错误", e);
 			throw DB_ERROR.create();
 		}
 		if (!ok) {
@@ -431,7 +431,7 @@ public final class EconomyCommands {
 						EconomyDb.TYPE_ADMIN_SET, EconomyDb.CHANNEL_ECO, "管理员设置余额", amount - oldBalance);
 			}
 		} catch (EconomyDb.DatabaseException e) {
-			Economy.LOGGER.error("eco set 数据库错误", e);
+			BuildMart.LOGGER.error("eco set 数据库错误", e);
 			throw DB_ERROR.create();
 		}
 		MutableComponent summary;
@@ -465,7 +465,7 @@ public final class EconomyCommands {
 		try {
 			EconomyDb.setAnnouncement(content);
 		} catch (EconomyDb.DatabaseException e) {
-			Economy.LOGGER.error("announcement 数据库错误", e);
+			BuildMart.LOGGER.error("announcement 数据库错误", e);
 			throw DB_ERROR.create();
 		}
 		ctx.getSource().sendSuccess(() -> text("公告已设置", ChatFormatting.GREEN), false);
@@ -476,7 +476,7 @@ public final class EconomyCommands {
 		try {
 			EconomyDb.setAnnouncement(null);
 		} catch (EconomyDb.DatabaseException e) {
-			Economy.LOGGER.error("announcement 数据库错误", e);
+			BuildMart.LOGGER.error("announcement 数据库错误", e);
 			throw DB_ERROR.create();
 		}
 		ctx.getSource().sendSuccess(() -> text("公告已清除", ChatFormatting.GREEN), false);
@@ -506,7 +506,7 @@ public final class EconomyCommands {
 		try {
 			return EconomyDb.getBalance(uuid);
 		} catch (EconomyDb.DatabaseException e) {
-			Economy.LOGGER.error("读取余额失败", e);
+			BuildMart.LOGGER.error("读取余额失败", e);
 			throw DB_ERROR.create();
 		}
 	}
@@ -515,7 +515,7 @@ public final class EconomyCommands {
 		try {
 			return EconomyDb.accountCount();
 		} catch (EconomyDb.DatabaseException e) {
-			Economy.LOGGER.error("查询账户总数失败", e);
+			BuildMart.LOGGER.error("查询账户总数失败", e);
 			throw DB_ERROR.create();
 		}
 	}
@@ -524,7 +524,7 @@ public final class EconomyCommands {
 		try {
 			return EconomyDb.topAccounts(PAGE_SIZE, (page - 1) * PAGE_SIZE);
 		} catch (EconomyDb.DatabaseException e) {
-			Economy.LOGGER.error("查询排行榜失败", e);
+			BuildMart.LOGGER.error("查询排行榜失败", e);
 			throw DB_ERROR.create();
 		}
 	}
@@ -533,7 +533,7 @@ public final class EconomyCommands {
 		try {
 			return EconomyDb.totalPlayerAssets();
 		} catch (EconomyDb.DatabaseException e) {
-			Economy.LOGGER.error("查询总资产失败", e);
+			BuildMart.LOGGER.error("查询总资产失败", e);
 			throw DB_ERROR.create();
 		}
 	}
@@ -543,7 +543,7 @@ public final class EconomyCommands {
 		try {
 			return EconomyDb.transfer(from, to, toName, amount);
 		} catch (EconomyDb.DatabaseException e) {
-			Economy.LOGGER.error(op + " 数据库错误", e);
+			BuildMart.LOGGER.error(op + " 数据库错误", e);
 			throw DB_ERROR.create();
 		}
 	}
@@ -553,7 +553,7 @@ public final class EconomyCommands {
 		try {
 			return EconomyDb.transferMany(from, targets, names, amount);
 		} catch (EconomyDb.DatabaseException e) {
-			Economy.LOGGER.error("pay 数据库错误", e);
+			BuildMart.LOGGER.error("pay 数据库错误", e);
 			throw DB_ERROR.create();
 		}
 	}
