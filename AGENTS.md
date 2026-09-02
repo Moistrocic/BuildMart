@@ -67,7 +67,9 @@
 ### 4.3 确认与清理
 
 - 判定成功后，通过 `Get-Process -Name java,javaw` 检查窗口标题（`Minecraft*`）确认窗口已创建。
-- 验证完成后立即终止启动任务（job_kill），并确认无残留 java 进程。
+- **进程隔离（用户明确要求，永久有效）**：启动 runServer/runClient 时必须**记录本次启动的 java 进程 PID**（启动前记录已有 java 进程清单作基线，启动后通过命令行特征（fabric.dli.config = 游戏进程；gradlew/gradle 包装进程）与新 PID 确认归属），并保持该 PID 记录直到本次验证结束。
+- 验证完成后**只终止本次记录归属的服务器/客户端进程**（按 PID `Stop-Process`），**禁止**无差别 `Get-Process java | Stop-Process` 批量杀进程——gradle daemon、用户自己启动的其他 java 进程不能被误杀；确认进程归属后再清理。
+- 后台 job 结束后核对：若 job 已退出但游戏进程仍存活（残留），按 PID 单独清理并报告。
 
 ### 4.4 正常现象，不算启动失败
 
