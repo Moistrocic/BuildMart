@@ -1,4 +1,4 @@
-# 根包 `mois.economy`
+# 根包 `mois.buildmart`
 
 ## `Economy.java` — 模组入口与全局生命周期
 
@@ -21,8 +21,8 @@
   - `ServerPlayConnectionEvents.DISCONNECT`：`PriceLore.untagPlayerAndMenu`、`FlyManager.onDisconnect`
     （收回能力但不退出模式）、`BuyModeManager.exit`。
   - `CommandRegistrationCallback`：`EconomyCommands.register`，日志“命令注册完成
-    （bal/pay/baltop/balhelp/announcement/eco/shop/price/buy/bm/fly/home/sethome/delhome/listhome/tpa/tpahere/tpaccept/back/suicide/hongbao/config）”。
-- 末尾打印启动标记 `Economy Mod Loaded!`。
+    （bal/pay/baltop/bmhelp/announcement/eco/shop/price/buy/bm/fly/home/sethome/delhome/listhome/tpa/tpahere/tpaccept/back/suicide/hongbao/config）”。
+- 末尾打印启动标记 `BuildMart Loaded!`。
 - `id(String path)` → `Identifier.fromNamespaceAndPath("economy", path)`（当前未被使用，预留）。
 
 ## `Money.java` — 金额工具（分 ↔ 元字符串）

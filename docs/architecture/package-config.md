@@ -1,4 +1,4 @@
-# `mois.economy.config` 包 — 配置与定价
+# `mois.buildmart.config` 包 — 配置与定价
 
 配置文件目录：`config/economy/`（`FabricLoader.getConfigDir()` 下），首次运行自动生成。
 

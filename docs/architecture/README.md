@@ -1,4 +1,4 @@
-# Economy 模组架构说明（供新会话快速上手）
+# BuildMart 模组架构说明（供新会话快速上手）
 
 本目录是项目的**代码地图**：按包组织，逐文件说明职责、公开 API、行为细节与易踩的坑。
 新会话接续开发时先读本 README，再按需查阅对应包文档，无需重读全部源码。
@@ -7,7 +7,7 @@
 
 - [README.md](README.md) — 项目总览、构建信息、全局约定（本文）
 - [package-root.md](package-root.md) — 根包：`Economy`（入口）、`Money`（金额工具）、`PriceLore`（价格标签）
-- [package-command.md](package-command.md) — `command` 包：全部指令（bal/pay/baltop/balhelp/eco/shop/price/buy/bm/fly/home/sethome/tpa/tpahere/tpaccept/back/suicide/hongbao/config/balop）
+- [package-command.md](package-command.md) — `command` 包：全部指令（bal/pay/baltop/bmhelp/eco/shop/price/buy/bm/fly/home/sethome/tpa/tpahere/tpaccept/back/suicide/hongbao/config/balop）
 - [package-config.md](package-config.md) — `config` 包：主配置 / 物品价 / 附魔价 JSON + 初始定价表
 - [package-data.md](package-data.md) — `data` 包：SQLite 资金数据库
 - [package-balop.md](package-balop.md) — `balop` 包：/balop 数据库管理前端（HTTP 面板 + REST API）
@@ -18,7 +18,7 @@
 - [package-spawner.md](package-spawner.md) — `spawner` 包：刷怪笼玩法（钓鱼获取/蛋绑定/升级/回收）
 - [package-teleport.md](package-teleport.md) — `teleport` 包：/home /sethome /tpa /tpahere /tpaccept /back
 - [package-mixin.md](package-mixin.md) — 全部 14 个 Mixin（注入点、原因、注意事项）
-- [package-misc.md](package-misc.md) — util/AdminUtil、client 源集、资源文件（fabric.mod.json、economy.mixins.json）
+- [package-misc.md](package-misc.md) — util/AdminUtil、client 源集、资源文件（fabric.mod.json、buildmart.mixins.json）
 
 ## 项目总览
 
@@ -33,9 +33,9 @@
 - **依赖打包**：sqlite-jdbc 以 `include(...)` 打入 jar（排除其 slf4j-api，Minecraft 自带 slf4j）。
 - **SourceSet**：`splitEnvironmentSourceSets()` —— `src/main` 两端共用（**所有服务端逻辑必须放这里**，
   保证单人游戏内置服务器也加载，见规则书 3.3）；`src/client` 仅客户端（目前只有空的 `EconomyClient`）。
-- **入口**：`fabric.mod.json` → main `mois.economy.Economy`，client `mois.economy.client.EconomyClient`；
-  mixin 配置 `economy.mixins.json`（12 个 mixin，`defaultRequire: 1`，包 `mois.economy.mixin`）。
-- **启动标记**：`Economy Mod Loaded!`（Economy.onInitialize 末尾打印；规则书 AGENTS.md 4.2 以此为准）。
+- **入口**：`fabric.mod.json` → main `mois.buildmart.Economy`，client `mois.buildmart.client.EconomyClient`；
+  mixin 配置 `buildmart.mixins.json`（12 个 mixin，`defaultRequire: 1`，包 `mois.buildmart.mixin`）。
+- **启动标记**：`BuildMart Loaded!`（Economy.onInitialize 末尾打印；规则书 AGENTS.md 4.2 以此为准）。
 
 ## 全局约定（改动代码前必读）
 
@@ -71,7 +71,7 @@
 10. **指令注册中枢**：`EconomyCommands.register`（由 `Economy.onInitialize` 的
     `CommandRegistrationCallback` 调用），内部再委托 `BalshopCommands`、`FlyCommands`、
     `TeleportCommands`、`HongbaoCommands`、`ConfigCommands`；新增指令要同步更新
-    `Economy.java` 的“命令注册完成”日志与 `/balhelp` 的 `HELP_LINES`（/config 除外）。
+    `Economy.java` 的“命令注册完成”日志与 `/bmhelp` 的 `HELP_LINES`（/config 除外）。
 11. **验证规范（规则书 4）**：启动验证用“后台启动 + 日志监视”，成功标记 = 模组初始化标记；
     run 开发服 `server.properties` 须 `online-mode=false`、`white-list=false`、`enforce-secure-profile=false`。
 12. **buymode 安全性**：购买判定 = 「背包消失物品暂存追踪（`BuyModeSession`）+ 出现不匹配

@@ -1,4 +1,4 @@
-# `mois.economy.data` 包 — SQLite 资金数据库
+# `mois.buildmart.data` 包 — SQLite 资金数据库
 
 ## `EconomyDb.java`
 

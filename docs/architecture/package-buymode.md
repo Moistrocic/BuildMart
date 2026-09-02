@@ -1,4 +1,4 @@
-# `mois.economy.buymode` 包 — /bm 便捷购买
+# `mois.buildmart.buymode` 包 — /bm 便捷购买
 
 ## `BuyModeManager.java` — 便捷购买会话管理（内存状态）
 

@@ -1,4 +1,4 @@
-# `mois.economy.teleport` 包 — 传送系统
+# `mois.buildmart.teleport` 包 — 传送系统
 
 ## `TeleportManager.java` — 传送核心（费用/冷却/tpa 请求/执行）
 

@@ -1,4 +1,4 @@
-# `mois.economy.balop` 包 — 数据库管理前端（/balop，多会话验证）
+# `mois.buildmart.balop` 包 — 数据库管理前端（/balop，多会话验证）
 
 ## `BalopServer.java` — 本机 HTTP 管理服务器（多会话）
 

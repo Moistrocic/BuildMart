@@ -1,4 +1,4 @@
-# `mois.economy.spawner` 包 — 刷怪笼玩法（仅限带标签刷怪笼）
+# `mois.buildmart.spawner` 包 — 刷怪笼玩法（仅限带标签刷怪笼）
 
 ## 玩法闭环
 

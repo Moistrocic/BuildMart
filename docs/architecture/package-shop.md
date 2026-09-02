@@ -1,4 +1,4 @@
-# `mois.economy.shop` 包 — 箱子商店
+# `mois.buildmart.shop` 包 — 箱子商店
 
 ## `Shop.java` — 商店实体（内存对象）
 
