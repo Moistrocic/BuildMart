@@ -39,7 +39,7 @@
   ServerPlayerGameModeMixin、FishingHookMixin、ExplosionDamageCalculatorMixin、
   ServerExplosionMixin、LevelMixin。
 
-### `assets/economy/icon.png`
+### `assets/buildmart/icon.png`
 
 - 模组图标（fabric.mod.json 引用）。
 

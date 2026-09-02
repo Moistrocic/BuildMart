@@ -18,7 +18,7 @@
   （`"chance": "remaining"`）自动补足剩余概率；无补全项且总和 < 1 时剩余概率 = 钓不到东西。
 - ⚠️ `ItemStack.CODEC` 拒绝解析 `minecraft:air`（"Item must not be minecraft:air"）——
   空气补全项特殊处理为 `ItemStack.EMPTY`（不走 CODEC）。
-- `load(Path configDir, RegistryAccess)` — SERVER_STARTED 时由 `Economy` 调用
+- `load(Path configDir, RegistryAccess)` — SERVER_STARTED 时由 `BuildMart` 调用
   （需已就绪的 RegistryAccess 解析物品组件）；解析/校验失败 → 清空并回退原版。
 - `roll(RandomSource)` — 加权随机；返回 null = 配置未加载（回退原版），
   `ItemStack.EMPTY` = 未命中（正常收竿无掉落）。

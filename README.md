@@ -1,13 +1,18 @@
 # BuildMart（建筑党的生存市场整合）
 
-基于 Fabric 的**服务端经济系统**模组（Minecraft `26.3-snapshot-9`，mojmap），提供资金账户、物品定价、箱子商店、付费飞行、传送系统、便捷购买、红包、趣味钓鱼、局内热重载配置与**数据库管理前端**等玩法功能。
+为**不想玩生电（红石自动化）但喜欢建筑**的玩家打造的 Fabric 生存整合模组
+（Minecraft `26.3-snapshot-9`，mojmap）：用**经济系统替代红石**解决资源与自动化问题——
+资金账户、箱子商店、一键购买、刷怪笼生产（直接转化/自动出售/漏斗进箱）、付费飞行、
+传送、红包、趣味钓鱼、局内热重载配置与数据库管理前端等。
 
 ## 功能一览
 
-- **资金系统**：`/bal`、`/pay`、`/baltop`（含服务器总资产）、`/eco`（管理员注入/回收）；SQLite 存储（`world/economy.db`）。
+- **资金系统**：`/bal`、`/pay`、`/baltop`（含服务器总资产）、`/eco`（管理员注入/回收）；SQLite 存储（沿用旧数据文件名 `world/economy.db`，兼容既有存档）。
 - **资金流水**：**一切资金变化**（买卖、转账、管理操作、系统扣费、红包）自动记录到数据库，买卖含物品完整 NBT/组件数据（`item_data`）；管理面板可查询/筛选/删除（删除 BUY/SELL 交易自动回滚资金）。
 - **物品定价**：原版物品初始定价表 + 26.3 数据驱动物品按配方推导；附魔/耐久/容器内容物完整计价；价格以**真实 lore** 展示（纯净客户端可见）。
 - **箱子商店**：`/shop create|remove|setpayee` + `/price`、`/buy`；商店免疫爆炸/外部破坏；每格出售写入流水。
+- **一键购买**：`/buy 物品 数量`（可超过单堆上限，自动拆分入包/溢出掉落）；`/buypack 物品 盒数`（整盒购买：潜影盒 + 27 满堆）。
+- **刷怪笼生产**：钓鱼/管理员获得带标签刷怪笼——刷怪蛋绑定、升级（等级驱动参数）、**直接转化**（不生成生物，按击杀掉落表产出并存储）、**抢夺**（等级解锁）、**自动出售**（60 秒周期批量卖出 + 金色悬浮）、**漏斗**（白名单物品自动送入相邻箱子）——不玩红石也能拥有自动化生产。
 - **付费飞行**：`/fly`（每秒扣费、余额不足自动关闭、低余额提醒、下线保留模式）。
 - **传送系统**：`/home`、`/sethome`、`/delhome`、`/listhome`、`/tpa`、`/tpahere`、`/tpaccept`、`/back`（费用/冷却/开关可配置）。
 - **便捷购买**：`/bm` 用原版创造界面购买——购买方向严格比对原版创造物品栏（改造物品一律不可购买）；拿起暂存、放回中性、丢弃/关界面卖出；数字键 1-9 槽间交换正确识别（不误扣款/不复制物品）。
@@ -27,13 +32,13 @@
 
 ## 构建
 
-- 需要 **JDK 25**；运行 `gradlew build`，产物为 `build/libs/economy-26.3-fabric-7.0.jar`（命名：`economy-游戏版本-fabric-mod版本.jar`）。
+- 需要 **JDK 25**；运行 `gradlew build`，产物为 `build/libs/buildmart-26.3-snapshot-9-fabric-7.0.jar`（命名：`buildmart-游戏版本-fabric-mod版本.jar`）。
 - 依赖：Fabric Loader `0.19.3+`、Fabric API `0.158.0+26.3`；SQLite JDBC 已内置打包进 jar。
 
 ## 配置与数据
 
-- 配置目录 `config/economy/`：`config.json`（主配置，`/config` 热重载；含 `balop` 段：管理前端 host/port）、`items.json`（物品价）、`enchantments.json`（附魔价）、`fishing.json`（钓鱼战利品）。
-- 数据：`world/economy.db`（SQLite：账户/交易流水/家/死亡点；旧库自动迁移）、`world/economy-shops.json`（商店）。
+- 配置目录沿用旧名 `config/economy/`（兼容既有配置）：`config.json`（主配置，`/config` 热重载；含 `balop` 段：管理前端 host/port）、`items.json`（物品价）、`enchantments.json`（附魔价）、`fishing.json`（钓鱼战利品）、`spawner.json`（刷怪笼分级）。
+- 数据：`world/economy.db`（沿用旧文件名，兼容既有资金存档；SQLite：账户/交易流水/家/死亡点；旧库自动迁移）、`world/economy-shops.json`（商店）。
 - **客户端无需安装本模组**即可进入服务器（所有基础功能均由服务端下发，纯净端兼容）；
   客户端安装本模组为**可选增强**（快速投影购买等，见「安装说明」）。
 
