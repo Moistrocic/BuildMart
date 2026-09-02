@@ -2,7 +2,7 @@ package mois.buildmart.client;
 
 import net.fabricmc.api.ClientModInitializer;
 
-public class EconomyClient implements ClientModInitializer {
+public class BuildMartClient implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
 		// 客户端增强（可选）：快速投影购买——反射接入 litematica 拾取事件；

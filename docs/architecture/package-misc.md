@@ -9,7 +9,7 @@
 
 ## client 源集（`src/client`）
 
-- `mois.buildmart.client.EconomyClient`：`ClientModInitializer`，仅调用 `FastbuyClient.init()`。
+- `mois.buildmart.client.BuildMartClient`：`ClientModInitializer`，仅调用 `FastbuyClient.init()`。
 - `mois.buildmart.client.FastbuyClient`：**快速投影购买客户端模块（可选增强）**——
   通过**反射**接入 litematica 的 `SchematicPickBlockEventHandler`（动态代理实现
   `ISchematicPickBlockEventListener`），在 `onSchematicPickBlockPrePick` 检查
@@ -25,7 +25,7 @@
 ### `src/main/resources/fabric.mod.json`
 
 - id `economy`，name `Economy`，license `CC0-1.0`，`environment: "*"`（双端）。
-- entrypoints：main `mois.buildmart.Economy`；client `mois.buildmart.client.EconomyClient`。
+- entrypoints：main `mois.buildmart.BuildMart`；client `mois.buildmart.client.BuildMartClient`。
 - mixins：`buildmart.mixins.json`。
 - depends：fabricloader ≥0.19.3、minecraft `~26.3-`、java ≥25、fabric-api `*`。
 - `version` 由 `processResources` 从 `gradle.properties` 展开（`${version}`）。

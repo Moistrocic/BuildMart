@@ -6,7 +6,7 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
-import mois.buildmart.Economy;
+import mois.buildmart.BuildMart;
 import mois.buildmart.config.EconomyConfig;
 import mois.buildmart.data.EconomyDb;
 import mois.buildmart.teleport.TeleportManager;
@@ -89,7 +89,7 @@ public final class TeleportCommands {
 		try {
 			homes = EconomyDb.getHomes(player.getUUID());
 		} catch (EconomyDb.DatabaseException e) {
-			Economy.LOGGER.error("查询家列表失败", e);
+			BuildMart.LOGGER.error("查询家列表失败", e);
 			throw DB_ERROR.create();
 		}
 		if (homes.isEmpty()) {
@@ -145,7 +145,7 @@ public final class TeleportCommands {
 			EconomyDb.setHome(uuid, name, player.level().dimension().identifier().toString(),
 					pos.x(), pos.y(), pos.z());
 		} catch (EconomyDb.DatabaseException e) {
-			Economy.LOGGER.error("设置家失败", e);
+			BuildMart.LOGGER.error("设置家失败", e);
 			throw DB_ERROR.create();
 		}
 		source.sendSuccess(() -> text("已设置家 ", ChatFormatting.GREEN).append(name), false);
@@ -163,7 +163,7 @@ public final class TeleportCommands {
 		try {
 			removed = EconomyDb.removeHome(player.getUUID(), name);
 		} catch (EconomyDb.DatabaseException e) {
-			Economy.LOGGER.error("删除家失败", e);
+			BuildMart.LOGGER.error("删除家失败", e);
 			throw DB_ERROR.create();
 		}
 		if (!removed) {
@@ -184,7 +184,7 @@ public final class TeleportCommands {
 		try {
 			homes = EconomyDb.getHomes(player.getUUID());
 		} catch (EconomyDb.DatabaseException e) {
-			Economy.LOGGER.error("查询家列表失败", e);
+			BuildMart.LOGGER.error("查询家列表失败", e);
 			throw DB_ERROR.create();
 		}
 		int pageSize = 10;
@@ -277,7 +277,7 @@ public final class TeleportCommands {
 		try {
 			point = EconomyDb.getBackPoint(player.getUUID());
 		} catch (EconomyDb.DatabaseException e) {
-			Economy.LOGGER.error("查询死亡点失败", e);
+			BuildMart.LOGGER.error("查询死亡点失败", e);
 			throw DB_ERROR.create();
 		}
 		if (point == null) {
@@ -297,7 +297,7 @@ public final class TeleportCommands {
 			try {
 				EconomyDb.clearBackPoint(player.getUUID());
 			} catch (EconomyDb.DatabaseException e) {
-				Economy.LOGGER.error("清除死亡点失败", e);
+				BuildMart.LOGGER.error("清除死亡点失败", e);
 			}
 		}
 		send(source, outcome);

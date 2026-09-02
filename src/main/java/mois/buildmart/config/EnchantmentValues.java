@@ -4,7 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import mois.buildmart.Economy;
+import mois.buildmart.BuildMart;
 import net.minecraft.core.Holder;
 import net.minecraft.world.item.enchantment.Enchantment;
 
@@ -66,10 +66,10 @@ public final class EnchantmentValues {
 				VALUES.clear();
 				VALUES.putAll(parsed);
 			}
-			Economy.LOGGER.info("附魔价值配置已加载：{}（{} 项覆盖；未配置附魔按村民交易：普通 1 级 {} 绿宝石+1 书，宝藏翻倍；每升 1 级价格翻倍）",
+			BuildMart.LOGGER.info("附魔价值配置已加载：{}（{} 项覆盖；未配置附魔按村民交易：普通 1 级 {} 绿宝石+1 书，宝藏翻倍；每升 1 级价格翻倍）",
 					file, VALUES.size(), NORMAL_EMERALDS);
 		} catch (Exception e) {
-			Economy.LOGGER.warn("附魔价值配置加载失败，全部回退为村民交易默认", e);
+			BuildMart.LOGGER.warn("附魔价值配置加载失败，全部回退为村民交易默认", e);
 			synchronized (VALUES) {
 				VALUES.clear();
 			}

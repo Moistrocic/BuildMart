@@ -5,7 +5,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.mojang.serialization.JsonOps;
-import mois.buildmart.Economy;
+import mois.buildmart.BuildMart;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.item.ItemStack;
@@ -53,7 +53,7 @@ public final class FishingManager {
 				Files.createDirectories(file.getParent());
 				if (!Files.exists(file)) {
 					Files.writeString(file, FishingInitialLoot.INITIAL_JSON, StandardCharsets.UTF_8);
-					Economy.LOGGER.info("趣味钓鱼配置不存在，已生成默认配置 {}", file);
+					BuildMart.LOGGER.info("趣味钓鱼配置不存在，已生成默认配置 {}", file);
 				}
 				JsonArray array = JsonParser.parseString(Files.readString(file, StandardCharsets.UTF_8)).getAsJsonArray();
 				com.mojang.serialization.DynamicOps<JsonElement> ops = registryAccess.createSerializationContext(JsonOps.INSTANCE);
@@ -102,9 +102,9 @@ public final class FishingManager {
 					}
 				}
 				loaded = true;
-				Economy.LOGGER.info("趣味钓鱼战利品已加载：{}（{} 项，总概率 {}）", file, ENTRIES.size(), sum);
+				BuildMart.LOGGER.info("趣味钓鱼战利品已加载：{}（{} 项，总概率 {}）", file, ENTRIES.size(), sum);
 			} catch (IOException | RuntimeException e) {
-				Economy.LOGGER.warn("趣味钓鱼配置加载失败，回退原版钓鱼", e);
+				BuildMart.LOGGER.warn("趣味钓鱼配置加载失败，回退原版钓鱼", e);
 				ENTRIES.clear();
 			}
 		}

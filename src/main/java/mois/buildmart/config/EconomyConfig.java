@@ -4,7 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import mois.buildmart.Economy;
+import mois.buildmart.BuildMart;
 import mois.buildmart.Money;
 import mois.buildmart.PriceLore;
 
@@ -613,7 +613,7 @@ public final class EconomyConfig {
 						flyFeeCents = parseCents(flySection.get("feePerSecond").getAsString());
 					}
 				} catch (RuntimeException e) {
-					Economy.LOGGER.warn("fly.feePerSecond 配置无效，使用默认 {} 元/秒", Money.format(DEFAULT_FLY_FEE_CENTS), e);
+					BuildMart.LOGGER.warn("fly.feePerSecond 配置无效，使用默认 {} 元/秒", Money.format(DEFAULT_FLY_FEE_CENTS), e);
 					flyFeeCents = DEFAULT_FLY_FEE_CENTS;
 				}
 				if (flySection.has("digNoSlow")) {
@@ -624,7 +624,7 @@ public final class EconomyConfig {
 				try {
 					flyFeeCents = parseCents(root.get("flyFeePerSecond").getAsString());
 				} catch (RuntimeException e) {
-					Economy.LOGGER.warn("flyFeePerSecond 配置无效，使用默认 {} 元/秒", Money.format(DEFAULT_FLY_FEE_CENTS), e);
+					BuildMart.LOGGER.warn("flyFeePerSecond 配置无效，使用默认 {} 元/秒", Money.format(DEFAULT_FLY_FEE_CENTS), e);
 					flyFeeCents = DEFAULT_FLY_FEE_CENTS;
 				}
 			}
@@ -656,7 +656,7 @@ public final class EconomyConfig {
 						throw new IllegalArgumentException("port 超出范围");
 					}
 				} catch (RuntimeException e) {
-					Economy.LOGGER.warn("balop 配置无效，使用默认 {}:{}", DEFAULT_BALOP_HOST, DEFAULT_BALOP_PORT, e);
+					BuildMart.LOGGER.warn("balop 配置无效，使用默认 {}:{}", DEFAULT_BALOP_HOST, DEFAULT_BALOP_PORT, e);
 					balopHost = DEFAULT_BALOP_HOST;
 					balopPort = DEFAULT_BALOP_PORT;
 				}
@@ -669,12 +669,12 @@ public final class EconomyConfig {
 			homeSettings = readHome(root.getAsJsonObject("home"));
 			tpaSettings = readTpa(root.getAsJsonObject("tpa"));
 			backSettings = readBack(root.getAsJsonObject("back"));
-			Economy.LOGGER.info("主配置已加载：{}（itemPricesInLore={}，flyFeePerSecond={} 元/秒，"
+			BuildMart.LOGGER.info("主配置已加载：{}（itemPricesInLore={}，flyFeePerSecond={} 元/秒，"
 							+ "home.max={}，tpa.enabled={}，back.enabled={}）",
 					file, itemPricesInLore, Money.format(flyFeeCents),
 					homeSettings.max(), tpaSettings.enabled(), backSettings.enabled());
 		} catch (IOException e) {
-			Economy.LOGGER.warn("主配置加载失败，使用默认值", e);
+			BuildMart.LOGGER.warn("主配置加载失败，使用默认值", e);
 		}
 	}
 
@@ -750,7 +750,7 @@ public final class EconomyConfig {
 					section.has("max") ? section.get("max").getAsInt() : DEFAULT_HOME_MAX,
 					readFees(section));
 		} catch (RuntimeException e) {
-			Economy.LOGGER.warn("home 配置无效，使用默认值", e);
+			BuildMart.LOGGER.warn("home 配置无效，使用默认值", e);
 			return new HomeSettings(DEFAULT_HOME_MAX, DEFAULT_FEES);
 		}
 	}
@@ -766,7 +766,7 @@ public final class EconomyConfig {
 					section.has("timeoutSeconds") ? section.get("timeoutSeconds").getAsInt()
 							: DEFAULT_TPA_TIMEOUT_SECONDS);
 		} catch (RuntimeException e) {
-			Economy.LOGGER.warn("tpa 配置无效，使用默认值", e);
+			BuildMart.LOGGER.warn("tpa 配置无效，使用默认值", e);
 			return new TpaSettings(false, DEFAULT_FEES, DEFAULT_TPA_TIMEOUT_SECONDS);
 		}
 	}
@@ -780,7 +780,7 @@ public final class EconomyConfig {
 					section.has("enabled") && section.get("enabled").getAsBoolean(),
 					readFees(section));
 		} catch (RuntimeException e) {
-			Economy.LOGGER.warn("back 配置无效，使用默认值", e);
+			BuildMart.LOGGER.warn("back 配置无效，使用默认值", e);
 			return new BackSettings(false, DEFAULT_FEES);
 		}
 	}

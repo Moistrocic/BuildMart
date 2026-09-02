@@ -5,7 +5,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-import mois.buildmart.Economy;
+import mois.buildmart.BuildMart;
 import mois.buildmart.Money;
 import mois.buildmart.config.EconomyConfig;
 import mois.buildmart.data.EconomyDb;
@@ -143,7 +143,7 @@ public final class FlyManager {
 			try {
 				balance = EconomyDb.getBalance(uuid);
 			} catch (EconomyDb.DatabaseException e) {
-				Economy.LOGGER.error("飞行扣费读取余额失败", e);
+				BuildMart.LOGGER.error("飞行扣费读取余额失败", e);
 				continue; // 本轮跳过，不误关飞行
 			}
 			if (balance < fee) {
@@ -158,7 +158,7 @@ public final class FlyManager {
 			try {
 				EconomyDb.deduct(uuid, fee);
 			} catch (EconomyDb.DatabaseException e) {
-				Economy.LOGGER.error("飞行扣费失败", e);
+				BuildMart.LOGGER.error("飞行扣费失败", e);
 			}
 			// 资金流水（每秒扣费一条）；记录失败静默
 			try {

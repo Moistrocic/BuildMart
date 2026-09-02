@@ -1,6 +1,6 @@
 # 根包 `mois.buildmart`
 
-## `Economy.java` — 模组入口与全局生命周期
+## `BuildMart.java` — 模组入口与全局生命周期
 
 `implements ModInitializer`；`MOD_ID = "economy"`；`LOGGER = LoggerFactory.getLogger("economy")`。
 

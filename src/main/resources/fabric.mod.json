@@ -12,10 +12,10 @@
 	"environment": "*",
 	"entrypoints": {
 		"main": [
-			"mois.buildmart.Economy"
+			"mois.buildmart.BuildMart"
 		],
 		"client": [
-			"mois.buildmart.client.EconomyClient"
+			"mois.buildmart.client.BuildMartClient"
 		]
 	},
 	"mixins": [

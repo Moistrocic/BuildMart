@@ -5,7 +5,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
-import mois.buildmart.Economy;
+import mois.buildmart.BuildMart;
 import mois.buildmart.Money;
 import net.minecraft.core.Holder;
 import net.minecraft.core.component.DataComponents;
@@ -228,15 +228,15 @@ public final class ItemValues {
 			}
 			if (changed) {
 				writeJson(file, parsed);
-				Economy.LOGGER.info("物品价值配置已补充/迁移新条目，已写回 {}", file);
+				BuildMart.LOGGER.info("物品价值配置已补充/迁移新条目，已写回 {}", file);
 			}
 			synchronized (VALUES) {
 				VALUES.clear();
 				VALUES.putAll(parsed);
 			}
-			Economy.LOGGER.info("物品价值配置已加载：{}（{} 项，未配置物品默认不可交易）", file, VALUES.size());
+			BuildMart.LOGGER.info("物品价值配置已加载：{}（{} 项，未配置物品默认不可交易）", file, VALUES.size());
 		} catch (Exception e) {
-			Economy.LOGGER.warn("物品价值配置加载失败，全部回退为默认不可交易", e);
+			BuildMart.LOGGER.warn("物品价值配置加载失败，全部回退为默认不可交易", e);
 			synchronized (VALUES) {
 				VALUES.clear();
 			}

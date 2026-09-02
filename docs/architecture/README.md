@@ -28,8 +28,8 @@
    当前模组版本见 `version=`（最近一次为 `7.0`）。
 - **依赖打包**：sqlite-jdbc 以 `include(...)` 打入 jar（排除其 slf4j-api，Minecraft 自带 slf4j）。
 - **SourceSet**：`splitEnvironmentSourceSets()` —— `src/main` 两端共用（**所有服务端逻辑必须放这里**，
-  保证单人游戏内置服务器也加载，见规则书 3.3）；`src/client` 仅客户端（目前只有空的 `EconomyClient`）。
-- **入口**：`fabric.mod.json` → main `mois.buildmart.Economy`，client `mois.buildmart.client.EconomyClient`；
+  保证单人游戏内置服务器也加载，见规则书 3.3）；`src/client` 仅客户端（目前只有空的 `BuildMartClient`）。
+- **入口**：`fabric.mod.json` → main `mois.buildmart.BuildMart`，client `mois.buildmart.client.BuildMartClient`；
   mixin 配置 `buildmart.mixins.json`（12 个 mixin，`defaultRequire: 1`，包 `mois.buildmart.mixin`）。
 - **启动标记**：`BuildMart Loaded!`（Economy.onInitialize 末尾打印；规则书 AGENTS.md 4.2 以此为准）。
 
@@ -67,7 +67,7 @@
 10. **指令注册中枢**：`EconomyCommands.register`（由 `Economy.onInitialize` 的
     `CommandRegistrationCallback` 调用），内部再委托 `BalshopCommands`、`FlyCommands`、
     `TeleportCommands`、`HongbaoCommands`、`ConfigCommands`；新增指令要同步更新
-    `Economy.java` 的“命令注册完成”日志与 `/bmhelp` 的 `HELP_LINES`（/config 除外）。
+    `BuildMart.java` 的“命令注册完成”日志与 `/bmhelp` 的 `HELP_LINES`（/config 除外）。
 11. **验证规范（规则书 4）**：启动验证用“后台启动 + 日志监视”，成功标记 = 模组初始化标记；
     run 开发服 `server.properties` 须 `online-mode=false`、`white-list=false`、`enforce-secure-profile=false`。
 12. **buymode 安全性**：购买判定 = 「背包消失物品暂存追踪（`BuyModeSession`）+ 出现不匹配

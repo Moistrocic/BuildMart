@@ -4,7 +4,7 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
-import mois.buildmart.Economy;
+import mois.buildmart.BuildMart;
 import mois.buildmart.Money;
 import mois.buildmart.config.EconomyConfig;
 import mois.buildmart.data.EconomyDb;
@@ -102,7 +102,7 @@ public final class FlyCommands {
 		try {
 			return EconomyDb.getBalance(uuid);
 		} catch (EconomyDb.DatabaseException e) {
-			Economy.LOGGER.error("读取余额失败", e);
+			BuildMart.LOGGER.error("读取余额失败", e);
 			return -1;
 		}
 	}

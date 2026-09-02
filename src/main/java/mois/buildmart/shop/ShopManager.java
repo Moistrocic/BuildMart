@@ -7,7 +7,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.mojang.serialization.JsonOps;
-import mois.buildmart.Economy;
+import mois.buildmart.BuildMart;
 import mois.buildmart.Money;
 import mois.buildmart.config.ItemValues;
 import mois.buildmart.data.EconomyDb;
@@ -74,7 +74,7 @@ public final class ShopManager {
 		SHOPS.put(new ShopKey(level.dimension(), pos), shop);
 		spawnDisplay(level, shop);
 		save();
-		Economy.LOGGER.info("商店已创建：{} {}（所有人 {}）", dimensionString(level.dimension()), pos, owner.getGameProfile().name());
+		BuildMart.LOGGER.info("商店已创建：{} {}（所有人 {}）", dimensionString(level.dimension()), pos, owner.getGameProfile().name());
 		return shop;
 	}
 
@@ -87,7 +87,7 @@ public final class ShopManager {
 			}
 		}
 		save();
-		Economy.LOGGER.info("商店已移除：{} {}", dimensionString(shop.dimension()), shop.pos());
+		BuildMart.LOGGER.info("商店已移除：{} {}", dimensionString(shop.dimension()), shop.pos());
 	}
 
 	public static void setPayee(Shop shop, UUID payee, String payeeName) {
@@ -167,7 +167,7 @@ public final class ShopManager {
 		save();
 		// 出售结算日志默认关闭（每店每 60 秒一条，过多影响后台观感）；/config shopSellLog 开启
 		if (mois.buildmart.config.EconomyConfig.shopSellLog()) {
-			Economy.LOGGER.info("商店出售结算：{} {} → {}（{} 元）", dimensionString(shop.dimension()), shop.pos(),
+			BuildMart.LOGGER.info("商店出售结算：{} {} → {}（{} 元）", dimensionString(shop.dimension()), shop.pos(),
 					shop.payeeName(), Money.format(total));
 		}
 	}
@@ -297,9 +297,9 @@ public final class ShopManager {
 				}
 				SHOPS.put(new ShopKey(dimension, pos), shop);
 			}
-			Economy.LOGGER.info("商店已加载：{} 个", SHOPS.size());
+			BuildMart.LOGGER.info("商店已加载：{} 个", SHOPS.size());
 		} catch (Exception e) {
-			Economy.LOGGER.warn("商店数据加载失败，跳过", e);
+			BuildMart.LOGGER.warn("商店数据加载失败，跳过", e);
 			SHOPS.clear();
 		}
 	}
@@ -331,7 +331,7 @@ public final class ShopManager {
 			Files.createDirectories(storagePath.getParent());
 			Files.writeString(storagePath, GSON.toJson(root), StandardCharsets.UTF_8);
 		} catch (IOException e) {
-			Economy.LOGGER.error("商店数据保存失败", e);
+			BuildMart.LOGGER.error("商店数据保存失败", e);
 		}
 	}
 

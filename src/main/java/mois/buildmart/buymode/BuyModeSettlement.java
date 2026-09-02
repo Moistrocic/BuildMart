@@ -5,7 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import mois.buildmart.Economy;
+import mois.buildmart.BuildMart;
 import mois.buildmart.ItemCodec;
 import mois.buildmart.Money;
 import mois.buildmart.PriceLore;
@@ -132,7 +132,7 @@ public final class BuyModeSettlement {
 		PriceLore.untag(probe); // 价格行是本模组自身数据，比对应绕过
 		if (!isVanillaCreativeItem(probe, player.level().getServer())) {
 			List<ItemStack> candidates = CREATIVE_ITEMS.getOrDefault(probe.getItem(), List.of());
-			Economy.LOGGER.warn("buymode 拒绝购买：{} 尝试 {} ×{}（cost={}），剥除价格行后候选数={}",
+			BuildMart.LOGGER.warn("buymode 拒绝购买：{} 尝试 {} ×{}（cost={}），剥除价格行后候选数={}",
 					player.getGameProfile().name(), probe, probe.getCount(), cost, candidates.size());
 			sendModified(player);
 			return false;

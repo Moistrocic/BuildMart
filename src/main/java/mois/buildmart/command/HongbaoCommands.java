@@ -6,7 +6,7 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
-import mois.buildmart.Economy;
+import mois.buildmart.BuildMart;
 import mois.buildmart.Money;
 import mois.buildmart.data.EconomyDb;
 import net.minecraft.ChatFormatting;
@@ -97,7 +97,7 @@ public final class HongbaoCommands {
 		try {
 			ok = EconomyDb.deduct(player.getUUID(), total);
 		} catch (EconomyDb.DatabaseException e) {
-			Economy.LOGGER.error("hongbao 扣款数据库错误", e);
+			BuildMart.LOGGER.error("hongbao 扣款数据库错误", e);
 			throw DB_ERROR.create();
 		}
 		if (!ok) {
@@ -174,7 +174,7 @@ public final class HongbaoCommands {
 		try {
 			EconomyDb.credit(player.getUUID(), player.getGameProfile().name(), amount);
 		} catch (EconomyDb.DatabaseException e) {
-			Economy.LOGGER.error("hongbao 入账数据库错误", e);
+			BuildMart.LOGGER.error("hongbao 入账数据库错误", e);
 			return "红包入账失败，请稍后再试";
 		}
 		logQuietly(player.getUUID(), player.getGameProfile().name(),
@@ -196,7 +196,7 @@ public final class HongbaoCommands {
 		try {
 			EconomyDb.credit(hb.ownerUuid, hb.ownerName, remaining);
 		} catch (EconomyDb.DatabaseException e) {
-			Economy.LOGGER.error("hongbao 返还数据库错误", e);
+			BuildMart.LOGGER.error("hongbao 返还数据库错误", e);
 			return;
 		}
 		logQuietly(hb.ownerUuid, hb.ownerName,
