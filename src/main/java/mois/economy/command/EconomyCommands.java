@@ -59,6 +59,7 @@ public final class EconomyCommands {
 			"/buy 物品 数量 - 购买物品",
 			"/buypack 物品 盒数 - 购买一盒物品（1 潜影盒 + 27 满堆，价值=潜影盒+27×堆叠上限×单价）",
 			"/bm - 进入快捷购买模式",
+			"/fastbuy - 快速投影购买开关（投影中键无物品时自动购买一组；需客户端安装本模组 + litematica）",
 			"/fly - 开启或关闭飞行模式",
 			"/fly warn - 开启或关闭飞行提醒",
 			"/home 名称 - 传送回家",
@@ -90,6 +91,7 @@ public final class EconomyCommands {
 		HongbaoCommands.register(dispatcher, buildContext);
 		ConfigCommands.register(dispatcher, buildContext);
 		SpawnerCommands.register(dispatcher, buildContext);
+		FastbuyCommands.register(dispatcher, buildContext);
 
 		dispatcher.register(Commands.literal("suicide")
 				.executes(EconomyCommands::suicide));
