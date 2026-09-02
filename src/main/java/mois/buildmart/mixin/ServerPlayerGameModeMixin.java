@@ -1,0 +1,60 @@
+package mois.buildmart.mixin;
+
+import mois.buildmart.buymode.BuyModeManager;
+import mois.buildmart.shop.Shop;
+import mois.buildmart.shop.ShopManager;
+import mois.buildmart.util.AdminUtil;
+import net.minecraft.ChatFormatting;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.level.ServerPlayerGameMode;
+import org.spongepowered.asm.mixin.Final;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+/**
+ * 商店箱子保护：仅创建人或管理员可拆除（含双箱另一半）；
+ * 创建人拆除成功时自动移除商店。
+ */
+@Mixin(ServerPlayerGameMode.class)
+public abstract class ServerPlayerGameModeMixin {
+	@Shadow
+	@Final
+	protected ServerPlayer player;
+
+	@Shadow
+	protected ServerLevel level;
+
+	@Inject(method = "destroyBlock", at = @At("HEAD"), cancellable = true)
+	private void buildmart$protectShop(BlockPos pos, CallbackInfoReturnable<Boolean> cir) {
+		// 便捷购买模式授予了 instabuild，客户端会以创造方式破坏（秒破且无掉落物）：
+		// 购买模式下禁止破坏方块，关闭 buymode 后恢复正常生存挖掘。
+		if (BuyModeManager.isActive(player)) {
+			player.sendSystemMessage(
+					Component.literal("便捷购买模式下无法破坏方块").withStyle(ChatFormatting.RED), false);
+			cir.setReturnValue(false);
+			return;
+		}
+		Shop shop = ShopManager.getShopOrHalf(level, pos);
+		if (shop == null) {
+			return;
+		}
+		if (!AdminUtil.isAdmin(player) && !shop.owner().equals(player.getUUID())) {
+			player.sendSystemMessage(
+					Component.literal("只能由商店所有者拆除该箱子").withStyle(ChatFormatting.RED), false);
+			cir.setReturnValue(false);
+		}
+	}
+
+	@Inject(method = "destroyBlock", at = @At("RETURN"))
+	private void buildmart$removeShopOnBreak(BlockPos pos, CallbackInfoReturnable<Boolean> cir) {
+		if (cir.getReturnValue()) {
+			ShopManager.removeIfShop(level, pos);
+		}
+	}
+}

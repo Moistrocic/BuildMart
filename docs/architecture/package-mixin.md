@@ -1,6 +1,6 @@
-# `mois.economy.mixin` 包 — 全部 16 个 Mixin
+# `mois.buildmart.mixin` 包 — 全部 16 个 Mixin
 
-注册表：`src/main/resources/economy.mixins.json`（`required: true`，`compatibilityLevel: JAVA_21`，
+注册表：`src/main/resources/buildmart.mixins.json`（`required: true`，`compatibilityLevel: JAVA_21`，
 `defaultRequire: 1`）。全部位于 `src/main`（两端加载，单人游戏内置服务器同样生效；
 客户端环境无 `ServerPlayer` 实例时各注入点按条件恒假无害返回）。
 目标版本：Minecraft 26.3-snapshot-9（mojmap 方法名）。

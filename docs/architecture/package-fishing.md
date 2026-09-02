@@ -1,4 +1,4 @@
-# `mois.economy.fishing` 包 — 趣味钓鱼
+# `mois.buildmart.fishing` 包 — 趣味钓鱼
 
 ## `FishingInitialLoot.java` — 初始战利品配置（初始化类，类似 ItemInitialPrices）
 

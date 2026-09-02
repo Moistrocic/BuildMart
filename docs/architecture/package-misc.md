@@ -1,4 +1,4 @@
-# `mois.economy.util` 包、client 源集与资源文件
+# `mois.buildmart.util` 包、client 源集与资源文件
 
 ## `util/AdminUtil.java` — 管理员判定
 
@@ -9,8 +9,8 @@
 
 ## client 源集（`src/client`）
 
-- `mois.economy.client.EconomyClient`：`ClientModInitializer`，仅调用 `FastbuyClient.init()`。
-- `mois.economy.client.FastbuyClient`：**快速投影购买客户端模块（可选增强）**——
+- `mois.buildmart.client.EconomyClient`：`ClientModInitializer`，仅调用 `FastbuyClient.init()`。
+- `mois.buildmart.client.FastbuyClient`：**快速投影购买客户端模块（可选增强）**——
   通过**反射**接入 litematica 的 `SchematicPickBlockEventHandler`（动态代理实现
   `ISchematicPickBlockEventListener`），在 `onSchematicPickBlockPrePick` 检查
   生存玩家背包是否有该物品——没有则发送 `FastbuyRequestPayload`（C2S，服务端
@@ -25,14 +25,14 @@
 ### `src/main/resources/fabric.mod.json`
 
 - id `economy`，name `Economy`，license `CC0-1.0`，`environment: "*"`（双端）。
-- entrypoints：main `mois.economy.Economy`；client `mois.economy.client.EconomyClient`。
-- mixins：`economy.mixins.json`。
+- entrypoints：main `mois.buildmart.Economy`；client `mois.buildmart.client.EconomyClient`。
+- mixins：`buildmart.mixins.json`。
 - depends：fabricloader ≥0.19.3、minecraft `~26.3-`、java ≥25、fabric-api `*`。
 - `version` 由 `processResources` 从 `gradle.properties` 展开（`${version}`）。
 
-### `src/main/resources/economy.mixins.json`
+### `src/main/resources/buildmart.mixins.json`
 
-- `required: true`，`package: "mois.economy.mixin"`，`compatibilityLevel: "JAVA_21"`，
+- `required: true`，`package: "mois.buildmart.mixin"`，`compatibilityLevel: "JAVA_21"`，
   `injectors.defaultRequire: 1`。
 - mixins 列表（12 个）：ServerPlayerMixin、PlayerMixin、LivingEntityMixin、InventoryMixin、
   AbstractContainerMenuMixin、CraftingMenuMixin、ServerGamePacketListenerImplMixin、
@@ -47,4 +47,4 @@
 
 - `AGENTS.md` — 项目开发规则书：提交粒度（规则 1）、Fabric API 优先（规则 2）、
   纯净端兼容与单人游戏（规则 3，其中 3.1 禁止自定义命令参数类型）、
-  启动验证规范（规则 4：后台启动 + 日志监视，成功标记以模组初始化标记 `Economy Mod Loaded!` 为准）。
+  启动验证规范（规则 4：后台启动 + 日志监视，成功标记以模组初始化标记 `BuildMart Loaded!` 为准）。

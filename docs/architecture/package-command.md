@@ -1,10 +1,10 @@
-# `mois.economy.command` 包 — 全部指令
+# `mois.buildmart.command` 包 — 全部指令
 
 注册中枢：`EconomyCommands.register(dispatcher, buildContext)`（由 `Economy.onInitialize` 调用），
 内部再委托 `BalshopCommands.register`、`FlyCommands.register`、`TeleportCommands.register`
 与 `HongbaoCommands.register`（传送指令见 package-teleport.md；红包指令见下）。
 
-## `EconomyCommands.java` — 资金指令 + /balhelp
+## `EconomyCommands.java` — 资金指令 + /bmhelp
 
 - `PAGE_SIZE = 10`；`HELP_LINES`（String[]，27 行）包含全部 /bal*、/shop*、/fly、传送、/suicide、/hongbao、/spawner、/balop 帮助行。
 - 注册的指令与执行方法：
@@ -13,7 +13,7 @@
   | `/bal [玩家]` | `showBalance` | 查资金（目标用原版 `GameProfileArgument`，支持选择器） |
   | `/pay 目标 金额` | `pay` | 转账；按 UUID 去重、跳过自己；离线目标直接入账 |
   | `/baltop [页码]` | `showTop` | 排行榜（`EconomyDb.topAccounts`），首页顶部显示服务器总资产（`totalPlayerAssets`） |
-  | `/balhelp [页码]` | `showHelp` | 帮助分页 |
+  | `/bmhelp [页码]` | `showHelp` | 帮助分页 |
   | `/announcement 内容` / `clear` | `setAnnouncement`/`clearAnnouncement` | 进服红色公告（管理员 `LEVEL_ADMINS`） |
   | `/eco add\|remove\|set 目标 金额` | `ecoAdd`/`ecoRemove`/`ecoSet` | 管理员资金注入/回收；目标 = word 参数手动解析；每次操作写资金流水（ADMIN_ADD/ADMIN_SUB/ADMIN_SET，channel=ECO，`logQuietly` 静默） |
   | `/balop start\|stop` | `balopStart`/`balopStop` | 启动/关闭数据库管理前端（管理员；监听地址/端口见 config 的 balop 段，默认 localhost:8899；详见 package-balop.md） |
@@ -80,7 +80,7 @@
 
 ## `ConfigCommands.java` — 局内配置修改（/config）
 
-- 注册：`/config 配置项 [参数]`（管理员 `LEVEL_ADMINS`，不在 /balhelp 帮助列表）。
+- 注册：`/config 配置项 [参数]`（管理员 `LEVEL_ADMINS`，不在 /bmhelp 帮助列表）。
 - 配置项 key 按 Tab 自动补全（`EconomyConfig.configKeys()`，21 项：itemPricesInLore /
   flyFeePerSecond / home.* / tpa.* / back.*）；布尔项参数值补全 true/false，数值项补全当前值。
 - 执行：`EconomyConfig.apply(key, value)` 热重载内存配置（所有消费方按次读取 getter，即时生效；

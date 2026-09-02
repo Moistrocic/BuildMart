@@ -1,25 +1,25 @@
 {
 	"schemaVersion": 1,
-	"id": "economy",
+	"id": "buildmart",
 	"version": "${version}",
-	"name": "Economy",
-	"description": "A Fabric economy mod.",
+	"name": "BuildMart",
+	"description": "为建筑玩家打造的生存整合：经济市场、箱子商店、便捷购买、刷怪笼生产、飞行传送等生活便利（不想玩生电也能轻松积累与建设）。",
 	"authors": [
 		"Moistrocic"
 	],
 	"license": "CC0-1.0",
-	"icon": "assets/economy/icon.png",
+	"icon": "assets/buildmart/icon.png",
 	"environment": "*",
 	"entrypoints": {
 		"main": [
-			"mois.economy.Economy"
+			"mois.buildmart.Economy"
 		],
 		"client": [
-			"mois.economy.client.EconomyClient"
+			"mois.buildmart.client.EconomyClient"
 		]
 	},
 	"mixins": [
-		"economy.mixins.json"
+		"buildmart.mixins.json"
 	],
 	"depends": {
 		"fabricloader": ">=0.19.3",

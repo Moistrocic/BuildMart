@@ -1,4 +1,4 @@
-# `mois.economy.fly` 包 — /fly 付费飞行
+# `mois.buildmart.fly` 包 — /fly 付费飞行
 
 ## `FlyManager.java` — 飞行模式状态机与每秒扣费（内存状态）
 

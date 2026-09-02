@@ -74,9 +74,17 @@ jar {
 	def projectName = project.name
 	inputs.property "projectName", projectName
 
+	// 产物命名：buildmart-游戏版本-fabric-mod版本.jar（如 buildmart-26.3-fabric-7.0.jar）
+	archiveFileName = "buildmart-${project.minecraft_version}-fabric-${project.version}.jar"
+
 	from("LICENSE") {
 		rename { "${it}_$projectName"}
 	}
+}
+
+// 源码包同样按新命名规则（-sources 后缀）
+tasks.named("sourcesJar") {
+	archiveFileName = "buildmart-${project.minecraft_version}-fabric-${project.version}-sources.jar"
 }
 
 // configure the maven publication
