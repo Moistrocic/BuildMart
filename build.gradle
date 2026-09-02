@@ -24,7 +24,8 @@ loom {
 	}
 
 	mods {
-		"economy" {
+		// 名称须与 fabric.mod.json 的 id 一致（buildmart）
+		"buildmart" {
 			sourceSet sourceSets.main
 			sourceSet sourceSets.client
 		}
