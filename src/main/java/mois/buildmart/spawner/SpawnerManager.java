@@ -970,21 +970,25 @@ public final class SpawnerManager {
 		info.append(Component.literal("\n").append(whitelistDisplay(state.economyHopperWhitelist())));
 
 		// 存储掉落物列表（实体数，种类，掉落物总数）：金色
+		// 同物品可能拆成多条（单条目上限 99）——显示时合并为一行、种类按唯一物品计
 		List<ItemStack> drops = state.economyDrops();
+		java.util.LinkedHashMap<net.minecraft.world.item.Item, ItemStack> merged = new java.util.LinkedHashMap<>();
 		int totalCount = 0;
 		for (ItemStack drop : drops) {
 			totalCount += drop.getCount();
+			merged.merge(drop.getItem(), drop,
+					(a, b) -> a.copyWithCount(a.getCount() + b.getCount()));
 		}
 		info.append(Component.literal("\n存储掉落物列表（实体数：" + state.economyConverted()
-				+ "，种类：" + drops.size() + "，掉落物总数：" + totalCount + "）：")
+				+ "，种类：" + merged.size() + "，掉落物总数：" + totalCount + "）：")
 				.withStyle(ChatFormatting.GOLD));
-		if (drops.isEmpty()) {
+		if (merged.isEmpty()) {
 			info.append(Component.literal("\n（空）").withStyle(ChatFormatting.DARK_GRAY));
 		} else {
 			int shown = 0;
-			for (ItemStack drop : drops) {
+			for (ItemStack drop : merged.values()) {
 				if (shown >= 9) {
-					info.append(Component.literal("\n…等 " + drops.size() + " 种（/spawner take 取出全部）")
+					info.append(Component.literal("\n…等 " + merged.size() + " 种（/spawner take 取出全部）")
 							.withStyle(ChatFormatting.DARK_GRAY));
 					break;
 				}
