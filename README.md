@@ -14,19 +14,28 @@
 - **数据库管理前端**：`/balop start|stop`（仅管理员）启动本机 HTTP 管理面板（默认 `localhost:8899`，地址/端口可配置）——玩家资金增删改查（**允许负余额**，管理回滚场景）、交易流水查询（类型/渠道多选、金额区间、玩家排序）、删除与批量删除（同步回滚资金）；服务器关闭时面板自动关闭。
 - **红包**：`/hongbao 总金额 数量 口令` 发红包，聊天说出口令即自动领取（金额随机波动、全服广播、未领取/被覆盖自动返还）。
 - **趣味钓鱼**：`/config funFishing true` 开启后替换为自定义钓鱼战利品（按概率抽取、补全项、每件物品自带 lore 小故事）。
-- **局内配置**：`/config 配置项 参数`（Tab 补全、热重载写回 `config.json`，无需重启），含 `/config balop.host`、`/config balop.port`。
+- **快速投影购买**：`/fastbuy` 开启后，装了本模组客户端的玩家在 **litematica 投影**中键拾取无对应物品时自动购买一组（复用 `/buy` 定价与扣款）；关闭时不处理任何请求。
+- **局内配置**：`/config 配置项 参数`（Tab 补全、热重载写回 `config.json`，无需重启），含 `/config balop.host`、`/config balop.port`、`/config fastbuy`。
 - **其他**：`/suicide`、进服公告、管理员红名等。
+
+## 安装说明
+
+- **服务端：必须安装本模组**（经济系统全部逻辑在服务端）。
+- **客户端：可选安装**——未安装的客户端可正常游玩全部基础功能（纯净端兼容）；
+  安装后获得增强行为：`/fastbuy` 快速投影购买（配合 litematica，投影中键拾取无
+  对应物品时自动购买一组；未装 litematica 时该增强静默不可用）。
 
 ## 构建
 
-- 需要 **JDK 25**；运行 `gradlew build`，产物为 `build/libs/economy-5.4.jar`。
+- 需要 **JDK 25**；运行 `gradlew build`，产物为 `build/libs/economy-26.3-fabric-7.0.jar`（命名：`economy-游戏版本-fabric-mod版本.jar`）。
 - 依赖：Fabric Loader `0.19.3+`、Fabric API `0.158.0+26.3`；SQLite JDBC 已内置打包进 jar。
 
 ## 配置与数据
 
 - 配置目录 `config/economy/`：`config.json`（主配置，`/config` 热重载；含 `balop` 段：管理前端 host/port）、`items.json`（物品价）、`enchantments.json`（附魔价）、`fishing.json`（钓鱼战利品）。
 - 数据：`world/economy.db`（SQLite：账户/交易流水/家/死亡点；旧库自动迁移）、`world/economy-shops.json`（商店）。
-- **客户端无需安装本模组**即可进入服务器（所有功能均由服务端下发，纯净端兼容）。
+- **客户端无需安装本模组**即可进入服务器（所有基础功能均由服务端下发，纯净端兼容）；
+  客户端安装本模组为**可选增强**（快速投影购买等，见「安装说明」）。
 
 ## 开发说明
 
