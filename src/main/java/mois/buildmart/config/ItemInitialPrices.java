@@ -1214,7 +1214,7 @@ public final class ItemInitialPrices {
         map.put("minecraft:wind_charge", "10.00");
         map.put("minecraft:witch_spawn_egg", "100.00");
         map.put("minecraft:wither_rose", "0.10");
-        map.put("minecraft:wither_skeleton_skull", "100.00");
+        map.put("minecraft:wither_skeleton_skull", "333.00");
         map.put("minecraft:wither_skeleton_spawn_egg", "100.00");
         map.put("minecraft:wither_spawn_egg", "100.00");
         map.put("minecraft:wolf_armor", "12.00");
