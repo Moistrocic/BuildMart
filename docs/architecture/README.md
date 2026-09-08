@@ -25,7 +25,7 @@
 - **类型**：Fabric 模组（`net.fabricmc.fabric-loom`），服务端经济系统 + 少量客户端无关代码。
 - **版本链**（`gradle.properties`）：Minecraft `26.3-snapshot-9`（mojmap 命名），Loader `0.19.3`，
   Fabric API `0.158.0+26.3`，Loom `1.17-SNAPSHOT`，Java 25（`it.options.release = 25`）。
-   当前模组版本见 `version=`（最近一次为 `1.1.0`）。
+   当前模组版本见 `version=`（最近一次为 `1.1.1`）。
 - **依赖打包**：sqlite-jdbc 以 `include(...)` 打入 jar（排除其 slf4j-api，Minecraft 自带 slf4j）。
 - **SourceSet**：`splitEnvironmentSourceSets()` —— `src/main` 两端共用（**所有服务端逻辑必须放这里**，
   保证单人游戏内置服务器也加载，见规则书 3.3）；`src/client` 仅客户端（目前只有空的 `BuildMartClient`）。
@@ -111,6 +111,6 @@
 
 ## 版本与提交历史要点
 
-   （Economy 时代历史：1.0 → … → 6.1 → 7.0；更名 BuildMart 后重新从 `1.0.0` 计数（当前 `1.1.0`））。
+   （Economy 时代历史：1.0 → … → 6.1 → 7.0；更名 BuildMart 后重新从 `1.0.0` 计数（当前 `1.1.1`））。
 - 功能提交惯例：`feat:`（新功能）、`fix:`（缺陷）、`chore:`（版本/杂项），中文描述（见 `git log`）。
 - 规则书 `AGENTS.md` 约束提交粒度、Fabric API 优先、纯净端兼容与启动验证流程。
