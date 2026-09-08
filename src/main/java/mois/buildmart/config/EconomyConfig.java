@@ -49,6 +49,12 @@ public final class EconomyConfig {
 	public static final String DEFAULT_BALOP_HOST = "localhost";
 	/** 默认数据库管理前端（/balop）端口。 */
 	public static final int DEFAULT_BALOP_PORT = 8899;
+	/** 默认部分规则调整权限：关闭（开启后玩家可使用 /weather /time /fixweather /fixtime /naturalmonsterspawn）。 */
+	public static final boolean DEFAULT_PARTIAL_RULE_ADJUST = false;
+	/** 默认 /balop start 展示域名：空 = 未设置（依次回退公网 IP / 本机地址）。 */
+	public static final String DEFAULT_BALOP_DOMAIN = "";
+	/** 默认 /balop start 展示公网 IP：空 = 未设置（域名未填时回退公网 IP 逻辑）。 */
+	public static final String DEFAULT_BALOP_PUBLIC_IP = "";
 
 	// ---------- 传送默认值 ----------
 	/** 默认家数量上限：0 = 未开放。 */
@@ -95,6 +101,9 @@ public final class EconomyConfig {
 	private static boolean fastbuy = DEFAULT_FASTBUY;
 	private static String balopHost = DEFAULT_BALOP_HOST;
 	private static int balopPort = DEFAULT_BALOP_PORT;
+	private static boolean partialRuleAdjust = DEFAULT_PARTIAL_RULE_ADJUST;
+	private static String balopDomain = DEFAULT_BALOP_DOMAIN;
+	private static String balopPublicIp = DEFAULT_BALOP_PUBLIC_IP;
 	private static HomeSettings homeSettings = new HomeSettings(DEFAULT_HOME_MAX, DEFAULT_FEES);
 	private static TpaSettings tpaSettings = new TpaSettings(false, DEFAULT_FEES, DEFAULT_TPA_TIMEOUT_SECONDS);
 	private static BackSettings backSettings = new BackSettings(false, DEFAULT_FEES);
@@ -119,6 +128,9 @@ public final class EconomyConfig {
 		map.put("fastbuy", new Entry("bool", "快速投影购买开关（投影中键拾取无物品时自动购买一组；需客户端安装本模组）"));
 		map.put("balop.host", new Entry("string", "数据库管理前端监听地址（/balop 重启后生效）"));
 		map.put("balop.port", new Entry("int", "数据库管理前端端口 1-65535（/balop 重启后生效）"));
+		map.put("balop.domain", new Entry("string", "/balop start 链接展示域名（留空依次用公网 IP/本机地址；改文件可清空）"));
+		map.put("balop.publicIp", new Entry("string", "/balop start 链接展示公网 IP（域名未填时使用；留空回退本机地址）"));
+		map.put("partialRuleAdjust", new Entry("bool", "部分规则调整权限（true=允许玩家使用 /weather /time /fixweather /fixtime /naturalmonsterspawn）"));
 		map.put("home.max", new Entry("int", "家数量上限（0 = 未开放）"));
 		map.put("home.cooldownSeconds", new Entry("int", "回家冷却（秒）"));
 		map.put("home.fixedFee", new Entry("bool", "回家固定收费开关"));
@@ -183,6 +195,15 @@ public final class EconomyConfig {
 			}
 			case "balop.port" -> {
 				return String.valueOf(balopPort);
+			}
+			case "balop.domain" -> {
+				return balopDomain;
+			}
+			case "balop.publicIp" -> {
+				return balopPublicIp;
+			}
+			case "partialRuleAdjust" -> {
+				return Boolean.toString(partialRuleAdjust);
 			}
 			case "home.max" -> {
 				return String.valueOf(homeSettings.max());
@@ -327,6 +348,29 @@ public final class EconomyConfig {
 					return "balop.port 需要 1-65535 的整数";
 				}
 				balopPort = v;
+				return null;
+			}
+			case "balop.domain" -> {
+				if (value == null) {
+					return "balop.domain 不能为 null";
+				}
+				balopDomain = value.trim();
+				return null;
+			}
+			case "balop.publicIp" -> {
+				if (value == null) {
+					return "balop.publicIp 不能为 null";
+				}
+				balopPublicIp = value.trim();
+				return null;
+			}
+			case "partialRuleAdjust" -> {
+				Boolean b = parseBool(value);
+				if (b == null) {
+					return "partialRuleAdjust 需要 true 或 false";
+				}
+				partialRuleAdjust = b;
+				// 权限按次读取即时生效：/weather /time 与规则调整指令下次执行即按新值判定
 				return null;
 			}
 			case "home.max" -> {
@@ -510,9 +554,12 @@ public final class EconomyConfig {
 		spawner.addProperty("upgrade", spawnerUpgrade);
 		root.add("spawner", spawner);
 		root.addProperty("fastbuy", fastbuy);
+		root.addProperty("partialRuleAdjust", partialRuleAdjust);
 		JsonObject balop = new JsonObject();
 		balop.addProperty("host", balopHost);
 		balop.addProperty("port", balopPort);
+		balop.addProperty("domain", balopDomain);
+		balop.addProperty("publicIp", balopPublicIp);
 		root.add("balop", balop);
 		root.add("home", sectionJson(homeSettings.max(), null, homeSettings.fees()));
 		root.add("tpa", sectionJson(-1, tpaSettings, tpaSettings.fees()));
@@ -638,6 +685,9 @@ public final class EconomyConfig {
 			if (root.has("fastbuy")) {
 				fastbuy = root.get("fastbuy").getAsBoolean();
 			}
+			if (root.has("partialRuleAdjust")) {
+				partialRuleAdjust = root.get("partialRuleAdjust").getAsBoolean();
+			}
 			// shop 段（旧版顶层 shopSellLog 兼容读取）
 			JsonObject shopSection = root.getAsJsonObject("shop");
 			if (shopSection != null) {
@@ -652,6 +702,9 @@ public final class EconomyConfig {
 				try {
 					balopHost = balop.has("host") ? balop.get("host").getAsString() : DEFAULT_BALOP_HOST;
 					balopPort = balop.has("port") ? balop.get("port").getAsInt() : DEFAULT_BALOP_PORT;
+					balopDomain = balop.has("domain") ? balop.get("domain").getAsString() : DEFAULT_BALOP_DOMAIN;
+					balopPublicIp = balop.has("publicIp") ? balop.get("publicIp").getAsString()
+							: DEFAULT_BALOP_PUBLIC_IP;
 					if (balopPort < 1 || balopPort > 65535) {
 						throw new IllegalArgumentException("port 超出范围");
 					}
@@ -725,6 +778,56 @@ public final class EconomyConfig {
 	/** 数据库管理前端端口（/balop start 时读取）。 */
 	public static int balopPort() {
 		return balopPort;
+	}
+
+	/** 部分规则调整权限（true=玩家可用 /weather /time /fixweather /fixtime /naturalmonsterspawn）。 */
+	public static boolean partialRuleAdjust() {
+		return partialRuleAdjust;
+	}
+
+	/** /balop start 链接展示域名（空 = 未设置，回退公网 IP）。 */
+	public static String balopDomain() {
+		return balopDomain;
+	}
+
+	/** /balop start 链接展示公网 IP（空 = 未设置，回退本机地址）。 */
+	public static String balopPublicIp() {
+		return balopPublicIp;
+	}
+
+	/**
+	 * /balop start 链接的展示主机：**域名 → 公网 IP → 本机局域网 IPv4 → localhost**。
+	 * 仅影响展示/点击链接（listen 地址仍用 balop.host），方便管理员绑 0.0.0.0/外网后
+	 * 直接拿到可访问地址；域名未设置公网 IP 也未设置时，展示用本机探测的第一个
+	 * 非回环 IPv4（无网卡/纯回环环境回退 localhost）。
+	 */
+	public static String balopDisplayHost() {
+		if (balopDomain != null && !balopDomain.isBlank()) {
+			return balopDomain.trim();
+		}
+		if (balopPublicIp != null && !balopPublicIp.isBlank()) {
+			return balopPublicIp.trim();
+		}
+		try {
+			java.util.Enumeration<java.net.NetworkInterface> interfaces =
+					java.net.NetworkInterface.getNetworkInterfaces();
+			while (interfaces != null && interfaces.hasMoreElements()) {
+				java.net.NetworkInterface iface = interfaces.nextElement();
+				if (!iface.isUp() || iface.isLoopback() || iface.isVirtual()) {
+					continue;
+				}
+				for (java.net.InterfaceAddress address : iface.getInterfaceAddresses()) {
+					java.net.InetAddress inet = address.getAddress();
+					if (inet instanceof java.net.Inet4Address && !inet.isLoopbackAddress()
+							&& !inet.isLinkLocalAddress()) {
+						return inet.getHostAddress();
+					}
+				}
+			}
+		} catch (java.net.SocketException ignored) {
+			// 探测失败回退 localhost
+		}
+		return "localhost";
 	}
 
 	public static HomeSettings homeSettings() {
@@ -819,10 +922,11 @@ public final class EconomyConfig {
 				{
 				  "itemPricesInLore": true,
 				  "funFishing": false,
+				  "partialRuleAdjust": false,
 				  "fly": {"feePerSecond": "500.00", "digNoSlow": true},
 				  "shop": {"sellLog": false},
 				  "spawner": {"upgrade": true},
-				  "balop": {"host": "localhost", "port": 8899},
+				  "balop": {"host": "localhost", "port": 8899, "domain": "", "publicIp": ""},
 				  "home": {"max": 0, "cooldownSeconds": 0, "fixedFee": false, "fixedFeeAmount": "500.00", "perDistanceFee": "1.00", "crossDimensionFee": "1000.00"},
 				  "tpa": {"enabled": false, "cooldownSeconds": 0, "fixedFee": false, "fixedFeeAmount": "500.00", "perDistanceFee": "1.00", "crossDimensionFee": "1000.00", "timeoutSeconds": 60},
 				  "back": {"enabled": false, "cooldownSeconds": 0, "fixedFee": false, "fixedFeeAmount": "500.00", "perDistanceFee": "1.00", "crossDimensionFee": "1000.00"}
