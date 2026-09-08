@@ -42,6 +42,52 @@ public final class BuyModeSettlement {
 	// ---------- 创造物品栏索引与严格比对 ----------
 
 	/**
+	 * 购买方向校验（优先背包检查，原版检查兜底）：
+	 * 玩家背包已持有同种同组件物品、且该物品有价格 → 直接允许购买（改造物品只有
+	 * 玩家已持有的才能再买，仍按完整价值扣款）；否则走原版检查——与“原版创造
+	 * 物品栏”中的某个展示堆完全一致（比较相对物品默认组件的补丁，忽略数量）。
+	 * 比对索引 = 创造标签页内容 ∪ 全注册物品的纯净默认形态（new ItemStack(item)）：
+	 * 后者作为兜底，保证即使服务端标签页内容未构建（26.3 独立服务端可能不构建），
+	 * 任何未经修改的纯净物品也能通过比对；内容类物品（药水/旗帜等）的合法形态
+	 * 来自标签页内容。
+	 */
+	public static boolean isPurchaseAllowed(ServerPlayer player, ItemStack stack) {
+		// 背包检查必须在槽位写入前执行（此时待购物品尚未入包），否则刚买的物品
+		// 会让检查恒真，失去防改造物品的意义。
+		if (ItemValues.isTradable(stack) && inventoryContains(player, stack)) {
+			return true;
+		}
+		return isVanillaCreativeItem(stack, player.level().getServer());
+	}
+
+	/**
+	 * 点击包结算的购买校验（26.3 创造界面实际不发点击包，保留兜底）：
+	 * 结算发生在原版处理之后、待购物品已经入槽，因此「背包已有」用操作前的
+	 * 槽位快照判断（同物已存在 → 允许），其余走原版检查。
+	 */
+	public static boolean isPurchaseAllowedBefore(ServerPlayer player, ItemStack stack, List<ItemStack> before) {
+		if (ItemValues.isTradable(stack)) {
+			for (ItemStack existing : before) {
+				if (BuyModeSession.sameItemAndComponents(existing, stack)) {
+					return true;
+				}
+			}
+		}
+		return isVanillaCreativeItem(stack, player.level().getServer());
+	}
+
+	/** 玩家背包（含主手 36 格与装备槽位）是否已持有同种同组件物品（忽略数量，剥价格行比较）。 */
+	private static boolean inventoryContains(ServerPlayer player, ItemStack stack) {
+		net.minecraft.world.entity.player.Inventory inventory = player.getInventory();
+		for (int i = 0; i < inventory.getContainerSize(); i++) {
+			if (BuyModeSession.sameItemAndComponents(inventory.getItem(i), stack)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
 	 * 购买的物品是否与“原版创造物品栏”中的某个展示堆完全一致（比较相对物品默认组件的
 	 * 补丁，忽略数量）。比对索引 = 创造标签页内容 ∪ 全注册物品的纯净默认形态
 	 * （new ItemStack(item)）：后者作为兜底，保证即使服务端标签页内容未构建
@@ -130,7 +176,7 @@ public final class BuyModeSettlement {
 	public static boolean approveBuy(ServerPlayer player, ItemStack stack, long cost) {
 		ItemStack probe = stack.copy();
 		PriceLore.untag(probe); // 价格行是本模组自身数据，比对应绕过
-		if (!isVanillaCreativeItem(probe, player.level().getServer())) {
+		if (!isPurchaseAllowed(player, probe)) {
 			List<ItemStack> candidates = CREATIVE_ITEMS.getOrDefault(probe.getItem(), List.of());
 			BuildMart.LOGGER.warn("buymode 拒绝购买：{} 尝试 {} ×{}（cost={}），剥除价格行后候选数={}",
 					player.getGameProfile().name(), probe, probe.getCount(), cost, candidates.size());
@@ -182,7 +228,7 @@ public final class BuyModeSettlement {
 		}
 		ItemStack probe = next.copy();
 		PriceLore.untag(probe); // 价格行是本模组自身数据，比对应绕过
-		if (isVanillaCreativeItem(probe, player.level().getServer())) {
+		if (isPurchaseAllowed(player, probe)) {
 			long cost = ItemValues.price(next)
 					- ItemValues.price(next.copyWithCount(next.getCount() - pending.unbought()));
 			if (!approveBuy(player, next, cost)) {

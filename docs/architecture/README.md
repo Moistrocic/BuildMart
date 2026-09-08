@@ -71,7 +71,9 @@
 11. **验证规范（规则书 4）**：启动验证用“后台启动 + 日志监视”，成功标记 = 模组初始化标记；
     run 开发服 `server.properties` 须 `online-mode=false`、`white-list=false`、`enforce-secure-profile=false`。
 12. **buymode 安全性**：购买判定 = 「背包消失物品暂存追踪（`BuyModeSession`）+ 出现不匹配
-    暂存即面板来源」。购买方向必须与原版创造物品栏内容**完全一致**
+    暂存即面板来源」。购买方向必须先过购买校验（`BuyModeSettlement.isPurchaseAllowed`）：
+    **优先背包检查**——背包已持有同种同组件且有价格的物品即允许（改造物品只有玩家
+    已持有的才能再买）；否则与原版创造物品栏内容完全一致
     （`ServerGamePacketListenerImplMixin.isVanillaCreativeItem`，比较相对默认的组件补丁、
     忽略数量、先剥除价格行；比对索引首次使用时用服务端注册表/特性构建并缓存，
     含纯净默认形态兜底）——原版创造面板只存在未经修改的初始物品，因此“保存的快捷栏”
