@@ -7,8 +7,8 @@
   仅本机可访问；**改绑局域网/公网地址时任何能访问该端口的人都能改资金，请自担风险**），
   也可用 `/config balop.host` / `/config balop.port` 热修改（改后需 `/balop stop` + start 生效）。
   `/balop start` 的提示中地址为**可点击聊天链接**（`ClickEvent.OpenUrl`，点击弹确认后打开浏览器）；
-  **链接展示主机 = balop.domain（非空时纯文本替换，仅展示不用于监听）否则 balop.host**
-  （`EconomyConfig.balopDisplayHost()`；/config balop.domain 可热改，下次 start 生效）。
+  **链接展示地址 = balop.domain（非空时整段替换 host:port，不带端口）否则 balop.host:port**
+  （/config balop.domain 可热改，下次 start 生效；域名确需端口可写进 domain，如 a.mois.top:8443）。
   服务实际监听始终是 balop.host + balop.port。
 - **会话模型**：
   - 每个管理员执行 `/balop start` 获得**独立会话**（32 hex 随机 token，`SecureRandom`）；

@@ -50,7 +50,7 @@ public final class EconomyConfig {
 	/** 默认数据库管理前端（/balop）端口。 */
 	public static final int DEFAULT_BALOP_PORT = 8899;
 	/** 默认部分规则调整权限：关闭（开启后玩家可使用 /weather /time /fixweather /fixtime /naturalmonsterspawn）。 */
-	public static final boolean DEFAULT_PARTIAL_RULE_ADJUST = false;
+	public static final boolean DEFAULT_PARTIAL_ADJUST = false;
 	/** 默认 /balop start 展示域名：空 = 未设置（链接直接使用 balop.host + balop.port）。 */
 	public static final String DEFAULT_BALOP_DOMAIN = "";
 
@@ -99,7 +99,7 @@ public final class EconomyConfig {
 	private static boolean fastbuy = DEFAULT_FASTBUY;
 	private static String balopHost = DEFAULT_BALOP_HOST;
 	private static int balopPort = DEFAULT_BALOP_PORT;
-	private static boolean partialRuleAdjust = DEFAULT_PARTIAL_RULE_ADJUST;
+	private static boolean partialAdjust = DEFAULT_PARTIAL_ADJUST;
 	private static String balopDomain = DEFAULT_BALOP_DOMAIN;
 	private static HomeSettings homeSettings = new HomeSettings(DEFAULT_HOME_MAX, DEFAULT_FEES);
 	private static TpaSettings tpaSettings = new TpaSettings(false, DEFAULT_FEES, DEFAULT_TPA_TIMEOUT_SECONDS);
@@ -126,7 +126,7 @@ public final class EconomyConfig {
 		map.put("balop.host", new Entry("string", "数据库管理前端监听地址（/balop 重启后生效）"));
 		map.put("balop.port", new Entry("int", "数据库管理前端端口 1-65535（/balop 重启后生效）"));
 		map.put("balop.domain", new Entry("string", "/balop start 链接展示域名（非空时纯文本替换 balop.host 展示；留空用 balop.host+balop.port）"));
-		map.put("partialRuleAdjust", new Entry("bool", "部分规则调整权限（true=允许玩家使用 /weather /time /fixweather /fixtime /naturalmonsterspawn）"));
+		map.put("rule.partialAdjust", new Entry("bool", "部分规则调整权限（true=允许玩家使用 /weather /time /fixweather /fixtime /naturalmonsterspawn）"));
 		map.put("home.max", new Entry("int", "家数量上限（0 = 未开放）"));
 		map.put("home.cooldownSeconds", new Entry("int", "回家冷却（秒）"));
 		map.put("home.fixedFee", new Entry("bool", "回家固定收费开关"));
@@ -195,8 +195,8 @@ public final class EconomyConfig {
 			case "balop.domain" -> {
 				return balopDomain;
 			}
-			case "partialRuleAdjust" -> {
-				return Boolean.toString(partialRuleAdjust);
+			case "rule.partialAdjust" -> {
+				return Boolean.toString(partialAdjust);
 			}
 			case "home.max" -> {
 				return String.valueOf(homeSettings.max());
@@ -350,12 +350,12 @@ public final class EconomyConfig {
 				balopDomain = value.trim();
 				return null;
 			}
-			case "partialRuleAdjust" -> {
+			case "rule.partialAdjust" -> {
 				Boolean b = parseBool(value);
 				if (b == null) {
-					return "partialRuleAdjust 需要 true 或 false";
+					return "rule.partialAdjust 需要 true 或 false";
 				}
-				partialRuleAdjust = b;
+				partialAdjust = b;
 				// 权限按次读取即时生效：/weather /time 与规则调整指令下次执行即按新值判定
 				return null;
 			}
@@ -540,7 +540,9 @@ public final class EconomyConfig {
 		spawner.addProperty("upgrade", spawnerUpgrade);
 		root.add("spawner", spawner);
 		root.addProperty("fastbuy", fastbuy);
-		root.addProperty("partialRuleAdjust", partialRuleAdjust);
+		JsonObject rule = new JsonObject();
+		rule.addProperty("partialAdjust", partialAdjust);
+		root.add("rule", rule);
 		JsonObject balop = new JsonObject();
 		balop.addProperty("host", balopHost);
 		balop.addProperty("port", balopPort);
@@ -670,8 +672,12 @@ public final class EconomyConfig {
 			if (root.has("fastbuy")) {
 				fastbuy = root.get("fastbuy").getAsBoolean();
 			}
-			if (root.has("partialRuleAdjust")) {
-				partialRuleAdjust = root.get("partialRuleAdjust").getAsBoolean();
+			// rule 段（旧版顶层 partialRuleAdjust 兼容读取：旧键真值优先）
+			JsonObject ruleSection = root.getAsJsonObject("rule");
+			if (ruleSection != null && ruleSection.has("partialAdjust")) {
+				partialAdjust = ruleSection.get("partialAdjust").getAsBoolean();
+			} else if (root.has("partialRuleAdjust")) {
+				partialAdjust = root.get("partialRuleAdjust").getAsBoolean();
 			}
 			// shop 段（旧版顶层 shopSellLog 兼容读取）
 			JsonObject shopSection = root.getAsJsonObject("shop");
@@ -763,26 +769,14 @@ public final class EconomyConfig {
 		return balopPort;
 	}
 
-	/** 部分规则调整权限（true=玩家可用 /weather /time /fixweather /fixtime /naturalmonsterspawn）。 */
-	public static boolean partialRuleAdjust() {
-		return partialRuleAdjust;
+	/** 部分规则调整权限（rule.partialAdjust：true=玩家可用 /weather /time /fixweather /fixtime /naturalmonsterspawn）。 */
+	public static boolean partialAdjust() {
+		return partialAdjust;
 	}
 
-	/** /balop start 链接展示域名（空 = 未设置，链接使用 balop.host）。 */
+	/** /balop start 链接展示域名（空 = 未设置，链接用 balop.host + balop.port；域名整体替换，不带端口）。 */
 	public static String balopDomain() {
 		return balopDomain;
-	}
-
-	/**
-	 * /balop start 链接的展示主机：**balop.domain 非空 → 用域名（纯文本替换，不用于
-	 * 监听）；为空 → 直接用 balop.host**。仅影响展示/点击链接，实际监听始终是
-	 * balop.host + balop.port（域名无法用于监听绑定）。
-	 */
-	public static String balopDisplayHost() {
-		if (balopDomain != null && !balopDomain.isBlank()) {
-			return balopDomain.trim();
-		}
-		return balopHost;
 	}
 
 	public static HomeSettings homeSettings() {
@@ -877,7 +871,7 @@ public final class EconomyConfig {
 				{
 				  "itemPricesInLore": true,
 				  "funFishing": false,
-				  "partialRuleAdjust": false,
+				  "rule": {"partialAdjust": false},
 				  "fly": {"feePerSecond": "500.00", "digNoSlow": true},
 				  "shop": {"sellLog": false},
 				  "spawner": {"upgrade": true},

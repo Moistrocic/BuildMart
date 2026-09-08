@@ -122,19 +122,21 @@ public final class BalopServer {
 	 * 已绑定会话时拒绝（提示先 /balop stop 再 /balop start）；会话失效（超时被清理/
 	 * stop 后绑定已清空）可重新开启。创建独立 token 会话；HTTP 服务器未运行时按给定
 	 * host/port 启动（已运行则复用）。返回带 token 的访问地址；失败返回错误信息。
-	 * 兼容旧签名：展示主机与监听地址相同。
+	 * 兼容旧签名：不指定展示域名。
 	 */
 	public static synchronized String start(UUID ownerUuid, String ownerName, String listenHost, int listenPort) {
-		return start(ownerUuid, ownerName, listenHost, listenPort, listenHost);
+		return start(ownerUuid, ownerName, listenHost, listenPort, null);
 	}
 
 	/**
-	 * 同上，但访问地址中的**展示主机**可用独立的域名/公网 IP（displayHost 为空时回退
-	 * 监听地址）：适合监听 0.0.0.0/局域网地址、却想让管理员点击域名或公网 IP 的场景。
-	 * 展示主机只影响返回的链接与日志，HTTP 实际监听仍为 listenHost:listenPort。
+	 * 同上，但返回链接的**展示地址**可用域名整体替换：domain 非空时链接为
+	 * {@code http://domain/?token=...}（域名不带端口——整段 host:port 被域名文本替换；
+	 * 若域名确需端口请直接写进 domain，如 {@code a.mois.top:8443}）；domain 为空时链接为
+	 * {@code http://host:port/?token=...}。展示地址只影响返回的链接与点击行为，
+	 * HTTP 实际监听始终是 listenHost:listenPort。
 	 */
 	public static synchronized String start(UUID ownerUuid, String ownerName, String listenHost, int listenPort,
-			String displayHost) {
+			String domain) {
 		if (OWNER_SESSIONS.containsKey(ownerUuid)) {
 			return "你已有开启中的管理前端会话，请先执行 /balop stop 再 /balop start";
 		}
@@ -146,8 +148,8 @@ public final class BalopServer {
 		putSession(session);
 		LOGGER.info("管理前端会话已创建：{}（{}），当前 {} 个会话", ownerName, session.token.substring(0, 8),
 				SESSIONS.size());
-		String shownHost = displayHost == null || displayHost.isBlank() ? host : displayHost.trim();
-		return "http://" + shownHost + ":" + port + "/?token=" + session.token;
+		String shown = domain == null || domain.isBlank() ? host + ":" + port : domain.trim();
+		return "http://" + shown + "/?token=" + session.token;
 	}
 
 	/** 确保 HTTP 服务器在运行（复用或新建）；失败返回错误信息，成功返回 null。 */

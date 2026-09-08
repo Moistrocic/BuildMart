@@ -168,13 +168,13 @@ public final class EconomyCommands {
 	 */
 	private static int balopStart(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
 		ServerPlayer player = requirePlayer(ctx.getSource());
-		// 展示主机 = balop.domain（非空时纯文本替换）否则 balop.host + balop.port：
+		// 展示地址 = balop.domain（非空时整体替换 host:port，不带端口）否则 balop.host+balop.port：
 		// 仅影响返回给管理员的链接，实际监听始终是 balop.host
 		String result = mois.buildmart.balop.BalopServer.start(player.getUUID(),
 				player.getGameProfile().name(),
 				mois.buildmart.config.EconomyConfig.balopHost(),
 				mois.buildmart.config.EconomyConfig.balopPort(),
-				mois.buildmart.config.EconomyConfig.balopDisplayHost());
+				mois.buildmart.config.EconomyConfig.balopDomain());
 		// 成功返回 http:// 开头的访问地址；其余一律为错误提示（直接展示给玩家）
 		if (result == null || !result.startsWith("http://")) {
 			ctx.getSource().sendFailure(Component.literal(result == null ? "未知错误" : result));
