@@ -88,6 +88,10 @@
 - 执行：`EconomyConfig.apply(key, value)` 热重载内存配置（所有消费方按次读取 getter，即时生效；
   itemPricesInLore 会同步 `PriceLore.enabled`）→ `EconomyConfig.save(configDir)` 写回 config.json
   持久化，无需重启。`/config key`（无参数）查询当前值。
+- 参数值用 string 解析（原生支持引号），字符串配置项三种写法等价：
+  `/config balop.domain a.b.c`、`/config balop.domain "a.b.c"` 与 `/config balop.domain ""`
+  （空 = 清空；带引号输入由解析器剥除，不能用 word——word 字符集不含引号，
+  带引号输入会在解析期报「参数后应有空格分隔」）；空值在查询/设置回显中显示为「（空）」。
 
 ## `RuleCommands.java` — 部分规则调整指令（/config rule.partialAdjust）
 
