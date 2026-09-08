@@ -17,6 +17,7 @@
 | `economy_auto_convert` | 直接转化（bool）：不生成生物，原本生成的生物按击杀掉落表转化为掉落物 |
 | `economy_looting` | 抢夺等级 0-3（解锁随等级：8-10 级 0-3、5-7 级 0-2、2-4 级 0-1、1 级及以下仅 0；仅作用于转化掉落） |
 | `economy_auto_sell` | 自动出售（bool）：每 60 秒批量出售存储掉落物给收款人 |
+| `economy_display` | 悬浮信息显示（bool，默认 true）：false = 自动出售开启也不显示悬浮字（/spawner set display） |
 | `economy_sell_timer` | 自动出售周期倒计时（tick，-1 = 未初始化） |
 | `economy_hopper` | 漏斗（bool）：白名单物品自动放入同 y 水平相邻箱子 |
 | `economy_hopper_whitelist` | 漏斗白名单（物品注册表 ID 列表，匹配按 ID） |
@@ -97,7 +98,7 @@
 - **自动出售**（`/spawner set autosell true`）：每 60 秒批量出售**全部**存储掉落物
   （含开启前积累的）给收款人（默认创建人；`/spawner set payee` 可改，允许离线玩家但
   必须已注册资金账户）；流水 `SELL/SPAWNER`；结算日志受 `/config shop.sellLog` 控制；
-  开启时显示金色悬浮（与 shop 一致）：创建人/收款人/出售倒计时。
+  开启时显示金色悬浮（与 shop 一致）：创建人/收款人/出售倒计时；`/spawner set display true|false` 可独立隐藏悬浮（默认 true，随 NBT 存档）。
 - **取出**（`/spawner take`）：存储掉落物发到背包（按单堆上限拆分），放不下的掉落脚下。
 - **漏斗**（`/spawner set hopper true`）：转化掉落物中白名单物品直接放入**同 y 水平相邻**
   箱子（优先堆叠已有同种、再空槽，支持多个相邻箱子，放不下回退存储）；白名单
@@ -129,6 +130,6 @@
 |---|---|
 | `/spawner info` | 查看信息（Lv/绑定生物/所有者/参数区间/直接转化/抢夺/自动出售/存储掉落物列表）——仅标签笼；格式与颜色规范：前 3 行白色、区间行蓝色、可设置属性按状态（开蓝/关灰）、存储标题金色、Lv 当前<上限红色=绿色 |
 | `/spawner upgrade` | 升级（纯金钱；Lv 0 → 1 起）——仅标签笼，受 `spawner.upgrade` 开关控制 |
-| `/spawner set <参数> <值>` | 生成参数（minDelay/maxDelay/count/nearby/playerRange/spawnRange，受等级范围约束；Lv 0 不可微调）与配置：`autoconvert true|false`、`looting 0-3`（等级解锁）、`autosell true|false`、`payee 玩家名`（离线需已注册账户）——枚举值全部可 tab 补全 |
+| `/spawner set <参数> <值>` | 生成参数（minDelay/maxDelay/count/nearby/playerRange/spawnRange，受等级范围约束；Lv 0 不可微调）与配置：`autoconvert true|false`、`looting 0-3`（等级解锁）、`autosell true|false`、`display true|false`（悬浮信息开关）、`payee 玩家名`（离线需已注册账户）——枚举值全部可 tab 补全 |
 | `/spawner take` | 取出存储的转化掉落物（放不下的掉落脚下） |
 | `/spawner give` | 管理员获得带标签刷怪笼 |

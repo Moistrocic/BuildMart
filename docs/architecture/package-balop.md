@@ -6,7 +6,10 @@
   监听地址/端口来自 `config/economy/config.json` 的 `balop` 段（默认 `localhost:8899`，
   仅本机可访问；**改绑局域网/公网地址时任何能访问该端口的人都能改资金，请自担风险**），
   也可用 `/config balop.host` / `/config balop.port` 热修改（改后需 `/balop stop` + start 生效）。
-  `/balop start` 的提示中地址为**可点击聊天链接**（`ClickEvent.OpenUrl`，点击弹确认后打开浏览器）。
+  `/balop start` 的提示中地址为**可点击聊天链接**（`ClickEvent.OpenUrl`，点击弹确认后打开浏览器）；
+  **链接的展示主机 = balop.domain → balop.publicIp → 本机探测的非回环 IPv4 → "localhost"**
+  （`EconomyConfig.balopDisplayHost()`，仅影响展示，实际监听仍是 balop.host:port；
+  /config balop.domain / balop.publicIp 可热改）。
 - **会话模型**：
   - 每个管理员执行 `/balop start` 获得**独立会话**（32 hex 随机 token，`SecureRandom`）；
     **UUID ↔ token 显式绑定**（`OWNER_SESSIONS`：ownerUuid → token，O(1) 判断是否已开启）——
@@ -66,6 +69,7 @@
 
 - 玩家列表（搜索、分页、负余额红色徽标）→ 点击进入详情：
   - 资金操作：加钱 / 扣钱 / 设为余额（金额输入为元，可小数，前端精确转分）；
-  - 交易流水：类型（BUY/SELL）与渠道（SHOP/BM）筛选、分页、每行可展开
+  - 交易流水：类型（BUY/SELL/TRANSFER_*/ADMIN_*/FEE/REDPACKET_*/SPAWNER_UPGRADE）与
+    渠道（SHOP/BM/BUY/PAY/ECO/BALOP/FLY/TP/REDPACKET/SPAWNER）筛选、分页、每行可展开
     「物品数据 (NBT/组件)」查看 item_data 原始 JSON；
   - 删除：单条删除、勾选批量删除，均二次确认并提示回滚金额与回滚后余额。
