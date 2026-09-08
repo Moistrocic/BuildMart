@@ -122,7 +122,7 @@ public final class EconomyConfig {
 		map.put("fly.digNoSlow", new Entry("bool", "飞行挖掘不减速开关（true=与地面一致，false=原版生存飞行挖掘速度）"));
 		map.put("shop.sellLog", new Entry("bool", "商店出售结算日志开关（默认关闭，开启后每店每 60 秒一条）"));
 		map.put("spawner.upgrade", new Entry("bool", "刷怪笼升级功能开关（关闭时禁止升级，已升级效果按 Lv 1 生成，数据保留）"));
-		map.put("fastbuy", new Entry("bool", "快速投影购买开关（投影中键拾取无物品时自动购买一组；需客户端安装本模组）"));
+		map.put("shop.fastbuy", new Entry("bool", "快速投影购买开关（投影中键拾取无物品时自动购买一组；需客户端安装本模组）"));
 		map.put("balop.host", new Entry("string", "数据库管理前端监听地址（/balop 重启后生效）"));
 		map.put("balop.port", new Entry("int", "数据库管理前端端口 1-65535（/balop 重启后生效）"));
 		map.put("balop.domain", new Entry("string", "/balop start 链接展示域名（非空时纯文本替换 balop.host 展示；留空用 balop.host+balop.port）"));
@@ -183,7 +183,7 @@ public final class EconomyConfig {
 			case "spawner.upgrade" -> {
 				return Boolean.toString(spawnerUpgrade);
 			}
-			case "fastbuy" -> {
+			case "shop.fastbuy" -> {
 				return Boolean.toString(fastbuy);
 			}
 			case "balop.host" -> {
@@ -319,10 +319,10 @@ public final class EconomyConfig {
 				// 下一 tick 刷怪笼按新状态计算生效参数（关闭=按 Lv 1，数据保留）
 				return null;
 			}
-			case "fastbuy" -> {
+			case "shop.fastbuy" -> {
 				Boolean b = parseBool(value);
 				if (b == null) {
-					return "fastbuy 需要 true 或 false";
+					return "shop.fastbuy 需要 true 或 false";
 				}
 				fastbuy = b;
 				// 关闭时不处理任何 fastbuy 请求（不修改任何逻辑）
@@ -535,11 +535,11 @@ public final class EconomyConfig {
 		root.add("fly", fly);
 		JsonObject shop = new JsonObject();
 		shop.addProperty("sellLog", shopSellLog);
+		shop.addProperty("fastbuy", fastbuy);
 		root.add("shop", shop);
 		JsonObject spawner = new JsonObject();
 		spawner.addProperty("upgrade", spawnerUpgrade);
 		root.add("spawner", spawner);
-		root.addProperty("fastbuy", fastbuy);
 		JsonObject rule = new JsonObject();
 		rule.addProperty("partialAdjust", partialAdjust);
 		root.add("rule", rule);
@@ -669,9 +669,6 @@ public final class EconomyConfig {
 			if (root.has("funFishing")) {
 				funFishing = root.get("funFishing").getAsBoolean();
 			}
-			if (root.has("fastbuy")) {
-				fastbuy = root.get("fastbuy").getAsBoolean();
-			}
 			// rule 段（旧版顶层 partialRuleAdjust 兼容读取：旧键真值优先）
 			JsonObject ruleSection = root.getAsJsonObject("rule");
 			if (ruleSection != null && ruleSection.has("partialAdjust")) {
@@ -679,14 +676,21 @@ public final class EconomyConfig {
 			} else if (root.has("partialRuleAdjust")) {
 				partialAdjust = root.get("partialRuleAdjust").getAsBoolean();
 			}
-			// shop 段（旧版顶层 shopSellLog 兼容读取）
+			// shop 段（旧版顶层 shopSellLog / fastbuy 兼容读取：新段优先）
 			JsonObject shopSection = root.getAsJsonObject("shop");
 			if (shopSection != null) {
 				if (shopSection.has("sellLog")) {
 					shopSellLog = shopSection.get("sellLog").getAsBoolean();
 				}
+				if (shopSection.has("fastbuy")) {
+					fastbuy = shopSection.get("fastbuy").getAsBoolean();
+				}
 			} else if (root.has("shopSellLog")) {
 				shopSellLog = root.get("shopSellLog").getAsBoolean();
+			}
+			if (root.has("fastbuy")) {
+				// 旧版顶层 fastbuy 兼容（shop 段缺失时兜底）
+				fastbuy = root.get("fastbuy").getAsBoolean();
 			}
 			if (root.has("balop")) {
 				JsonObject balop = root.getAsJsonObject("balop");
@@ -873,7 +877,7 @@ public final class EconomyConfig {
 				  "funFishing": false,
 				  "rule": {"partialAdjust": false},
 				  "fly": {"feePerSecond": "500.00", "digNoSlow": true},
-				  "shop": {"sellLog": false},
+				  "shop": {"sellLog": false, "fastbuy": false},
 				  "spawner": {"upgrade": true},
 				  "balop": {"host": "localhost", "port": 8899, "domain": ""},
 				  "home": {"max": 0, "cooldownSeconds": 0, "fixedFee": false, "fixedFeeAmount": "500.00", "perDistanceFee": "1.00", "crossDimensionFee": "1000.00"},

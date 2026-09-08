@@ -16,6 +16,9 @@
     （撤销 26.3 原版空中惩罚 `f / 5.0F`）；false=原版生存飞行挖掘速度。
     **服务端热改后通过 `FlyConfigSync` 网络包同步给全部在线玩家**（客户端本地预测一致）。
   - `shop.sellLog`（boolean，默认 false）——商店出售结算日志开关（每店每 60 秒一条，默认关闭防刷屏）。
+  - `shop.fastbuy`（shop 段，boolean，默认 false）——快速投影购买开关（/fastbuy；投影中键拾取
+    无物品时自动购买一组，需客户端安装本模组 + litematica）。旧版顶层 `fastbuy` 键兼容读取
+    （新段优先）。
   - `balop`（数据库管理前端段）——`host`（默认 "localhost"，改绑外部地址无鉴权请自担风险）、
     `port`（默认 8899，范围 1-65535）；由 `/balop start` 时读取。
     `domain`（默认 ""）为 **/balop start 链接的展示域名**（纯文本替换，不用于监听）：
@@ -39,7 +42,7 @@
   `tpaSettings()`、`backSettings()`；`/config` 热重载支持
   （`configKeys()` / `configType(key)` / `getValue(key)` / `apply(key, value)` / `save(configDir)`）。
 - 行为：文件缺失时 `writeDefault` 写入含全部段的默认 JSON（`fly`/`shop` 为嵌套段）；
-  已有文件缺段时该段用默认值；**旧版顶层 key（flyFeePerSecond/flyDigSpeedRestore/shopSellLog）
+  已有文件缺段时该段用默认值；**旧版顶层 key（flyFeePerSecond/flyDigSpeedRestore/shopSellLog/fastbuy/partialRuleAdjust）
   自动兼容读取**（新段优先）；金额字段解析失败回退默认并记 warn 日志。
 
 ## `ItemValues.java` — 物品定价（items.json + 完整价值计算）
