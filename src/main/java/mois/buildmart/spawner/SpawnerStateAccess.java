@@ -77,6 +77,11 @@ public interface SpawnerStateAccess {
 
 	void economySetAutoSell(boolean v);
 
+	/** 悬浮信息显示（bool，默认 true）：关闭时即使自动出售开启也不显示悬浮字。 */
+	boolean economyDisplay();
+
+	void economySetDisplay(boolean v);
+
 	/** 自动出售周期倒计时（tick；-1 = 未初始化，开启后 60 秒一轮批量出售）。 */
 	int economySellTimer();
 
