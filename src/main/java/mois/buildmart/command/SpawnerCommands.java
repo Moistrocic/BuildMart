@@ -45,13 +45,13 @@ public final class SpawnerCommands {
 								.suggests((ctx, builder) -> net.minecraft.commands.SharedSuggestionProvider.suggest(
 										java.util.List.of("minDelay", "maxDelay", "count", "nearby",
 												"playerRange", "spawnRange", "autoconvert", "looting",
-												"autosell", "hopper", "payee"), builder))
+												"autosell", "display", "hopper", "payee"), builder))
 								.then(Commands.argument("value", StringArgumentType.greedyString())
 										.suggests((ctx, builder) -> {
 											// 规范：枚举类型参数必须全部列出（tab 补全）
 											String param = StringArgumentType.getString(ctx, "param");
 											return switch (param) {
-												case "autoconvert", "autosell", "hopper" ->
+												case "autoconvert", "autosell", "hopper", "display" ->
 														net.minecraft.commands.SharedSuggestionProvider.suggest(
 																new String[]{"true", "false"}, builder);
 												case "looting" ->

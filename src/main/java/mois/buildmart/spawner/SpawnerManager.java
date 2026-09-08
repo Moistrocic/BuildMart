@@ -278,6 +278,26 @@ public final class SpawnerManager {
 				}
 				return null;
 			}
+			case "display" -> {
+				Boolean b = parseBool(value);
+				if (b == null) {
+					return "display 需要 true 或 false";
+				}
+				s.economySetDisplay(b);
+				if (!b) {
+					removeDisplay((ServerLevel) player.level(), spawner); // 立即移除悬浮字
+				}
+				spawner.setChanged();
+				syncToClient(player, spawner);
+				if (b) {
+					player.sendSystemMessage(Component.literal("已开启悬浮信息（自动出售开启时显示创建人/收款人/倒计时）")
+							.withStyle(ChatFormatting.GREEN), false);
+				} else {
+					player.sendSystemMessage(Component.literal("已关闭悬浮信息（自动出售照常工作，不再显示悬浮字）")
+							.withStyle(ChatFormatting.GREEN), false);
+				}
+				return null;
+			}
 			case "hopper" -> {
 				Boolean b = parseBool(value);
 				if (b == null) {
@@ -340,7 +360,7 @@ public final class SpawnerManager {
 		}
 		Integer valueInt = parseInt(value);
 		if (valueInt == null) {
-			return "参数 " + param + " 需要整数（可用 minDelay/maxDelay/count/nearby/playerRange/spawnRange/autoconvert/looting/autosell/payee）";
+			return "参数 " + param + " 需要整数（可用 minDelay/maxDelay/count/nearby/playerRange/spawnRange/autoconvert/looting/autosell/hopper/display/payee）";
 		}
 		SpawnerConfig.LevelParams p = SpawnerConfig.level(level);
 		int min;
@@ -377,7 +397,7 @@ public final class SpawnerManager {
 				s.economySetOverrideSpawnRange(valueInt);
 			}
 			default -> {
-				return "未知参数：" + param + "（可用 minDelay/maxDelay/count/nearby/playerRange/spawnRange/autoconvert/looting/autosell/payee）";
+				return "未知参数：" + param + "（可用 minDelay/maxDelay/count/nearby/playerRange/spawnRange/autoconvert/looting/autosell/hopper/display/payee）";
 			}
 		}
 		if (valueInt < min || valueInt > max) {
@@ -657,10 +677,11 @@ public final class SpawnerManager {
 
 	// ---------- 悬浮（自动出售开启时：创建人/收款人/倒计时） ----------
 
-	/** 每 tick 调用；自动出售开启时创建/更新悬浮实体（金色，与 shop 一致），关闭时移除残留。 */
+	/** 每 tick 调用；自动出售开启且悬浮显示开启时创建/更新悬浮实体（金色，与 shop 一致），
+	 *  悬浮显示关闭或自动出售关闭时移除残留。 */
 	public static void tickDisplay(ServerLevel level, SpawnerBlockEntity spawner, SpawnerStateAccess state,
 			int sellTimer) {
-		if (!state.economyAutoSell()) {
+		if (!state.economyAutoSell() || !state.economyDisplay()) {
 			removeDisplay(level, state);
 			return;
 		}
@@ -959,6 +980,13 @@ public final class SpawnerManager {
 				.withStyle(state.economyAutoSell() ? ChatFormatting.BLUE : ChatFormatting.GRAY));
 		info.append(Component.literal(state.economyAutoSell() ? "开（收款人：" + payeeDisplayName(state) + "）" : "关")
 				.withStyle(state.economyAutoSell() ? ChatFormatting.GREEN : ChatFormatting.DARK_GRAY));
+
+		// 悬浮信息：开/关（display 开关；仅在自动出售开启时实际显示）
+		info.append(Component.literal("\n悬浮信息：")
+				.withStyle(state.economyDisplay() ? ChatFormatting.BLUE : ChatFormatting.GRAY));
+		info.append(Component.literal(state.economyDisplay()
+				? "开（自动出售开启时显示创建人/收款人/倒计时）" : "关")
+				.withStyle(state.economyDisplay() ? ChatFormatting.GREEN : ChatFormatting.DARK_GRAY));
 
 		// 漏斗：开/关（可设置激活属性：开启蓝/关闭灰）
 		info.append(Component.literal("\n漏斗：")

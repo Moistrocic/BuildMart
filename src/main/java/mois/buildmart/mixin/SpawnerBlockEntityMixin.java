@@ -58,6 +58,10 @@ public abstract class SpawnerBlockEntityMixin implements SpawnerStateAccess {
 	@Unique
 	private boolean economyAutoSell;
 
+	/** 悬浮信息显示（默认 true：自动出售开启时显示；关闭则完全不显示）。 */
+	@Unique
+	private boolean economyDisplay = true;
+
 	/** 自动出售周期倒计时（-1 = 未初始化）。 */
 	@Unique
 	private int economySellTimer = -1;
@@ -230,6 +234,18 @@ public abstract class SpawnerBlockEntityMixin implements SpawnerStateAccess {
 	@Override
 	public void economySetAutoSell(boolean v) {
 		economyAutoSell = v;
+	}
+
+	@Unique
+	@Override
+	public boolean economyDisplay() {
+		return economyDisplay;
+	}
+
+	@Unique
+	@Override
+	public void economySetDisplay(boolean v) {
+		economyDisplay = v;
 	}
 
 	@Unique
@@ -418,6 +434,8 @@ public abstract class SpawnerBlockEntityMixin implements SpawnerStateAccess {
 				input.getIntOr("economy_looting", 0))));
 		economyAutoSell = input.getBooleanOr("buildmart_auto_sell", false)
 				|| input.getBooleanOr("economy_auto_sell", false);
+		// 悬浮显示默认 true：旧存档/旧版笼无此键时行为不变
+		economyDisplay = input.getBooleanOr("buildmart_display", true);
 		economySellTimer = Math.max(input.getIntOr("buildmart_sell_timer", -1),
 				input.getIntOr("economy_sell_timer", -1));
 		economyHopper = input.getBooleanOr("buildmart_hopper", false)
@@ -460,6 +478,7 @@ public abstract class SpawnerBlockEntityMixin implements SpawnerStateAccess {
 		output.putBoolean("buildmart_auto_convert", economyAutoConvert);
 		output.putInt("buildmart_looting", economyLooting);
 		output.putBoolean("buildmart_auto_sell", economyAutoSell);
+		output.putBoolean("buildmart_display", economyDisplay);
 		output.putInt("buildmart_sell_timer", economySellTimer);
 		output.putBoolean("buildmart_hopper", economyHopper);
 		output.store("buildmart_hopper_whitelist", net.minecraft.util.ExtraCodecs.NON_EMPTY_STRING.listOf(),
