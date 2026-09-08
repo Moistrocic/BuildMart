@@ -21,6 +21,8 @@ public final class Shop {
 	private int remainingTicks;
 	private UUID displayUuid;
 	private boolean wasOpen;
+	/** 悬浮信息显示（默认 true；/shop display 可切换）。 */
+	private boolean display = true;
 
 	public Shop(ResourceKey<Level> dimension, BlockPos pos, UUID owner, String ownerName,
 			UUID payee, String payeeName, int remainingTicks) {
@@ -84,5 +86,13 @@ public final class Shop {
 
 	public void setWasOpen(boolean wasOpen) {
 		this.wasOpen = wasOpen;
+	}
+
+	public boolean display() {
+		return display;
+	}
+
+	public void setDisplay(boolean display) {
+		this.display = display;
 	}
 }

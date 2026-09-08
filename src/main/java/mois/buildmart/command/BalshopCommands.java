@@ -2,6 +2,7 @@ package mois.buildmart.command;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
@@ -97,6 +98,11 @@ public final class BalshopCommands {
 				.then(Commands.literal("setpayee")
 						.then(Commands.argument("player", GameProfileArgument.gameProfile())
 								.executes(BalshopCommands::setPayee)))
+				.then(Commands.literal("display")
+						.then(Commands.argument("value", StringArgumentType.word())
+								.suggests((ctx, builder) -> net.minecraft.commands.SharedSuggestionProvider.suggest(
+										new String[]{"true", "false"}, builder))
+								.executes(BalshopCommands::setDisplay)))
 				.then(Commands.literal("getprice")
 						.then(Commands.argument("item", ItemArgument.item(buildContext))
 								.executes(BalshopCommands::getPrice)))
@@ -158,6 +164,22 @@ public final class BalshopCommands {
 		ShopManager.setPayee(shop, uuid, profile.name());
 		source.sendSuccess(() -> text("收款人已设置为 ", ChatFormatting.GREEN)
 				.append(profile.name()), false);
+		return 1;
+	}
+	/** /shop display true|false —— 商店悬浮信息（所有人/收款人/刷新倒计时）显示开关。 */
+	private static int setDisplay(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+		CommandSourceStack source = ctx.getSource();
+		ServerPlayer player = requirePlayer(source);
+		ChestBlockEntity chest = targetedChest(source);
+		Shop shop = requireOwnedShop(source, player, chest);
+		String raw = StringArgumentType.getString(ctx, "value");
+		if (!raw.equalsIgnoreCase("true") && !raw.equalsIgnoreCase("false")) {
+			throw new SimpleCommandExceptionType(Component.literal("display 需要 true 或 false")).create();
+		}
+		boolean on = Boolean.parseBoolean(raw);
+		ShopManager.setDisplay(shop, player.level(), on);
+		source.sendSuccess(() -> text(on ? "商店悬浮信息已开启（显示所有人/收款人/刷新倒计时）"
+				: "商店悬浮信息已关闭（出售功能不受影响）", ChatFormatting.GREEN), false);
 		return 1;
 	}
 
