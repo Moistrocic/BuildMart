@@ -41,8 +41,10 @@ public final class FastbuyClient {
 			Class<?> resultEnum = Class.forName(
 					"fi.dy.masa.litematica.schematic.pickblock.SchematicPickBlockEventResult");
 			Object handler = handlerClass.getMethod("getInstance").invoke(null);
-			// 反射取 SUCCESS 枚举（不干扰 litematica 流程的返回值）
-			Object success = Enum.valueOf(resultEnum.asSubclass(Enum.class), "SUCCESS");
+			// 反射取 SUCCESS 枚举（不干扰 litematica 流程的返回值）。Enum.valueOf 的泛型
+			// 签名无法适配运行时类（裸 Class 会触发 unchecked 警告），改用反射调用
+			// 编译器生成的静态 valueOf(String)。
+			Object success = resultEnum.getMethod("valueOf", String.class).invoke(null, "SUCCESS");
 			Object proxy = Proxy.newProxyInstance(listenerIface.getClassLoader(),
 					new Class<?>[]{listenerIface}, (proxyObj, method, args) -> {
 						switch (method.getName()) {
