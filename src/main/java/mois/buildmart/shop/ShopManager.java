@@ -80,12 +80,7 @@ public final class ShopManager {
 
 	public static void remove(Shop shop, ServerLevel level) {
 		SHOPS.remove(new ShopKey(shop.dimension(), shop.pos()));
-		if (shop.displayUuid() != null) {
-			Entity display = level.getEntity(shop.displayUuid());
-			if (display != null) {
-				display.discard();
-			}
-		}
+		discardDisplay(level, shop);
 		save();
 		BuildMart.LOGGER.info("商店已移除：{} {}", dimensionString(shop.dimension()), shop.pos());
 	}
@@ -93,6 +88,28 @@ public final class ShopManager {
 	public static void setPayee(Shop shop, UUID payee, String payeeName) {
 		shop.setPayee(payee, payeeName);
 		save();
+	}
+
+	/** 商店悬浮字显示开关（/shop display）：关闭立即移除悬浮实体，开启立即重新生成。 */
+	public static void setDisplay(Shop shop, ServerLevel level, boolean display) {
+		shop.setDisplay(display);
+		if (!display) {
+			discardDisplay(level, shop);
+		} else if (level.getBlockState(shop.pos()).getBlock() instanceof net.minecraft.world.level.block.ChestBlock) {
+			spawnDisplay(level, shop);
+		}
+		save();
+	}
+
+	/** 移除商店悬浮实体并清空 UUID 记录。 */
+	private static void discardDisplay(ServerLevel level, Shop shop) {
+		if (shop.displayUuid() != null) {
+			Entity display = level.getEntity(shop.displayUuid());
+			if (display != null) {
+				display.discard();
+			}
+			shop.setDisplayUuid(null);
+		}
 	}
 
 	/** 服务器每 tick 调用；每秒处理一次商店。 */
@@ -113,7 +130,7 @@ public final class ShopManager {
 			boolean open = isChestOpen(level, shop.pos());
 			if (open) {
 				shop.setWasOpen(true);
-				updateDisplay(level, shop);
+				syncDisplay(level, shop);
 				continue; // 开启期间锁定倒计时
 			}
 			if (shop.wasOpen()) {
@@ -124,7 +141,7 @@ public final class ShopManager {
 			if (shop.remainingTicks() <= 0) {
 				sell(level, shop);
 			}
-			updateDisplay(level, shop);
+			syncDisplay(level, shop);
 		}
 	}
 
@@ -204,6 +221,15 @@ public final class ShopManager {
 			}
 		}
 		return false;
+	}
+
+	/** 每秒悬浮字同步：显示开启时更新（实体丢失重建），关闭时移除残留（防御自愈）。 */
+	private static void syncDisplay(ServerLevel level, Shop shop) {
+		if (!shop.display()) {
+			discardDisplay(level, shop);
+			return;
+		}
+		updateDisplay(level, shop);
 	}
 
 	/** 更新箱子上方的悬浮字（所有人/收款人/刷新倒计时）；实体丢失时重建。 */
@@ -295,6 +321,9 @@ public final class ShopManager {
 				if (obj.has("displayUuid")) {
 					shop.setDisplayUuid(UUID.fromString(obj.get("displayUuid").getAsString()));
 				}
+				if (obj.has("display")) {
+					shop.setDisplay(obj.get("display").getAsBoolean());
+				}
 				SHOPS.put(new ShopKey(dimension, pos), shop);
 			}
 			BuildMart.LOGGER.info("商店已加载：{} 个", SHOPS.size());
@@ -320,6 +349,7 @@ public final class ShopManager {
 			obj.addProperty("payee", shop.payee().toString());
 			obj.addProperty("payeeName", shop.payeeName());
 			obj.addProperty("remainingSeconds", Math.max(0, shop.remainingTicks() / 20));
+			obj.addProperty("display", shop.display());
 			if (shop.displayUuid() != null) {
 				obj.addProperty("displayUuid", shop.displayUuid().toString());
 			}
