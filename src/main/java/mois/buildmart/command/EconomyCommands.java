@@ -80,7 +80,10 @@ public final class EconomyCommands {
 			"/spawner hopper list 物品 - 查看漏斗白名单",
 			"/spawner take - 取出刷怪笼存储的转化掉落物",
 			"/balop start - 启动数据库管理前端（仅管理员）",
-			"/balop stop - 关闭数据库管理前端（仅管理员）"
+			"/balop stop - 关闭数据库管理前端（仅管理员）",
+			"/fixweather - 固定天气（不再自然变化；再次输入恢复）",
+			"/fixtime - 固定时间（昼夜不再流动；再次输入恢复）",
+			"/naturalmonsterspawn true/false - 控制自然怪物生成（不含刷怪笼；不填参数查询当前状态）"
 	};
 
 	private EconomyCommands() {
@@ -94,6 +97,7 @@ public final class EconomyCommands {
 		ConfigCommands.register(dispatcher, buildContext);
 		SpawnerCommands.register(dispatcher, buildContext);
 		FastbuyCommands.register(dispatcher, buildContext);
+		RuleCommands.register(dispatcher, buildContext);
 
 		dispatcher.register(Commands.literal("suicide")
 				.executes(EconomyCommands::suicide));
