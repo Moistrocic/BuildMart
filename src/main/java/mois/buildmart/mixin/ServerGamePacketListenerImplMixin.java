@@ -327,12 +327,13 @@ public abstract class ServerGamePacketListenerImplMixin {
 
 		if (netDelta > 0) {
 			// 防御：点击包路径（26.3 创造界面实际不发点击包，保留兜底）同样执行
-			// 购买严格比对——任何价值增加的槽位内容必须与原版创造物品栏一致
+			// 购买校验——优先「操作前背包已有同物」（用点击前快照判断），否则必须
+			// 与原版创造物品栏一致
 			for (SlotDelta change : changes) {
 				if (change.delta > 0) {
 					ItemStack probe = change.after.copy();
 					PriceLore.untag(probe);
-					if (!BuyModeSettlement.isVanillaCreativeItem(probe, player.level().getServer())) {
+					if (!BuyModeSettlement.isPurchaseAllowedBefore(player, probe, before)) {
 						for (int i = 0; i < before.size() && i < current.size(); i++) {
 							menu.getSlot(i).setByPlayer(before.get(i).copy());
 						}

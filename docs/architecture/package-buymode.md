@@ -37,6 +37,12 @@
 | `-1` 不匹配暂存 | 挂起 pendingDrop | 下一槽位包用「槽位原内容」判定：匹配 → 背包 ctrl+q 直接丢 = **卖出**；否则 → 面板 ctrl+q = **购买**（生成实体）；**挂起 ≥2 tick 仍无槽位包认领（面板 ctrl+q 无后续包）→ 服务端 tick 直接结算为购买**（`BuyModeManager.onServerTick` → `settlePendingDrop`，避免滞后一拍） |
 | 关闭物品栏 / 退出模式 / 掉线 | `settleAndClear` | 暂存剩余统一**卖出**；pendingDrop 作废；pendingSlot 撤销（槽位从未被修改，物品未丢失，撤销其消失记录） |
 
+- **购买校验（优先背包检查，原版检查兜底）**：挂起内容结算购买前先查玩家背包
+  （`BuyModeSettlement.isPurchaseAllowed`）——背包已持有**同种同组件**且有价格的物品 →
+  直接允许（改造物品只有玩家已持有的才能再买，价格照收）；否则与「原版创造物品栏」
+  严格比对（`isVanillaCreativeItem`，含纯净默认形态兜底），比对不过 → 拒绝
+  （槽位从未被修改，物品未丢失）。点击包兜底路径用**操作前槽位快照**判断“背包已有”
+  （`isPurchaseAllowedBefore`，结算时待购物品已入槽，实况检查会恒真）。
 - 消失/出现只改暂存不动资金；购买失败（余额不足）槽位保持原状并撤销消失记录。
 - **数字键交换（26.3 关键行为）**：创造界面数字键 1-9 对悬停物品执行 SWAP，客户端本地
   `InventoryMenu.clicked` 交换后经 `broadcastChanges` 把**两个**变化槽以 `SetCreativeModeSlot`

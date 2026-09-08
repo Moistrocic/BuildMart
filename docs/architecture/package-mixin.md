@@ -79,11 +79,16 @@
          对悬停物品执行 SWAP，客户端本地交换后经 `broadcastChanges` 把两个变化槽逐槽上报）：
          双槽中性放回，不扣款、不提示、无暂存残留；
        - 配对失败 / **挂起 ≥2 tick 无配对包**（服务端 tick → `BuyModeSettlement.settlePendingSlot`）：
-         挂起内容通过 `isVanillaCreativeItem` 严格比对（比对前 `PriceLore.untag`，价格行是
+         挂起内容通过购买校验（`BuyModeSettlement.isPurchaseAllowed`，比对前 `PriceLore.untag`，价格行是
          模组自身数据须绕过）→ **面板购买**（按未吸收增量扣款，原内容消失记录保留）；
-         比对不过或余额不足 → **拒绝**：槽位保持原状（物品未丢失）、`removeVanished`
+         校验不过或余额不足 → **拒绝**：槽位保持原状（物品未丢失）、`removeVanished`
          撤销消失记录、补发权威内容 + 提示——杜绝「物品既在背包又被卖出退款」的白嫖
          与「残留被后续包吸收」的免费复制。
+   - **购买校验（优先背包检查，原版检查兜底）**：先查玩家背包是否已持有**同种同组件**
+     且有价格的物品（`isPurchaseAllowed` 的背包检查，须在槽位写入前判断——写入后
+     待购物品已入包，检查会恒真）——已持有 → **允许购买**（改造物品只有玩家已持有的
+     才能再买，价格照收）；未持有 → 走原版严格比对；两条都不满足 → 拒绝。点击包
+     兜底路径的“背包已有”用**操作前槽位快照**判断（`isPurchaseAllowedBefore`）。
    - **严格比对索引**首次使用时构建：`CreativeModeTabs.tryRebuildTabContents` 用服务端
      注册表/特性重建创造面板内容（与客户端一致），收集全部标签页 displayItems 与
      searchTabDisplayItems；**另加兜底**——所有注册物品的纯净默认形态
@@ -93,7 +98,7 @@
      `PatchedDataComponentMap` 整体——网络重建堆与本地构造堆的内部表示可能不同，
      语义内容（增删补丁）一致即可。“保存的快捷栏”（标签页/热键加载的客户端本地数据）
      中的改造物品（属性/超限附魔/自定义药水效果等）因此一律无法进入；
-     卖出方向不检测（改造物品无法通过便捷购买获得，能持有的只有管理员）。
+     卖出方向不检测（改造物品：背包已持有的可再买（背包优先检查放行），未持有的仍无法获得）。
    - 成功写入后：`PriceLore.tag(newStack)` + `menu.setRemoteSlot(slotNum, newStack)` +
      **`player.connection.send(new ClientboundContainerSetSlotPacket(menu.containerId,
      menu.incrementStateId(), slotNum, newStack.copy()))`** ——原版 `setRemoteSlot` 会把槽位标记为
@@ -109,7 +114,7 @@
 4. `handleContainerClick` @RETURN `buildmart$buyModeClickSettle` — buymode 点击包结算（防御）：
    - 对比 before/current：不可交易整体回滚；按各槽位 `ItemValues.price` 净变化结算
      （`SlotDelta(int slot, before, after, delta)` record 记录变化槽位）；
-     **购买方向（netDelta>0）同样执行严格比对**（任一价值增加槽位不匹配 → 整体回滚）；
+     **购买方向（netDelta>0）同样执行购买校验**（操作前背包已持有同物，或与原版创造物品栏一致才放行）；
      余额不足回滚 + 全量同步；
    - 结算完成后对每个变化槽位 `PriceLore.tag` + 补发 `ClientboundContainerSetSlotPacket`
      （结算发生在原版 `broadcastChanges` 之后，补发保证界面内标签立即刷新）。
