@@ -168,8 +168,8 @@ public final class EconomyCommands {
 	 */
 	private static int balopStart(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
 		ServerPlayer player = requirePlayer(ctx.getSource());
-		// 展示主机优先域名（balop.domain）→ 公网 IP（balop.publicIp）→ 本机 IPv4/localhost
-		// （仅影响返回链接，监听地址仍是 balop.host）
+		// 展示主机 = balop.domain（非空时纯文本替换）否则 balop.host + balop.port：
+		// 仅影响返回给管理员的链接，实际监听始终是 balop.host
 		String result = mois.buildmart.balop.BalopServer.start(player.getUUID(),
 				player.getGameProfile().name(),
 				mois.buildmart.config.EconomyConfig.balopHost(),
