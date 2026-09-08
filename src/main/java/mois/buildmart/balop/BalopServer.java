@@ -122,8 +122,19 @@ public final class BalopServer {
 	 * 已绑定会话时拒绝（提示先 /balop stop 再 /balop start）；会话失效（超时被清理/
 	 * stop 后绑定已清空）可重新开启。创建独立 token 会话；HTTP 服务器未运行时按给定
 	 * host/port 启动（已运行则复用）。返回带 token 的访问地址；失败返回错误信息。
+	 * 兼容旧签名：展示主机与监听地址相同。
 	 */
 	public static synchronized String start(UUID ownerUuid, String ownerName, String listenHost, int listenPort) {
+		return start(ownerUuid, ownerName, listenHost, listenPort, listenHost);
+	}
+
+	/**
+	 * 同上，但访问地址中的**展示主机**可用独立的域名/公网 IP（displayHost 为空时回退
+	 * 监听地址）：适合监听 0.0.0.0/局域网地址、却想让管理员点击域名或公网 IP 的场景。
+	 * 展示主机只影响返回的链接与日志，HTTP 实际监听仍为 listenHost:listenPort。
+	 */
+	public static synchronized String start(UUID ownerUuid, String ownerName, String listenHost, int listenPort,
+			String displayHost) {
 		if (OWNER_SESSIONS.containsKey(ownerUuid)) {
 			return "你已有开启中的管理前端会话，请先执行 /balop stop 再 /balop start";
 		}
@@ -135,7 +146,8 @@ public final class BalopServer {
 		putSession(session);
 		LOGGER.info("管理前端会话已创建：{}（{}），当前 {} 个会话", ownerName, session.token.substring(0, 8),
 				SESSIONS.size());
-		return address() + "/?token=" + session.token;
+		String shownHost = displayHost == null || displayHost.isBlank() ? host : displayHost.trim();
+		return "http://" + shownHost + ":" + port + "/?token=" + session.token;
 	}
 
 	/** 确保 HTTP 服务器在运行（复用或新建）；失败返回错误信息，成功返回 null。 */
@@ -759,8 +771,8 @@ public final class BalopServer {
 			  currentUuid:null, selected:new Set(), playerPages:1, txPages:1, sort:'balance_desc',
 			  amountMinCents:null, amountMaxCents:null };
 			const TYPES = ['BUY','SELL','TRANSFER_IN','TRANSFER_OUT','ADMIN_ADD','ADMIN_SUB','ADMIN_SET',
-			  'FEE','REDPACKET_SEND','REDPACKET_CLAIM','REDPACKET_REFUND'];
-			const CHANNELS = ['SHOP','BM','BUY','PAY','ECO','BALOP','FLY','TP','REDPACKET'];
+			  'FEE','REDPACKET_SEND','REDPACKET_CLAIM','REDPACKET_REFUND','SPAWNER_UPGRADE'];
+			const CHANNELS = ['SHOP','BM','BUY','PAY','ECO','BALOP','FLY','TP','REDPACKET','SPAWNER'];
 			const $ = id => document.getElementById(id);
 			const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 			const yuan = c => (c/100).toFixed(2);
