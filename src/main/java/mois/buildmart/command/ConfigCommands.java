@@ -44,7 +44,7 @@ public final class ConfigCommands {
 				.then(Commands.argument("key", StringArgumentType.word())
 						.suggests((ctx, builder) -> SharedSuggestionProvider.suggest(EconomyConfig.configKeys(), builder))
 						.executes(ConfigCommands::show)
-						.then(Commands.argument("value", StringArgumentType.word())
+						.then(Commands.argument("value", StringArgumentType.string())
 								.suggests(ConfigCommands::suggestValue)
 								.executes(ConfigCommands::set))));
 	}
@@ -57,7 +57,7 @@ public final class ConfigCommands {
 		if (value == null) {
 			throw UNKNOWN_KEY.create();
 		}
-		ctx.getSource().sendSuccess(() -> text(key + " = " + value + "（"
+		ctx.getSource().sendSuccess(() -> text(key + " = " + displayValue(value) + "（"
 				+ EconomyConfig.configType(key) + "）", ChatFormatting.GREEN), false);
 		return 1;
 	}
@@ -70,6 +70,12 @@ public final class ConfigCommands {
 		if (EconomyConfig.getValue(key) == null) {
 			throw UNKNOWN_KEY.create();
 		}
+		// value 参数用 string（原生支持引号解析），三种写法等价：
+		//   /config balop.domain a.b.c     → a.b.c
+		//   /config balop.domain "a.b.c"   → a.b.c（引号被解析器剥除）
+		//   /config balop.domain ""        → 空字符串（清空字符串配置项）
+		// 注意不能用 word：其字符集不含引号，带引号输入会在解析期报
+		// 「参数后应有空格分隔，但发现了紧邻的数据」，永远到不了执行层。
 		String error = EconomyConfig.apply(key, value);
 		if (error != null) {
 			throw new SimpleCommandExceptionType(Component.literal(error)).create();
@@ -90,8 +96,13 @@ public final class ConfigCommands {
 			}
 		}
 		String updated = EconomyConfig.getValue(key);
-		ctx.getSource().sendSuccess(() -> text(key + " 已设置为 " + updated, ChatFormatting.GREEN), false);
+		ctx.getSource().sendSuccess(() -> text(key + " 已设置为 " + displayValue(updated), ChatFormatting.GREEN), false);
 		return 1;
+	}
+
+	/** 空字符串显示为「（空）」，便于确认字符串配置项已清空。 */
+	private static String displayValue(String value) {
+		return value.isEmpty() ? "（空）" : value;
 	}
 
 	// ---------- 补全 ----------
