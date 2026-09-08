@@ -1,12 +1,12 @@
 # `mois.buildmart.command` 包 — 全部指令
 
 注册中枢：`EconomyCommands.register(dispatcher, buildContext)`（由 `BuildMart.onInitialize` 调用），
-内部再委托 `BalshopCommands.register`、`FlyCommands.register`、`TeleportCommands.register`
-与 `HongbaoCommands.register`（传送指令见 package-teleport.md；红包指令见下）。
+内部再委托 `BalshopCommands.register`、`FlyCommands.register`、`TeleportCommands.register`、
+`HongbaoCommands.register`、`RuleCommands.register`（规则调整指令，见下；传送指令见 package-teleport.md；红包指令见下）。
 
 ## `EconomyCommands.java` — 资金指令 + /bmhelp
 
-- `PAGE_SIZE = 10`；`HELP_LINES`（String[]，27 行）包含全部 /bal*、/shop*、/fly、传送、/suicide、/hongbao、/spawner、/balop 帮助行。
+- `PAGE_SIZE = 10`；`HELP_LINES`（String[]，30 行）包含全部 /bal*、/shop*、/fly、传送、/suicide、/hongbao、/spawner、/balop、规则调整帮助行。
 - 注册的指令与执行方法：
   | 指令 | 方法 | 说明 |
   |---|---|---|
@@ -16,7 +16,7 @@
   | `/bmhelp [页码]` | `showHelp` | 帮助分页 |
   | `/announcement 内容` / `clear` | `setAnnouncement`/`clearAnnouncement` | 进服红色公告（管理员 `LEVEL_ADMINS`） |
   | `/eco add\|remove\|set 目标 金额` | `ecoAdd`/`ecoRemove`/`ecoSet` | 管理员资金注入/回收；目标 = word 参数手动解析；每次操作写资金流水（ADMIN_ADD/ADMIN_SUB/ADMIN_SET，channel=ECO，`logQuietly` 静默） |
-  | `/balop start\|stop` | `balopStart`/`balopStop` | 启动/关闭数据库管理前端（管理员；监听地址/端口见 config 的 balop 段，默认 localhost:8899；详见 package-balop.md） |
+  | `/balop start\|stop` | `balopStart`/`balopStop` | 启动/关闭数据库管理前端（管理员；监听地址/端口见 config 的 balop 段，默认 localhost:8899；**start 返回的链接按 balop.domain → balop.publicIp → 本机 IPv4/localhost 展示主机**；详见 package-balop.md） |
 - 工具方法（同类指令复用）：`requirePlayer`（PLAYER_ONLY）、`parseAmount`、
   `resolveUuid`（离线 UUID 回退）、`readBalance`、`countOrThrow`、`topOrThrow`、
   `totalAssetsOrThrow`、`transferOrThrow`、`transferManyOrThrow`、`text(content, color)`。
@@ -30,6 +30,8 @@
 - `/shop create|remove` — 对准箱子（`targetedChest` 用 `player.pick(5.0, 1.0F, false)` 射线），
   仅主人/管理员可 remove（`requireOwnedShop` + `isAdmin`）。
 - `/shop setpayee 玩家` — 设置收款人（`NameAndId.createOffline` 回退；服务器账户收款已移除）。
+- `/shop display true|false` — 商店悬浮信息显示开关（仅主人/管理员；状态持久化于
+  economy-shops.json 的 display 字段，默认 true；详见 package-shop.md）。
 - `/price 物品` — 查基础价（`ItemValues.get`），提示完整价值 = 基础价 + 附魔 + 容器内容物。
 - `/buy 物品 数量` — `ItemArgument.item` 解析 → `ItemValues.price` 计价 →
   `EconomyDb.deduct` 只扣玩家资金（不入服务器资产）→ `giveOrDrop` 发放：
@@ -81,11 +83,29 @@
 ## `ConfigCommands.java` — 局内配置修改（/config）
 
 - 注册：`/config 配置项 [参数]`（管理员 `LEVEL_ADMINS`，不在 /bmhelp 帮助列表）。
-- 配置项 key 按 Tab 自动补全（`EconomyConfig.configKeys()`，21 项：itemPricesInLore /
+- 配置项 key 按 Tab 自动补全（`EconomyConfig.configKeys()`，31 项：itemPricesInLore / partialRuleAdjust /
   flyFeePerSecond / home.* / tpa.* / back.*）；布尔项参数值补全 true/false，数值项补全当前值。
 - 执行：`EconomyConfig.apply(key, value)` 热重载内存配置（所有消费方按次读取 getter，即时生效；
   itemPricesInLore 会同步 `PriceLore.enabled`）→ `EconomyConfig.save(configDir)` 写回 config.json
   持久化，无需重启。`/config key`（无参数）查询当前值。
+
+## `RuleCommands.java` — 部分规则调整指令（/config partialRuleAdjust）
+
+- 权限：`requires(RuleCommands::allowed)`——`EconomyConfig.partialRuleAdjust() ||`
+  权限等级 2（`LEVEL_GAMEMASTERS`）管理员。判定按次读取配置，/config 热改**即时生效**
+  （含收回）；规则改动全部走 `GameRules.set`（与服务端 `onGameRuleChanged` 联动、随世界
+  存档持久化），与 /gamerule 同源。
+- **原版 /weather、/time 权限放宽**：原版指令（26.3 语义与参数原样保留，含新的时间
+  时钟/时间标记体系）注册后，把根节点 requirement 反射写为上述动态判定（Brigadier
+  requirement 为 final、无公开替换 API；失败仅记 warn 并保持原版权限）——
+  partialRuleAdjust=true 时普通玩家可直接使用，关闭时与原本一致（等级 2 才可用）。
+- `/fixweather` — 固定/恢复天气：advance_weather 规则取反（false = 天气不再自然变化、
+  睡醒不重置天气；再次输入恢复）。
+- `/fixtime` — 固定/恢复时间：advance_time 规则取反（false = 世界时钟全部停止、
+  昼夜不再流动；再次输入恢复）。
+- `/naturalmonsterspawn [true|false]` — 控制自然怪物生成（**不含刷怪笼**）：spawn_monsters
+  规则；不填参数 = 查询当前状态；参数值补全 true/false。
+- 新指令已同步 /bmhelp 帮助行（3 行）与 `BuildMart.java` 命令注册日志。
 
 ## `EconomyTargets.java` — /eco 目标解析（规则书 3.1 的纯净端兼容核心）
 

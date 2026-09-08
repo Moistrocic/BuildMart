@@ -6,6 +6,9 @@
 
 - 键：
   - `itemPricesInLore`（boolean，默认 true）——物品价格以金色 lore 下发（纯净端可见）。
+  - `partialRuleAdjust`（boolean，默认 false）——部分规则调整权限：true 时**普通玩家**可
+    使用原版 /weather、/time 与本模组 /fixweather、/fixtime、/naturalmonsterspawn
+    （权限等级 2 及以上管理员始终可用，判定按次读配置、热改即时生效）。
   - `fly.feePerSecond`（十进制元字符串，默认 `"500.00"`，即 50000 分/秒）——/fly 每秒扣费。
   - `funFishing`（boolean，默认 false）——趣味钓鱼开关（开启用 fishing.json 战利品，关闭用原版）。
   - `fly.digNoSlow`（boolean，默认 true）——飞行挖掘不减速开关：true=飞行中挖掘与地面一致
@@ -14,8 +17,13 @@
   - `shop.sellLog`（boolean，默认 false）——商店出售结算日志开关（每店每 60 秒一条，默认关闭防刷屏）。
   - `balop`（数据库管理前端段）——`host`（默认 "localhost"，改绑外部地址无鉴权请自担风险）、
     `port`（默认 8899，范围 1-65535）；由 `/balop start` 时读取。
-    **同时是 /config 动态项**：`balop.host`（string）、`balop.port`（int），
-    修改后需 `/balop stop` + `/balop start` 生效。
+    `domain`（默认 ""）/ `publicIp`（默认 ""）为 **/balop start 链接的展示主机**（仅影响
+    返回给管理员的地址，实际监听仍是 host:port）：展示优先级 = `domain` → `publicIp` →
+    本机探测的第一个非回环 IPv4 → "localhost"（`balopDisplayHost()`）。
+    **同时是 /config 动态项**：`balop.host`（string）、`balop.port`（int）、
+    `balop.domain`（string）、`balop.publicIp`（string），
+    修改后需 `/balop stop` + `/balop start` 生效（domain/publicIp 无改动时无需重启，
+    下次 start 即生效）。
   - `home` / `tpa` / `back`（传送配置段，见下）。
 - 传送配置段字段（`home` 无 enabled；`tpa`/`back` 有 enabled；`tpa` 另有 timeoutSeconds）：
   `max`（home，默认 0 = 未开放）、`enabled`（tpa/back，默认 false）、`cooldownSeconds`（默认 0）、
@@ -26,7 +34,8 @@
   crossDimensionFeeCents)`、`HomeSettings(max, fees)`、`TpaSettings(enabled, fees, timeoutSeconds)`、
   `BackSettings(enabled, fees)`。
 - API：`load(Path configDir)`、`itemPricesInLore()`、`flyFeeCents()`、`funFishing()`、
-  `flyDigSpeedRestore()`、`shopSellLog()`、`balopHost()`、`balopPort()`、`homeSettings()`、
+  `flyDigSpeedRestore()`、`shopSellLog()`、`balopHost()`、`balopPort()`、`balopDomain()`、
+  `balopPublicIp()`、`balopDisplayHost()`、`partialRuleAdjust()`、`homeSettings()`、
   `tpaSettings()`、`backSettings()`；`/config` 热重载支持
   （`configKeys()` / `configType(key)` / `getValue(key)` / `apply(key, value)` / `save(configDir)`）。
 - 行为：文件缺失时 `writeDefault` 写入含全部段的默认 JSON（`fly`/`shop` 为嵌套段）；

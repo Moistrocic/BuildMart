@@ -7,7 +7,7 @@
 
 - [README.md](README.md) — 项目总览、构建信息、全局约定（本文）
 - [package-root.md](package-root.md) — 根包：`Economy`（入口）、`Money`（金额工具）、`PriceLore`（价格标签）
-- [package-command.md](package-command.md) — `command` 包：全部指令（bal/pay/baltop/bmhelp/eco/shop/price/buy/bm/fly/home/sethome/tpa/tpahere/tpaccept/back/suicide/hongbao/config/balop）
+- [package-command.md](package-command.md) — `command` 包：全部指令（bal/pay/baltop/bmhelp/eco/shop/price/buy/bm/fly/home/sethome/tpa/tpahere/tpaccept/back/suicide/hongbao/config/balop/规则调整）
 - [package-config.md](package-config.md) — `config` 包：主配置 / 物品价 / 附魔价 JSON + 初始定价表
 - [package-data.md](package-data.md) — `data` 包：SQLite 资金数据库
 - [package-balop.md](package-balop.md) — `balop` 包：/balop 数据库管理前端（HTTP 面板 + REST API）
@@ -62,7 +62,8 @@
    **资金流水（强制约定，见 AGENTS.md 第 6 节）**：一切资金变化都写入 `economy_transactions`——
    买卖（BUY/SELL，带 item_data 完整物品数据）与转账/管理/扣费/红包（recordMoneyLog，金额变化量）；
    记录失败一律静默。旧库自动迁移（移除余额非负约束、补 item_data 列）。
-8. **配置**：`config/economy/` 下 `config.json`（主配置：itemPricesInLore / flyFeePerSecond / funFishing /
+8. **配置**：`config/economy/` 下 `config.json`（主配置：itemPricesInLore / funFishing / fastbuy /
+   partialRuleAdjust / fly.* / shop.* / spawner.upgrade / balop（host/port/domain/publicIp）/
    home / tpa / back 传送段，`/config` 可热重载）、`items.json`（物品价）、`enchantments.json`（附魔价）、
    `fishing.json`（趣味钓鱼战利品），首次运行自动生成；商店数据 `world/economy-shops.json`；家与死亡点存数据库
    （`homes` / `back_points` 表）。

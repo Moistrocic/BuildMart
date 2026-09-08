@@ -17,8 +17,9 @@
     - **type**：`BUY`（购买，删除记录回滚退款 +price）/ `SELL`（出售，删除记录回滚扣回 -price）/
       `TRANSFER_IN`/`TRANSFER_OUT`（/pay 转账）/ `ADMIN_ADD`/`ADMIN_SUB`/`ADMIN_SET`
       （/eco 与管理面板）/ `FEE`（飞行/传送扣费）/ `REDPACKET_SEND`/`REDPACKET_CLAIM`/
-      `REDPACKET_REFUND`（红包）；
-    - **channel**：`SHOP`/`BM`/`BUY`（买卖）/ `PAY` / `ECO` / `BALOP` / `FLY` / `TP` / `REDPACKET`；
+      `REDPACKET_REFUND`（红包）/ `SPAWNER_UPGRADE`（刷怪笼升级扣费）；
+    - **channel**：`SHOP`/`BM`/`BUY`（买卖）/ `PAY` / `ECO` / `BALOP` / `FLY` / `TP` /
+      `REDPACKET` / `SPAWNER`（刷怪笼升级/自动出售；自动出售 type=SELL、升级 type=SPAWNER_UPGRADE）；
     - **price 语义**：BUY/SELL 为交易金额（正数）；其他类型为资金变化量（分，入账为正、扣款为负）；
     - item_id/item_name 为注册表 ID 与显示名（非买卖记录 item_id 为空串、item_name 为描述、
       count 为 0），**item_data 为物品完整组件数据（ItemStack.CODEC 编码的 JSON 字符串，
@@ -29,7 +30,8 @@
       `BuyModeSettlement.sendBuy/sendSell/sendRefund`、`BuyModeSession.settleAndClear`（买卖，
       带 item_data）；`EconomyCommands`（/pay 转账、/eco add/remove/set）、`BalopServer`
       （管理面板加钱/扣钱/设余额）、`HongbaoCommands`（发/领/过期返还）、`FlyManager`（飞行扣费）、
-      `TeleportManager`（传送扣费）。记录失败一律静默，不影响资金结算。
+      `TeleportManager`（传送扣费）、`SpawnerManager`（升级扣款 SPAWNER_UPGRADE/SPAWNER、
+      自动出售 TYPE_SELL/SPAWNER）。记录失败一律静默，不影响资金结算。
 - 家/死亡点 API：`setHome`/`getHome`/`getHomes`（按 created 倒序，第一项为最近设置）/`countHomes`，
   `setBackPoint`/`getBackPoint`/`clearBackPoint`；记录类型 `HomeEntry(name, world, x, y, z, created)`
   与 `BackPoint(world, x, y, z)`，world 为维度 ID 字符串（如 "minecraft:overworld"）。

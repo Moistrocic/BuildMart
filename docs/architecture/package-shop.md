@@ -4,7 +4,8 @@
 
 字段（可变，getter/setter）：`dimension`（`ResourceKey<Level>`）、`pos`（`BlockPos`）、
 `owner`（UUID）+ `ownerName`、`payee`（UUID）+ `payeeName`、`remainingTicks`（倒计时）、
-`displayUuid`（悬浮字实体 UUID）、`wasOpen`（上一秒是否开启，用于“关闭瞬间立即出售”）。
+`displayUuid`（悬浮字实体 UUID）、`wasOpen`（上一秒是否开启，用于“关闭瞬间立即出售”）、
+`display`（悬浮信息显示开关，默认 true，/shop display 切换）。
 
 ## `ShopManager.java` — 商店管理（内存索引 + JSON 持久化）
 
@@ -19,6 +20,8 @@
   | `create(ServerLevel, pos, owner)` | 建店（初始收款人=所有人，倒计时 RESET_TICKS）+ 生成悬浮字 + save |
   | `remove(shop, level)` | 删店（含丢弃悬浮字实体 `display.discard()`）+ save |
   | `setPayee(shop, uuid, name)` | 改收款人 + save |
+  | `setDisplay(shop, level, display)` | 悬浮信息开关（/shop display）：关闭立即移除悬浮实体，
+    开启立即重建 + save；每秒 tick 用 `syncDisplay` 兜底（关闭时移除残留、开启时更新/重建） |
   | `onServerTick(MinecraftServer)` | 见下 |
   | `isShopOrHalf(level, pos)` / `getShopOrHalf(level, pos)` | pos 自身或双箱另一半是否为商店 |
   | `removeIfShop(level, pos)` | pos 恰为商店所在箱时移除并返回 true（破坏保护用） |
@@ -36,10 +39,11 @@
   **每格出售写一条交易流水**（`EconomyDb.recordTransaction`，type=SELL、channel=SHOP、
   收款人 payee，记录失败静默不影响出售）。
 - **悬浮字**：`Display.TextDisplay`（`EntityTypes.TEXT_DISPLAY`），位于箱子上方 1.6 格，
-  内容“所有人/收款人/刷新：N 秒”，金色；`updateDisplay` 在实体丢失时重建（`spawnDisplay`）。
+  内容“所有人/收款人/刷新：N 秒”，金色；`updateDisplay` 在实体丢失时重建（`spawnDisplay`）；
+  受 `display` 开关控制（关闭不创建/更新并移除残留；`/shop display true|false` 仅主人/管理员）。
 - **持久化格式**：`{"shops":[{dimension, x, y, z, owner, ownerName, payee, payeeName,
-  remainingSeconds, displayUuid?}]}`；dimension 用 `ResourceKey.codec(Registries.DIMENSION)`
-  + `JsonOps` 编解码（`encodeDimension`/`decodeDimension`）。
+  remainingSeconds, display?, displayUuid?}]}`（display 缺省 true，旧数据自动兼容）；dimension 用
+  `ResourceKey.codec(Registries.DIMENSION)` + `JsonOps` 编解码（`encodeDimension`/`decodeDimension`）。
 - **破坏保护**（被 mixin 调用）：
   - `ServerPlayerGameModeMixin`：玩家拆除前校验主人/管理员；
   - `ExplosionDamageCalculatorMixin`：爆炸破坏判定返回 false；

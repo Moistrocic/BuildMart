@@ -60,7 +60,8 @@ import java.util.UUID;
  *     取出）；抢夺 /spawner set looting 0-3 随等级解锁（8-10 级 0-3、5-7 级 0-2、
  *     2-4 级 0-1、1 级及以下仅 0），作用于转化掉落；</li>
  * <li>自动出售：/spawner set autosell true——转化掉落物直接按系统价格卖给收款人
- *     （/spawner set payee 设置，默认创建人），并显示悬浮信息（创建人/收款人/倒计时）；</li>
+ *     （/spawner set payee 设置，默认创建人），并显示悬浮信息（创建人/收款人/倒计时；
+ *     /spawner set display false 可隐藏悬浮，自动出售照常工作）；</li>
  * <li>回收：玩家用镐破坏带标签刷怪笼掉落带完整数据物品（重新放置恢复）；
  *     原版刷怪笼不受任何影响（不可升级/不可挖取/不可绑定）。</li>
  * </ul>
@@ -219,7 +220,7 @@ public final class SpawnerManager {
 	 * 设置刷怪笼参数/配置。返回 null = 成功，否则为失败提示。
 	 * 数值参数（minDelay/maxDelay/count/nearby/playerRange/spawnRange）受当前等级
 	 * 允许范围约束；looting 受等级解锁约束（见 {@link #lootingMaxForLevel}）；
-	 * autoconvert/autosell 仅接受 true/false；payee 为在线玩家名。
+	 * autoconvert/autosell/display 仅接受 true/false；payee 为在线玩家名。
 	 */
 	public static String setParam(ServerPlayer player, SpawnerBlockEntity spawner, String param, String value) {
 		SpawnerStateAccess s = state(spawner);

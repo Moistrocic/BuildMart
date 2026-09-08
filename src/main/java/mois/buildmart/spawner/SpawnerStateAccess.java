@@ -20,7 +20,8 @@ import java.util.UUID;
  * <li>economy_looting：抢夺等级 0-3（解锁随刷怪笼等级：8-10 级 0-3、5-7 级 0-2、
  *     2-4 级 0-1、1 级及以下仅 0；仅作用于直接转化）；</li>
  * <li>economy_auto_sell：自动出售（开启时转化掉落物直接按系统价格卖给收款人，
- *     并显示悬浮信息：创建人/收款人/倒计时）；</li>
+ *     并显示悬浮信息：创建人/收款人/倒计时）；economy_display：悬浮信息显示
+ *     （默认 true，false = 自动出售开启也不显示悬浮字）；</li>
  * <li>economy_drops：转化掉落物存储（键值对：物品完整数据 → 数量，随方块存档，
  *     挖掉时随刷怪笼物品保存防止丢失）；</li>
  * <li>economy_owner_* / economy_payee_*：创建人（放置时记录）与收款人
