@@ -79,6 +79,16 @@ public final class ConfigCommands {
 		} catch (IOException e) {
 			throw SAVE_FAILED.create();
 		}
+		// partialRuleAdjust 决定规则调整指令（/weather /time /fixweather /fixtime /
+		// naturalmonsterspawn）在客户端指令树里的受限标志（RESTRICTED，随进服下发）——
+		// 改动后立即向全部在线玩家重发指令树，非管理员无需重进即可看到/收起这些指令
+		// （服务端解析按次读配置本就即时生效；此处只刷新客户端的显示与本地校验）。
+		if (key.equals("partialRuleAdjust") && ctx.getSource().getServer() != null) {
+			for (net.minecraft.server.level.ServerPlayer player :
+					ctx.getSource().getServer().getPlayerList().getPlayers()) {
+				ctx.getSource().getServer().getCommands().sendCommands(player);
+			}
+		}
 		String updated = EconomyConfig.getValue(key);
 		ctx.getSource().sendSuccess(() -> text(key + " 已设置为 " + updated, ChatFormatting.GREEN), false);
 		return 1;

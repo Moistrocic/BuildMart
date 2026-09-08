@@ -16,7 +16,7 @@
   | `/bmhelp [页码]` | `showHelp` | 帮助分页 |
   | `/announcement 内容` / `clear` | `setAnnouncement`/`clearAnnouncement` | 进服红色公告（管理员 `LEVEL_ADMINS`） |
   | `/eco add\|remove\|set 目标 金额` | `ecoAdd`/`ecoRemove`/`ecoSet` | 管理员资金注入/回收；目标 = word 参数手动解析；每次操作写资金流水（ADMIN_ADD/ADMIN_SUB/ADMIN_SET，channel=ECO，`logQuietly` 静默） |
-  | `/balop start\|stop` | `balopStart`/`balopStop` | 启动/关闭数据库管理前端（管理员；监听地址/端口见 config 的 balop 段，默认 localhost:8899；**start 返回的链接按 balop.domain → balop.publicIp → 本机 IPv4/localhost 展示主机**；详见 package-balop.md） |
+  | `/balop start\|stop` | `balopStart`/`balopStop` | 启动/关闭数据库管理前端（管理员；监听地址/端口见 config 的 balop 段，默认 localhost:8899；**start 返回的链接展示主机 = balop.domain（非空纯文本替换）否则 balop.host**；详见 package-balop.md） |
 - 工具方法（同类指令复用）：`requirePlayer`（PLAYER_ONLY）、`parseAmount`、
   `resolveUuid`（离线 UUID 回退）、`readBalance`、`countOrThrow`、`topOrThrow`、
   `totalAssetsOrThrow`、`transferOrThrow`、`transferManyOrThrow`、`text(content, color)`。
@@ -83,7 +83,7 @@
 ## `ConfigCommands.java` — 局内配置修改（/config）
 
 - 注册：`/config 配置项 [参数]`（管理员 `LEVEL_ADMINS`，不在 /bmhelp 帮助列表）。
-- 配置项 key 按 Tab 自动补全（`EconomyConfig.configKeys()`，31 项：itemPricesInLore / partialRuleAdjust /
+- 配置项 key 按 Tab 自动补全（`EconomyConfig.configKeys()`，30 项：itemPricesInLore / partialRuleAdjust /
   flyFeePerSecond / home.* / tpa.* / back.*）；布尔项参数值补全 true/false，数值项补全当前值。
 - 执行：`EconomyConfig.apply(key, value)` 热重载内存配置（所有消费方按次读取 getter，即时生效；
   itemPricesInLore 会同步 `PriceLore.enabled`）→ `EconomyConfig.save(configDir)` 写回 config.json
@@ -95,6 +95,10 @@
   权限等级 2（`LEVEL_GAMEMASTERS`）管理员。判定按次读取配置，/config 热改**即时生效**
   （含收回）；规则改动全部走 `GameRules.set`（与服务端 `onGameRuleChanged` 联动、随世界
   存档持久化），与 /gamerule 同源。
+- **客户端可见性**：客户端把每个指令节点标记 RESTRICTED（服务端在进服下发指令树时用
+  无权限源测试 requirement），非管理员隐藏受限指令并显示“未知或不完整的命令”。
+  因此 partialRuleAdjust=true 时这些指令对非管理员同样可见/可执行（false 时恢复隐藏）；
+  **/config 切换后 `ConfigCommands` 会向全部在线玩家即时重发指令树**，无需重进服。
 - **原版 /weather、/time 权限放宽**：原版指令（26.3 语义与参数原样保留，含新的时间
   时钟/时间标记体系）注册后，把根节点 requirement 反射写为上述动态判定（Brigadier
   requirement 为 final、无公开替换 API；失败仅记 warn 并保持原版权限）——

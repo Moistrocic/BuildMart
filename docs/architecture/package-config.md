@@ -17,13 +17,11 @@
   - `shop.sellLog`（boolean，默认 false）——商店出售结算日志开关（每店每 60 秒一条，默认关闭防刷屏）。
   - `balop`（数据库管理前端段）——`host`（默认 "localhost"，改绑外部地址无鉴权请自担风险）、
     `port`（默认 8899，范围 1-65535）；由 `/balop start` 时读取。
-    `domain`（默认 ""）/ `publicIp`（默认 ""）为 **/balop start 链接的展示主机**（仅影响
-    返回给管理员的地址，实际监听仍是 host:port）：展示优先级 = `domain` → `publicIp` →
-    本机探测的第一个非回环 IPv4 → "localhost"（`balopDisplayHost()`）。
+    `domain`（默认 ""）为 **/balop start 链接的展示域名**（纯文本替换，不用于监听）：
+    非空时链接显示 `domain:port`，为空时直接用 `balop.host:port`（`balopDisplayHost()`）。
     **同时是 /config 动态项**：`balop.host`（string）、`balop.port`（int）、
-    `balop.domain`（string）、`balop.publicIp`（string），
-    修改后需 `/balop stop` + `/balop start` 生效（domain/publicIp 无改动时无需重启，
-    下次 start 即生效）。
+    `balop.domain`（string），修改后需 `/balop stop` + `/balop start` 生效（domain 下次
+    start 即生效）。
   - `home` / `tpa` / `back`（传送配置段，见下）。
 - 传送配置段字段（`home` 无 enabled；`tpa`/`back` 有 enabled；`tpa` 另有 timeoutSeconds）：
   `max`（home，默认 0 = 未开放）、`enabled`（tpa/back，默认 false）、`cooldownSeconds`（默认 0）、
@@ -35,7 +33,7 @@
   `BackSettings(enabled, fees)`。
 - API：`load(Path configDir)`、`itemPricesInLore()`、`flyFeeCents()`、`funFishing()`、
   `flyDigSpeedRestore()`、`shopSellLog()`、`balopHost()`、`balopPort()`、`balopDomain()`、
-  `balopPublicIp()`、`balopDisplayHost()`、`partialRuleAdjust()`、`homeSettings()`、
+  `balopDisplayHost()`、`partialRuleAdjust()`、`homeSettings()`、
   `tpaSettings()`、`backSettings()`；`/config` 热重载支持
   （`configKeys()` / `configType(key)` / `getValue(key)` / `apply(key, value)` / `save(configDir)`）。
 - 行为：文件缺失时 `writeDefault` 写入含全部段的默认 JSON（`fly`/`shop` 为嵌套段）；

@@ -63,7 +63,7 @@
    买卖（BUY/SELL，带 item_data 完整物品数据）与转账/管理/扣费/红包（recordMoneyLog，金额变化量）；
    记录失败一律静默。旧库自动迁移（移除余额非负约束、补 item_data 列）。
 8. **配置**：`config/economy/` 下 `config.json`（主配置：itemPricesInLore / funFishing / fastbuy /
-   partialRuleAdjust / fly.* / shop.* / spawner.upgrade / balop（host/port/domain/publicIp）/
+   partialRuleAdjust / fly.* / shop.* / spawner.upgrade / balop（host/port/domain）/
    home / tpa / back 传送段，`/config` 可热重载）、`items.json`（物品价）、`enchantments.json`（附魔价）、
    `fishing.json`（趣味钓鱼战利品），首次运行自动生成；商店数据 `world/economy-shops.json`；家与死亡点存数据库
    （`homes` / `back_points` 表）。
