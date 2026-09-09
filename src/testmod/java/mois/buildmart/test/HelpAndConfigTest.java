@@ -48,6 +48,53 @@ public final class HelpAndConfigTest {
 		helper.succeed();
 	}
 
+	/**
+	 * 纯净客户端（未装本模组）视角的指令可见性：/config 只对权限等级 ≥3（ADMIN）出现在下发的
+	 * 指令树里，且整条「发包→收包→客户端重建→解析」链路可用；普通玩家拿不到该节点。
+	 * 别名 /bmconfig 同样可用（客户端侧 /config 撞名时用别名绕开 Fabric 的本地拦截）。
+	 */
+	@GameTest(structure = EMPTY_STRUCTURE)
+	public void configVisibleInVanillaClientTree(GameTestHelper helper) {
+		TestPlayer admin = TestPlayer.admin(helper);
+		TestPlayer player = TestPlayer.player(helper);
+		var dispatcher = admin.server().getCommands().getDispatcher();
+		String key = EconomyConfig.configKeys().iterator().next();
+
+		admin.expectState(() -> TestApi.canParseAsVanillaClientOverNetwork(admin.server(), dispatcher,
+				"config " + key, admin.source()), "管理员在纯净客户端视角应能解析 /config <key>");
+		admin.expectState(() -> TestApi.canParseAsVanillaClientOverNetwork(admin.server(), dispatcher,
+				"bmconfig " + key, admin.source()), "管理员在纯净客户端视角应能解析 /bmconfig <key>");
+		player.expectState(() -> !TestApi.canParseAsVanillaClientOverNetwork(admin.server(), dispatcher,
+				"config " + key, player.source()), "普通玩家不应拿到 /config 节点");
+		helper.succeed();
+	}
+
+	/** 别名 /bmconfig 与 /config 功能等价：查询与设置都生效。 */
+	@GameTest(structure = EMPTY_STRUCTURE)
+	public void configAliasWorks(GameTestHelper helper) {
+		TestPlayer admin = TestPlayer.admin(helper);
+		String boolKey = EconomyConfig.configKeys().stream()
+				.filter(key -> "bool".equals(EconomyConfig.configType(key)))
+				.findFirst()
+				.orElse(null);
+		if (boolKey == null) {
+			helper.fail("没有可用于别名用例的布尔配置项");
+			return;
+		}
+		String original = EconomyConfig.getValue(boolKey);
+
+		admin.execute("/bmconfig " + boolKey)
+				.expectVisible(true)
+				.expectMessage(boolKey + " = ");
+		admin.execute("/bmconfig " + boolKey + " false")
+				.expectMessage(boolKey + " 已设置为 ")
+				.expectState(() -> "false".equals(EconomyConfig.getValue(boolKey)), "别名应能写入配置");
+		admin.execute("/bmconfig " + boolKey + " " + original)
+				.expectMessage(boolKey + " 已设置为 ")
+				.expectState(() -> original.equals(EconomyConfig.getValue(boolKey)), "别名应能恢复配置");
+		helper.succeed();
+	}
+
 	@GameTest(structure = EMPTY_STRUCTURE)
 	public void configQueryAllKeys(GameTestHelper helper) {
 		TestPlayer admin = TestPlayer.admin(helper);

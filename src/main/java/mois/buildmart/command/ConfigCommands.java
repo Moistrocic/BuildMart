@@ -23,7 +23,13 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * 局内配置修改指令：/config 配置项 [参数]（管理员）。
+ * 局内配置修改指令：/config 配置项 [参数]（管理员），并提供**别名 /bmconfig**。
+ * <p>
+ * 别名的用途：指令能否被客户端执行，取决于客户端本地解析（纯净客户端只能用服务端下发的、
+ * 按权限过滤的指令树）。若客户端装了其他 mod 注册的**客户端侧** /config 指令，Fabric 会先用
+ * 客户端 dispatcher 解析，抛出的 dispatcherUnknownArgument 不在其忽略列表里，于是**取消发送**
+ * 并本地报错——指令根本到不了服务端（表现为「客户端报错、服务端无日志」）。/bmconfig 不与
+ * 客户端指令撞名，可正常下发；两条指令功能完全一致。
  * <p>
  * 配置项按 Tab 自动补全（与 /eco 目标补全同机制）；修改直接热重载内存配置
  * （所有消费方按次读取 getter，即时生效），并写回 config.json 持久化，无需重启。
@@ -39,7 +45,16 @@ public final class ConfigCommands {
 	}
 
 	public static void register(CommandDispatcher<CommandSourceStack> dispatcher, CommandBuildContext buildContext) {
-		dispatcher.register(Commands.literal("config")
+		registerConfig(dispatcher, buildContext, "config");
+		// 别名：客户端若已存在**客户端侧** /config 指令（其他 mod 注册），Fabric 会先用客户端
+		// dispatcher 解析并因 dispatcherUnknownArgument 取消发送（指令根本到不了服务端），
+		// 此时 /config 在该客户端不可用；/bmconfig 不会与客户端指令撞名，可正常下发。
+		registerConfig(dispatcher, buildContext, "bmconfig");
+	}
+
+	private static void registerConfig(CommandDispatcher<CommandSourceStack> dispatcher,
+			CommandBuildContext buildContext, String name) {
+		dispatcher.register(Commands.literal(name)
 				.requires(Commands.hasPermission(Commands.LEVEL_ADMINS))
 				.then(Commands.argument("key", StringArgumentType.word())
 						.suggests((ctx, builder) -> SharedSuggestionProvider.suggest(EconomyConfig.configKeys(), builder))
