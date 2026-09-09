@@ -73,12 +73,12 @@ public final class TestPlayer {
 
 	/** 非管理员玩家（测试自建 ServerPlayer，生存模式、无任何权限）。 */
 	public static TestPlayer player(GameTestHelper helper) {
-		return new TestPlayer(helper, createPlayer(helper), false);
+		return new TestPlayer(helper, createPlayer(helper, false), false);
 	}
 
-	/** 管理员玩家（玩家身份 + 全权限集，等价 op 4 玩家）。 */
+	/** 管理员玩家（真实 op：PlayerList.op 生效，因此 player.createCommandSourceStack() 也带权限）。 */
 	public static TestPlayer admin(GameTestHelper helper) {
-		return new TestPlayer(helper, createPlayer(helper), true);
+		return new TestPlayer(helper, createPlayer(helper, true), true);
 	}
 
 	/** 控制台执行者（全权限、无玩家身份）。 */
@@ -90,10 +90,18 @@ public final class TestPlayer {
 	 * 创建并接入一个测试玩家：复刻原版 mock 玩家的装配（Connection + EmbeddedChannel +
 	 * PlayerList.placeNewPlayer），因此 {@code connection.send} 可用（/bm、/fly 会触发能力同步），
 	 * 但使用 {@link TestServerPlayer} 以便按用例切换游戏模式（默认生存）。
+	 * <p>
+	 * {@code elevated=true} 时走 {@code PlayerList.op}，让 {@code player.permissions()} 本身带权限——
+	 * 主代码里以 {@code player.createCommandSourceStack()} 判定管理员的路径（如刷怪笼归属校验）
+	 * 在测试中同样能越权，而不是只在命令源上临时加权限。
 	 */
-	private static ServerPlayer createPlayer(GameTestHelper helper) {
+	private static ServerPlayer createPlayer(GameTestHelper helper, boolean elevated) {
 		MinecraftServer server = helper.getLevel().getServer();
-		GameProfile profile = new GameProfile(UUID.randomUUID(), "bm_test_player");
+		// 名字必须全局唯一且不跨运行复用：PlayerList 的权限查询按名字匹配，
+		// 与 run-gametest/world/ops.json 里上一次运行的残留条目同名会让普通玩家也拿到
+		// 管理员权限（归属校验类用例随运行次数抖动），故用随机后缀。
+		GameProfile profile = new GameProfile(UUID.randomUUID(),
+				"bm_" + Long.toHexString(java.util.concurrent.ThreadLocalRandom.current().nextLong(0x100000000L)));
 		net.minecraft.server.network.CommonListenerCookie cookie =
 				net.minecraft.server.network.CommonListenerCookie.createInitial(profile, false);
 		TestServerPlayer player = new TestServerPlayer(server, helper.getLevel(), profile,
@@ -102,6 +110,23 @@ public final class TestPlayer {
 				new net.minecraft.network.Connection(net.minecraft.network.protocol.PacketFlow.SERVERBOUND);
 		new io.netty.channel.embedded.EmbeddedChannel(connection);
 		server.getPlayerList().placeNewPlayer(connection, player, cookie);
+		net.minecraft.server.players.NameAndId nameAndId =
+				new net.minecraft.server.players.NameAndId(profile.id(), profile.name());
+		if (elevated) {
+			// GameTestServer.operatorUserPermissions() 恒为 ALL（等级 0），默认 op 在测试里拿不到权限；
+			// 必须显式指定权限集，玩家对象本身才带管理员权限（主代码里按 player 判定管理员的路径需要）。
+			server.getPlayerList().op(nameAndId,
+					java.util.Optional.of(net.minecraft.server.permissions.LevelBasedPermissionSet.OWNER),
+					java.util.Optional.empty());
+		} else {
+			// 非管理员玩家必须确认不在 op 列表里（含上一次运行/同名条目残留），
+			// 否则普通玩家也会带权限，归属校验类用例形同虚设。
+			server.getPlayerList().deop(nameAndId);
+			if (net.minecraft.commands.Commands.hasPermission(net.minecraft.commands.Commands.LEVEL_MODERATORS)
+					.test(player.createCommandSourceStack())) {
+				helper.fail("非管理员测试玩家不应拥有任何权限等级：" + profile.name());
+			}
+		}
 		// 原版对“客户端尚未加载完成”的玩家免疫一切伤害（ServerPlayer.isInvulnerableTo 检查
 		// connection.hasClientLoaded），假连接不会自然 tick 掉加载超时，这里手动推进，
 		// 否则 /suicide 等伤害类指令在测试环境里永远无效。
@@ -267,6 +292,11 @@ public final class TestPlayer {
 	/** 该执行者的玩家对象（控制台返回 null），用于库存等玩家级断言。 */
 	public ServerPlayer player() {
 		return player;
+	}
+
+	/** 该执行者的玩家名（控制台返回 null）。 */
+	public String name() {
+		return player != null ? player.getGameProfile().name() : null;
 	}
 
 	/** 该执行者所属的服务端测试关卡。 */
