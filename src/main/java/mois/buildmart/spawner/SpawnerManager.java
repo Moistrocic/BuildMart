@@ -6,6 +6,7 @@ import mois.buildmart.config.ItemValues;
 import mois.buildmart.config.SpawnerConfig;
 import mois.buildmart.data.EconomyDb;
 import net.minecraft.ChatFormatting;
+import net.minecraft.commands.Commands;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.component.DataComponents;
@@ -110,6 +111,30 @@ public final class SpawnerManager {
 		return stack;
 	}
 
+	// ---------- 归属校验 ----------
+
+	/**
+	 * 归属校验：**仅创建人或管理员**可修改/操作标签刷怪笼（与箱子商店的 /shop 规则一致）。
+	 * 只读命令（{@code /spawner info}、{@code /spawner hopper list}）不做限制。
+	 * 无创建人记录的笼子（早期版本、直接放置、管理员发放）视为公开可操作。
+	 * 返回 null = 通过，否则为失败提示。
+	 */
+	public static String checkOwner(ServerPlayer player, SpawnerBlockEntity spawner) {
+		SpawnerStateAccess s = state(spawner);
+		if (!s.economyTagged()) {
+			return NOT_TAGGED;
+		}
+		UUID owner = s.economyOwnerUuid();
+		if (owner == null || owner.equals(player.getUUID())) {
+			return null;
+		}
+		if (Commands.hasPermission(Commands.LEVEL_ADMINS).test(player.createCommandSourceStack())) {
+			return null;
+		}
+		String ownerName = s.economyOwnerName() != null ? s.economyOwnerName() : "未知";
+		return "只能操作自己的刷怪笼（创建人：" + ownerName + "）";
+	}
+
 	// ---------- 绑定/换绑（刷怪蛋右键，仅带标签笼；可随时更换） ----------
 
 	/**
@@ -118,8 +143,9 @@ public final class SpawnerManager {
 	 * 生存模式消耗一个蛋。
 	 */
 	public static String bindWithEgg(ServerPlayer player, SpawnerBlockEntity spawner, ItemStack eggStack) {
-		if (!state(spawner).economyTagged()) {
-			return NOT_TAGGED;
+		String ownerError = checkOwner(player, spawner);
+		if (ownerError != null) {
+			return ownerError;
 		}
 		EntityType<?> type = SpawnEggItem.getType(eggStack);
 		if (type == null) {
@@ -143,8 +169,9 @@ public final class SpawnerManager {
 
 	/** 升级刷怪笼（Lv 0 → 1 起，费用/效果来自 spawner.json 分级配置）。返回 null = 成功，否则为失败提示。 */
 	public static String upgrade(ServerPlayer player, SpawnerBlockEntity spawner) {
-		if (!state(spawner).economyTagged()) {
-			return NOT_TAGGED;
+		String ownerError = checkOwner(player, spawner);
+		if (ownerError != null) {
+			return ownerError;
 		}
 		if (!EconomyConfig.spawnerUpgrade()) {
 			return "升级功能已关闭（/config spawner.upgrade 可重新开启；已升级效果暂按原版生成，数据保留）";
@@ -223,10 +250,11 @@ public final class SpawnerManager {
 	 * autoconvert/autosell/display 仅接受 true/false；payee 为在线玩家名。
 	 */
 	public static String setParam(ServerPlayer player, SpawnerBlockEntity spawner, String param, String value) {
-		SpawnerStateAccess s = state(spawner);
-		if (!s.economyTagged()) {
-			return NOT_TAGGED;
+		String ownerError = checkOwner(player, spawner);
+		if (ownerError != null) {
+			return ownerError;
 		}
+		SpawnerStateAccess s = state(spawner);
 		int level = s.economyLevel();
 		switch (param) {
 			case "autoconvert" -> {
@@ -746,10 +774,11 @@ public final class SpawnerManager {
 
 	/** 添加白名单物品。返回 null = 成功，否则为失败提示。 */
 	public static String hopperAdd(ServerPlayer player, SpawnerBlockEntity spawner, net.minecraft.world.item.Item item) {
-		SpawnerStateAccess s = state(spawner);
-		if (!s.economyTagged()) {
-			return NOT_TAGGED;
+		String ownerError = checkOwner(player, spawner);
+		if (ownerError != null) {
+			return ownerError;
 		}
+		SpawnerStateAccess s = state(spawner);
 		String id = BuiltInRegistries.ITEM.getKey(item).toString();
 		if (s.economyHopperWhitelist().contains(id)) {
 			player.sendSystemMessage(Component.literal("白名单已有：" + id).withStyle(ChatFormatting.YELLOW), false);
@@ -767,10 +796,11 @@ public final class SpawnerManager {
 
 	/** 移除白名单物品。返回 null = 成功，否则为失败提示。 */
 	public static String hopperRemove(ServerPlayer player, SpawnerBlockEntity spawner, net.minecraft.world.item.Item item) {
-		SpawnerStateAccess s = state(spawner);
-		if (!s.economyTagged()) {
-			return NOT_TAGGED;
+		String ownerError = checkOwner(player, spawner);
+		if (ownerError != null) {
+			return ownerError;
 		}
+		SpawnerStateAccess s = state(spawner);
 		String id = BuiltInRegistries.ITEM.getKey(item).toString();
 		if (!s.economyHopperWhitelist().contains(id)) {
 			player.sendSystemMessage(Component.literal("白名单中没有：" + id).withStyle(ChatFormatting.YELLOW), false);
@@ -816,10 +846,11 @@ public final class SpawnerManager {
 	// ---------- 取出存储掉落物（/spawner take） ----------
 	/** 取出全部存储掉落物（背包优先，放不下的掉落在脚下）。返回 null = 成功。 */
 	public static String takeDrops(ServerPlayer player, SpawnerBlockEntity spawner) {
-		SpawnerStateAccess s = state(spawner);
-		if (!s.economyTagged()) {
-			return NOT_TAGGED;
+		String ownerError = checkOwner(player, spawner);
+		if (ownerError != null) {
+			return ownerError;
 		}
+		SpawnerStateAccess s = state(spawner);
 		List<ItemStack> drops = s.economyTakeDrops();
 		if (drops.isEmpty()) {
 			player.sendSystemMessage(Component.literal("刷怪笼中没有存储的转化掉落物")

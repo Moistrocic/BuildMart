@@ -126,10 +126,17 @@
 
 ## 指令
 
+**归属规则（与箱子商店 `/shop` 一致）**：`info`、`hopper list` 为只读命令，所有人可用；
+其余写操作（`upgrade`/`set`/`take`/`hopper add|remove`）以及**手持刷怪蛋右键绑定类型**
+（`UseBlockCallback` → `SpawnerManager.bindWithEgg`）**仅创建人或管理员**可用，否则提示
+`只能操作自己的刷怪笼（创建人：X）`。无创建人记录的笼子（早期版本、直接放置、`/spawner give`
+发放后未由玩家放置）视为公开。校验单点收口在 `SpawnerManager.checkOwner`，命令与右键两条路径共用。
+
 | 指令 | 说明 |
 |---|---|
-| `/spawner info` | 查看信息（Lv/绑定生物/所有者/参数区间/直接转化/抢夺/自动出售/存储掉落物列表）——仅标签笼；格式与颜色规范：前 3 行白色、区间行蓝色、可设置属性按状态（开蓝/关灰）、存储标题金色、Lv 当前<上限红色=绿色 |
-| `/spawner upgrade` | 升级（纯金钱；Lv 0 → 1 起）——仅标签笼，受 `spawner.upgrade` 开关控制 |
-| `/spawner set <参数> <值>` | 生成参数（minDelay/maxDelay/count/nearby/playerRange/spawnRange，受等级范围约束；Lv 0 不可微调）与配置：`autoconvert true|false`、`looting 0-3`（等级解锁）、`autosell true|false`、`display true|false`（悬浮信息开关）、`payee 玩家名`（离线需已注册账户）——枚举值全部可 tab 补全 |
-| `/spawner take` | 取出存储的转化掉落物（放不下的掉落脚下） |
+| `/spawner info` | 查看信息（Lv/绑定生物/所有者/参数区间/直接转化/抢夺/自动出售/存储掉落物列表）——仅标签笼，只读公开；格式与颜色规范：前 3 行白色、区间行蓝色、可设置属性按状态（开蓝/关灰）、存储标题金色、Lv 当前<上限红色=绿色 |
+| `/spawner upgrade` | 升级（纯金钱；Lv 0 → 1 起）——仅标签笼，受 `spawner.upgrade` 开关控制，限创建人/管理员 |
+| `/spawner set <参数> <值>` | 生成参数（minDelay/maxDelay/count/nearby/playerRange/spawnRange，受等级范围约束；Lv 0 不可微调）与配置：`autoconvert true|false`、`looting 0-3`（等级解锁）、`autosell true|false`、`display true|false`（悬浮信息开关）、`payee 玩家名`（离线需已注册账户）——枚举值全部可 tab 补全；限创建人/管理员 |
+| `/spawner take` | 取出存储的转化掉落物（放不下的掉落脚下）；限创建人/管理员 |
+| `/spawner hopper add\|remove\|list` | 漏斗白名单（add/remove 限创建人/管理员，list 只读公开） |
 | `/spawner give` | 管理员获得带标签刷怪笼 |
