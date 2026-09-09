@@ -107,11 +107,11 @@ public final class EconomyConfig {
 
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
-	/** 配置项描述：类型（bool/int/money）与说明（用于 /config 补全与校验）。 */
+	/** 配置项描述：类型（bool/int/money）与说明（用于 /bm config 补全与校验）。 */
 	private record Entry(String type, String description) {
 	}
 
-	/** /config 可修改的全部配置项（key -> 类型/说明）。 */
+	/** /bm config 可修改的全部配置项（key -> 类型/说明）。 */
 	private static final Map<String, Entry> ENTRIES = buildEntries();
 
 	private static Map<String, Entry> buildEntries() {
@@ -149,7 +149,7 @@ public final class EconomyConfig {
 		return map;
 	}
 
-	// ---------- /config 热重载支持 ----------
+	// ---------- /bm config 热重载支持 ----------
 
 	/** 全部配置项 key（补全用）。 */
 	public static List<String> configKeys() {
@@ -522,7 +522,7 @@ public final class EconomyConfig {
 		}
 	}
 
-	/** 把当前内存配置写回 config.json（/config 修改后持久化）。 */
+	/** 把当前内存配置写回 config.json（/bm config 修改后持久化）。 */
 	public static void save(Path configDir) throws IOException {
 		Path file = configDir.resolve("economy").resolve("config.json");
 		Files.createDirectories(file.getParent());

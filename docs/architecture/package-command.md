@@ -80,42 +80,40 @@
 - `toggleWarn`：切换 `FlyManager.toggleWarn`，提示“飞行余额不足提醒已开启/关闭”。
 - 扣费本体不在命令里，在 `FlyManager.onServerTick`（命令只切换状态与提示）。
 
-## `ConfigCommands.java` — 局内配置修改（/config、/bmconfig、/buildmart config）
+## `ConfigCommands.java` — 局内配置修改（/bm config ...）
 
-- 注册三条**等价入口**（同一棵树，管理员 `LEVEL_ADMINS`，不在 /bmhelp 帮助列表）：
-  `/config 配置项 [参数]`、`/bmconfig 配置项 [参数]`、`/buildmart config 配置项 [参数]`。
-  `/buildmart` 根节点同样限管理员，非管理员客户端不会多出补全项；结构一致性由
-  `HelpAndConfigTest.configEntryPointsAreEquivalent` 守住（子节点集合比对）。
-- **多入口的用途（纯净客户端兼容）**：客户端必须能**本地解析**指令才会发包——纯净客户端只有
-  服务端下发的、按权限过滤过的指令树（`Commands.sendCommands` 用 `fillUsableCommands` 按
-  `canUse(playerSource)` 逐层过滤，故权限 < 3 的玩家根本拿不到 /config 节点）。
-  若客户端还装了其他 mod 注册的**客户端侧** /config 指令，Fabric 会先用客户端 dispatcher
+- 注册为 **`/bm` 的子节点**（`BalshopCommands` 注册 `/bm` 时挂上 `ConfigCommands.node()`）：
+  `/bm config 配置项 [参数]`（管理员 `LEVEL_ADMINS`，不在 /bmhelp 帮助列表）。
+  `/bm` 单独执行仍是便捷购买开关（两功能共存，由 `HelpAndConfigTest.buyModeAndConfigCoexist` 守住）。
+- **为什么不做顶层 /config（纯净客户端兼容）**：客户端必须能**本地解析**指令才会发包——纯净客户端
+  只有服务端下发的、按权限过滤过的指令树（`Commands.sendCommands` 用 `fillUsableCommands` 按
+  `canUse(playerSource)` 逐层过滤，故权限 < 3 的玩家根本拿不到 config 子节点）。
+  若客户端存在同名**客户端侧**指令（其他 mod 注册，如 `/config`），Fabric 会先用客户端 dispatcher
   执行（`ClientCommandInternals.executeCommand`，命中即本地处理并取消发包）；未命中且抛出的
   `dispatcherUnknownArgument`（"错误的命令参数，位于第 N 个字符"）**不在其忽略列表**（只忽略
   `dispatcherUnknownCommand`/`dispatcherParseException`），于是**取消发送**并本地报错——表现为
-  「客户端报错、服务端无日志」。此时被挡的是**我们服务端的 /config**，那个 mod 的 /config 仍正常
-  （客户端指令优先）；`/bmconfig` 撞名概率很低、`/buildmart config` 带命名空间撞名概率≈0，均可下发。
+  「客户端报错、服务端无日志」。挂到 `/bm` 下撞名概率极低，且该子节点限管理员、非管理员客户端不可见。
   回归用例：`HelpAndConfigTest.configVisibleInVanillaClientTree`（复刻发包→收包→客户端重建→解析）。
 - 配置项 key 按 Tab 自动补全（`EconomyConfig.configKeys()`，30 项：itemPricesInLore / rule.partialAdjust /
   flyFeePerSecond / home.* / tpa.* / back.*）；布尔项参数值补全 true/false，数值项补全当前值。
 - 执行：`EconomyConfig.apply(key, value)` 热重载内存配置（所有消费方按次读取 getter，即时生效；
   itemPricesInLore 会同步 `PriceLore.enabled`）→ `EconomyConfig.save(configDir)` 写回 config.json
-  持久化，无需重启。`/config key`（无参数）查询当前值。
+  持久化，无需重启。`/bm config key`（无参数）查询当前值。
 - 参数值用 string 解析（原生支持引号），字符串配置项三种写法等价：
-  `/config balop.domain a.b.c`、`/config balop.domain "a.b.c"` 与 `/config balop.domain ""`
+  `/bm config balop.domain a.b.c`、`/bm config balop.domain "a.b.c"` 与 `/bm config balop.domain ""`
   （空 = 清空；带引号输入由解析器剥除，不能用 word——word 字符集不含引号，
   带引号输入会在解析期报「参数后应有空格分隔」）；空值在查询/设置回显中显示为「（空）」。
 
-## `RuleCommands.java` — 部分规则调整指令（/config rule.partialAdjust）
+## `RuleCommands.java` — 部分规则调整指令（/bm config rule.partialAdjust）
 
 - 权限：`requires(RuleCommands::allowed)`——`EconomyConfig.partialAdjust() ||`
-  权限等级 2（`LEVEL_GAMEMASTERS`）管理员。判定按次读取配置，/config 热改**即时生效**
+  权限等级 2（`LEVEL_GAMEMASTERS`）管理员。判定按次读取配置，/bm config 热改**即时生效**
   （含收回）；规则改动全部走 `GameRules.set`（与服务端 `onGameRuleChanged` 联动、随世界
   存档持久化），与 /gamerule 同源。
 - **客户端可见性**：客户端把每个指令节点标记 RESTRICTED（服务端在进服下发指令树时用
   无权限源测试 requirement），非管理员隐藏受限指令并显示“未知或不完整的命令”。
   因此 rule.partialAdjust=true 时这些指令对非管理员同样可见/可执行（false 时恢复隐藏）；
-  **/config 切换后 `ConfigCommands` 会向全部在线玩家即时重发指令树**，无需重进服。
+  **/bm config 切换后 `ConfigCommands` 会向全部在线玩家即时重发指令树**，无需重进服。
 - **原版 /weather、/time 权限放宽**：原版指令（26.3 语义与参数原样保留，含新的时间
   时钟/时间标记体系）注册后，把根节点 requirement 反射写为上述动态判定（Brigadier
   requirement 为 final、无公开替换 API；失败仅记 warn 并保持原版权限）——

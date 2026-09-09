@@ -1,5 +1,8 @@
 # `mois.buildmart.buymode` 包 — /bm 便捷购买
 
+> `/bm` 同时是本模组的缩写根：`/bm` 单独执行 = 便捷购买开关；`/bm config 配置项 [参数]` = 管理员
+> 局内配置修改（见 `package-command.md` 的 `ConfigCommands`；不做顶层 `/config` 的原因也在那里）。
+
 ## `BuyModeManager.java` — 便捷购买会话管理（内存状态）
 
 思路：临时授予 `instabuild`，让**纯净客户端**打开背包时自动进入原版创造物品栏界面，

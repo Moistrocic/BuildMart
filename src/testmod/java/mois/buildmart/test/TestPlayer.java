@@ -28,7 +28,7 @@ import java.util.function.Supplier;
  *     .expectMessage("BuildMart 帮助")   // 服务端发给该玩家的消息（客户端将显示的内容）
  *     .expectVisible(true);              // 指令对该执行者可见/可解析
  * TestPlayer.admin(helper)
- *     .execute("/config rule.partialAdjust true")
+ *     .execute("/bm config rule.partialAdjust true")
  *     .expectMessage("已设置为")
  *     .expectState(EconomyConfig::partialAdjust, "配置应被修改为 true");
  * }</pre>

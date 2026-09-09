@@ -33,7 +33,7 @@
   飞行能力不写存档——下线时收回，上线/tick 重新授予。
 - **飞行挖掘速度**：**属性方案**——`FlyManager.syncDigBoost`（每 tick 由
   `ServerPlayerMixin.tick` RETURN 调用）在飞行模式开启、正在飞行、未落地且
-  `fly.digNoSlow`（`/config`，默认 true）时，给玩家挂 `Attributes.BLOCK_BREAK_SPEED`
+  `fly.digNoSlow`（`/bm config`，默认 true）时，给玩家挂 `Attributes.BLOCK_BREAK_SPEED`
   瞬态修改器（乘算 +4.0，总 ×5）。26.3 原版 `getDestroySpeed` 的空中惩罚是末尾
   `f / 5.0F`——属性乘 5 后空中挖掘速度恢复为地面原速；落地/关闭飞行/关闭配置时移除。
   **属性是服务端权威并由原版机制自动同步客户端**（ClientboundUpdateAttributesPacket），

@@ -182,7 +182,7 @@ public final class ShopManager {
 		}
 		shop.setRemainingTicks(RESET_TICKS);
 		save();
-		// 出售结算日志默认关闭（每店每 60 秒一条，过多影响后台观感）；/config shopSellLog 开启
+		// 出售结算日志默认关闭（每店每 60 秒一条，过多影响后台观感）；/bm config shopSellLog 开启
 		if (mois.buildmart.config.EconomyConfig.shopSellLog()) {
 			BuildMart.LOGGER.info("商店出售结算：{} {} → {}（{} 元）", dimensionString(shop.dimension()), shop.pos(),
 					shop.payeeName(), Money.format(total));

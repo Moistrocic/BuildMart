@@ -46,7 +46,7 @@
   升级后参数默认取**范围下限**；`/spawner set <参数> <值>` 在范围内微调
   （minDelay/maxDelay/count/nearby/playerRange/spawnRange，maxDelay ≥ minDelay 校验）。
   **Lv 0 不在配置中**（初始态，原版生成机制）。文件缺失回退内置默认表（10 级）。
-- **`/config spawner.upgrade`**（默认 true）：总开关——关闭时：
+- **`/bm config spawner.upgrade`**（默认 true）：总开关——关闭时：
   - `/spawner upgrade` 拒绝；
   - 已升级效果**按 Lv 0（原版生成机制）生成**（`BaseSpawnerMixin.serverTick` 每 tick
     计算生效参数时 `effLevel = 开关 ? 等级 : 0`，`effLevel <= 0` 不写参数），
@@ -97,7 +97,7 @@
   同类假实体作攻击者并挂 Looting N 的剑模拟。
 - **自动出售**（`/spawner set autosell true`）：每 60 秒批量出售**全部**存储掉落物
   （含开启前积累的）给收款人（默认创建人；`/spawner set payee` 可改，允许离线玩家但
-  必须已注册资金账户）；流水 `SELL/SPAWNER`；结算日志受 `/config shop.sellLog` 控制；
+  必须已注册资金账户）；流水 `SELL/SPAWNER`；结算日志受 `/bm config shop.sellLog` 控制；
   开启时显示金色悬浮（与 shop 一致）：创建人/收款人/出售倒计时；`/spawner set display true|false` 可独立隐藏悬浮（默认 true，随 NBT 存档）。
 - **取出**（`/spawner take`）：存储掉落物发到背包（按单堆上限拆分），放不下的掉落脚下。
 - **漏斗**（`/spawner set hopper true`）：转化掉落物中白名单物品直接放入**同 y 水平相邻**

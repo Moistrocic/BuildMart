@@ -7,7 +7,7 @@
 
 - [README.md](README.md) — 项目总览、构建信息、全局约定（本文）
 - [package-root.md](package-root.md) — 根包：`Economy`（入口）、`Money`（金额工具）、`PriceLore`（价格标签）
-- [package-command.md](package-command.md) — `command` 包：全部指令（bal/pay/baltop/bmhelp/eco/shop/price/buy/bm/fly/home/sethome/tpa/tpahere/tpaccept/back/suicide/hongbao/config/balop/规则调整）
+- [package-command.md](package-command.md) — `command` 包：全部指令（bal/pay/baltop/bmhelp/eco/shop/price/buy/bm/fly/home/sethome/tpa/tpahere/tpaccept/back/suicide/hongbao/bm config/balop/规则调整）
 - [package-config.md](package-config.md) — `config` 包：主配置 / 物品价 / 附魔价 JSON + 初始定价表
 - [package-data.md](package-data.md) — `data` 包：SQLite 资金数据库
 - [package-balop.md](package-balop.md) — `balop` 包：/balop 数据库管理前端（HTTP 面板 + REST API）
@@ -75,7 +75,7 @@
    记录失败一律静默。旧库自动迁移（移除余额非负约束、补 item_data 列）。
 8. **配置**：`config/economy/` 下 `config.json`（主配置：itemPricesInLore / funFishing /
    rule.partialAdjust / fly.* / shop.*（sellLog/fastbuy）/ spawner.upgrade / balop（host/port/domain）/
-   home / tpa / back 传送段，`/config` 可热重载）、`items.json`（物品价）、`enchantments.json`（附魔价）、
+   home / tpa / back 传送段，`/bm config` 可热重载）、`items.json`（物品价）、`enchantments.json`（附魔价）、
    `fishing.json`（趣味钓鱼战利品），首次运行自动生成；商店数据 `world/economy-shops.json`；家与死亡点存数据库
    （`homes` / `back_points` 表）。
 9. **自检**：启动时 `PriceLore.selfCheck()`（仅开启时）与 `EconomyDb.runSelfTest()`（open 时）自动执行，
@@ -83,7 +83,7 @@
 10. **指令注册中枢**：`EconomyCommands.register`（由 `BuildMart.onInitialize` 的
     `CommandRegistrationCallback` 调用），内部再委托 `BalshopCommands`、`FlyCommands`、
     `TeleportCommands`、`HongbaoCommands`、`ConfigCommands`；新增指令要同步更新
-    `BuildMart.java` 的“命令注册完成”日志与 `/bmhelp` 的 `HELP_LINES`（/config 除外）。
+    `BuildMart.java` 的“命令注册完成”日志与 `/bmhelp` 的 `HELP_LINES`（/bm config 除外）。
 11. **验证规范（规则书 4）**：启动验证用“后台启动 + 日志监视”，成功标记 = 模组初始化标记；
     run 开发服 `server.properties` 须 `online-mode=false`、`white-list=false`、`enforce-secure-profile=false`。
 12. **buymode 安全性**：购买判定 = 「背包消失物品暂存追踪（`BuyModeSession`）+ 出现不匹配

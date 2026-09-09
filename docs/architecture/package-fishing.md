@@ -22,7 +22,7 @@
   （需已就绪的 RegistryAccess 解析物品组件）；解析/校验失败 → 清空并回退原版。
 - `roll(RandomSource)` — 加权随机；返回 null = 配置未加载（回退原版），
   `ItemStack.EMPTY` = 未命中（正常收竿无掉落）。
-- 开关：`EconomyConfig.funFishing()`（`/config funFishing` 热重载）。
+- 开关：`EconomyConfig.funFishing()`（`/bm config funFishing` 热重载）。
 
 ## `FishingHookMixin`（目标 `FishingHook`）— 战利品替换
 
