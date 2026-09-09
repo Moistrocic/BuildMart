@@ -35,9 +35,12 @@
   保证单人游戏内置服务器也加载，见规则书 3.3）；`src/client` 仅客户端（目前只有空的 `BuildMartClient`）；
   `src/testmod` 为**测试专用源集**（独立 mod id `buildmart-testmod`，不进发布 jar，见「测试」）。
 - **测试**：服务端 gametest 用例位于 `src/testmod`（入口 `fabric-gametest`），运行
-  `gradlew runGametest`（无头服务端，报告写入 `build/gametest.xml`，运行目录 `run-gametest/`）；
-  测试 API 见 `mois.buildmart.test.TestApi`（无权限命令源构造 / 指令可解析判定），
-  用例见 `BuildMartGameTest`（rule.partialAdjust 可见性、/fixweather 翻转 advance_weather）。
+  `gradlew runGametest`（无头服务端，报告写入 `build/gametest.xml`，运行目录 `run-gametest/`）。
+  复用 DSL：`TestPlayer.player/admin/console(helper).execute("/指令").expectMessage(...)/
+  expectVisible(...)/expectState(...)`——校验「消息文本 / 指令可见性 / 服务端状态」三类
+  显而易见的结果；消息捕获由 testmod 专属 mixin（`ServerPlayerMessageSpyMixin` + `MessageSpy`，
+  测试用玩家无需真实连接）实现。**定位**：只保证基础功能不因版本迁移/新功能失效；
+  复杂交互（如 /fly 后双击空格飞行）交由真人测试。
 - **入口**：`fabric.mod.json` → main `mois.buildmart.BuildMart`，client `mois.buildmart.client.BuildMartClient`；
   mixin 配置 `buildmart.mixins.json`（12 个 mixin，`defaultRequire: 1`，包 `mois.buildmart.mixin`）。
 - **启动标记**：`BuildMart Loaded!`（Economy.onInitialize 末尾打印；规则书 AGENTS.md 4.2 以此为准）。

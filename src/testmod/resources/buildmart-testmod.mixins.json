@@ -1,0 +1,11 @@
+{
+	"required": true,
+	"package": "mois.buildmart.test.mixin",
+	"compatibilityLevel": "JAVA_25",
+	"mixins": [
+		"ServerPlayerMessageSpyMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}
