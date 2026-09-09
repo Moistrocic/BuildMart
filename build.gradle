@@ -11,6 +11,11 @@ repositories {
 	// for more information about repositories.
 }
 
+sourceSets {
+	// 先声明存在（classpath 依赖 client 源集，须在 loom 块之后再补）
+	testmod
+}
+
 loom {
 	splitEnvironmentSourceSets()
 
@@ -21,6 +26,17 @@ loom {
 			programArgs '--server', '127.0.0.1'
 			programArgs '--port', '25565'
 		}
+
+		gametest {
+			// 服务端 gametest（无头）：gradlew runGametest
+			server()
+			configName = "Game Test"
+			source sourceSets.testmod
+			property "fabric-api.gametest", "true"
+			property "fabric-api.gametest.report-file",
+					"${project.layout.buildDirectory.get().asFile}/gametest.xml"
+			runDir "run-gametest"
+		}
 	}
 
 	mods {
@@ -29,6 +45,24 @@ loom {
 			sourceSet sourceSets.main
 			sourceSet sourceSets.client
 		}
+		// 测试 mod（仅开发/测试环境加载，不进发布 jar）
+		"buildmart-testmod" {
+			sourceSet sourceSets.testmod
+		}
+	}
+}
+
+// 注意：须放在 loom 块之后 —— splitEnvironmentSourceSets() 才会创建 client 源集
+sourceSets {
+	// 测试专用源集：gametest 用例与测试 API（独立 mod id buildmart-testmod），
+	// 不参与发布 jar —— 见 src/testmod/resources/fabric.mod.json。
+	// 类路径直接继承 main 的 compile/runtime classpath（Loom 的 minecraft 配置只自动接给
+	// main/client 源集，自定义源集须手动继承才能看到 MC 类）。
+	testmod {
+		compileClasspath += sourceSets.main.compileClasspath
+		compileClasspath += sourceSets.main.output + sourceSets.client.output
+		runtimeClasspath += sourceSets.main.runtimeClasspath
+		runtimeClasspath += sourceSets.main.output + sourceSets.client.output
 	}
 }
 
