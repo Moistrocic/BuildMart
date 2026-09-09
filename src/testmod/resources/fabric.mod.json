@@ -1,0 +1,20 @@
+{
+	"schemaVersion": 1,
+	"id": "buildmart-testmod",
+	"version": "1.0.0",
+	"name": "BuildMart Testmod",
+	"description": "BuildMart 的 gametest 用例与测试 API（仅开发/测试环境加载，不进发布 jar）。",
+	"license": "CC0-1.0",
+	"environment": "*",
+	"entrypoints": {
+		"fabric-gametest": [
+			"mois.buildmart.test.BuildMartGameTest"
+		]
+	},
+	"depends": {
+		"fabricloader": ">=0.19.3",
+		"minecraft": "*",
+		"fabric-api": "*",
+		"buildmart": "*"
+	}
+}

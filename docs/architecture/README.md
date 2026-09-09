@@ -32,7 +32,12 @@
   重载需完整描述符限定注入）。
 - **依赖打包**：sqlite-jdbc 以 `include(...)` 打入 jar（排除其 slf4j-api，Minecraft 自带 slf4j）。
 - **SourceSet**：`splitEnvironmentSourceSets()` —— `src/main` 两端共用（**所有服务端逻辑必须放这里**，
-  保证单人游戏内置服务器也加载，见规则书 3.3）；`src/client` 仅客户端（目前只有空的 `BuildMartClient`）。
+  保证单人游戏内置服务器也加载，见规则书 3.3）；`src/client` 仅客户端（目前只有空的 `BuildMartClient`）；
+  `src/testmod` 为**测试专用源集**（独立 mod id `buildmart-testmod`，不进发布 jar，见「测试」）。
+- **测试**：服务端 gametest 用例位于 `src/testmod`（入口 `fabric-gametest`），运行
+  `gradlew runGametest`（无头服务端，报告写入 `build/gametest.xml`，运行目录 `run-gametest/`）；
+  测试 API 见 `mois.buildmart.test.TestApi`（无权限命令源构造 / 指令可解析判定），
+  用例见 `BuildMartGameTest`（rule.partialAdjust 可见性、/fixweather 翻转 advance_weather）。
 - **入口**：`fabric.mod.json` → main `mois.buildmart.BuildMart`，client `mois.buildmart.client.BuildMartClient`；
   mixin 配置 `buildmart.mixins.json`（12 个 mixin，`defaultRequire: 1`，包 `mois.buildmart.mixin`）。
 - **启动标记**：`BuildMart Loaded!`（Economy.onInitialize 末尾打印；规则书 AGENTS.md 4.2 以此为准）。

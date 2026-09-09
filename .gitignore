@@ -32,6 +32,8 @@ bin/
 # fabric
 
 run/
+run-gametest/
+run-client-gametest/
 
 # java
 
