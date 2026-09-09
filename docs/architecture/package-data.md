@@ -68,4 +68,6 @@
 - **`DatabaseException extends RuntimeException`**：数据层不可恢复错误，命令层 catch 后向玩家返回可读提示。
 - **`runSelfTest()`**（open 时自动）：随机账户验证写入/读取/转账/余额不足拦截/名字存储/扣款边界，
   用后清理（`deleteAccount`），失败抛 `IllegalStateException` 使 open 的 catch 里 `close()`。
+  **名字校验走私有 `queryName(uuid)` 直查**，不能用 `topAccounts`——排行榜按余额倒序取前 N 名，
+  账户数超过 N 且余额更高时会把自检账户挤出榜单，造成初始化误判（曾因此让 gametest 经济用例全挂）。
 - 事务模式：`transferMany`/`deductMany` 手动 `setAutoCommit(false)` + commit/rollback + finally 恢复。

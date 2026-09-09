@@ -10,7 +10,11 @@
 		"fabric-gametest": [
 			"mois.buildmart.test.HelpAndConfigTest",
 			"mois.buildmart.test.EconomyCommandTest",
-			"mois.buildmart.test.RuleCommandTest"
+			"mois.buildmart.test.RuleCommandTest",
+			"mois.buildmart.test.ShopCommandTest",
+			"mois.buildmart.test.SpawnerCommandTest",
+			"mois.buildmart.test.TeleportCommandTest",
+			"mois.buildmart.test.BalopTest"
 		]
 	},
 	"mixins": [

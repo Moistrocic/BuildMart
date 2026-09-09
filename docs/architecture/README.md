@@ -34,8 +34,12 @@
   `gradlew runGametest`（无头服务端，报告写入 `build/gametest.xml`，运行目录 `run-gametest/`）。
   复用 DSL：`TestPlayer.player/admin/console(helper).execute("/指令").expectMessage(...)/
   expectVisible(...)/expectState(...)`——校验「消息文本 / 指令可见性 / 服务端状态」三类
-  显而易见的结果；消息捕获由 testmod 专属 mixin（`ServerPlayerMessageSpyMixin` + `MessageSpy`，
-  测试用玩家无需真实连接）实现。**定位**：只保证基础功能不因版本迁移/新功能失效；
+  显而易见的结果；辅助方法 `checkVisible`（只解析不执行）、`executeExpectFailure`（断言失败原因）、
+  `standAt/aimAt`（站姿与瞄准，测箱子/刷怪笼类指令）、`hasItem`（按物品比较，忽略价格 lore）。
+  消息捕获由 testmod 专属 mixin（`ServerPlayerMessageSpyMixin` + `MessageSpy`，测试用玩家无需真实连接）实现。
+  **测试玩家是假连接**：原版 `ServerPlayer.isInvulnerableTo` 在 `connection.hasClientLoaded()==false`
+  时免疫一切伤害，`TestPlayer` 建号后会手动推进 `tickClientLoadTimeout()`，否则 /suicide 等伤害类指令
+  在测试环境里永远无效。**定位**：只保证基础功能不因版本迁移/新功能失效；
   复杂交互（如 /fly 后双击空格飞行）交由真人测试。
 - **入口**：`fabric.mod.json` → main `mois.buildmart.BuildMart`，client `mois.buildmart.client.BuildMartClient`；
   mixin 配置 `buildmart.mixins.json`（12 个 mixin，`defaultRequire: 1`，包 `mois.buildmart.mixin`）。
