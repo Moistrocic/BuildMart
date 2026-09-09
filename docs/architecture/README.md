@@ -39,8 +39,11 @@
   消息捕获由 testmod 专属 mixin（`ServerPlayerMessageSpyMixin` + `MessageSpy`，测试用玩家无需真实连接）实现。
   **测试玩家是假连接**：原版 `ServerPlayer.isInvulnerableTo` 在 `connection.hasClientLoaded()==false`
   时免疫一切伤害，`TestPlayer` 建号后会手动推进 `tickClientLoadTimeout()`，否则 /suicide 等伤害类指令
-  在测试环境里永远无效。**定位**：只保证基础功能不因版本迁移/新功能失效；
-  复杂交互（如 /fly 后双击空格飞行）交由真人测试。
+  在测试环境里永远无效。**权限/名字隔离**：测试玩家名带随机后缀（`PlayerList` 权限查询按名字匹配，
+  与 `run-gametest/world/ops.json` 残留同名条目会让普通玩家也拿到权限）；`admin` 显式
+  `op(nameAndId, Optional.of(LevelBasedPermissionSet.OWNER), ...)`（`GameTestServer.operatorUserPermissions()`
+  恒为 ALL，默认 `op()` 在测试里不生效），非 `admin` 主动 `deop` 并断言其无任何权限等级。
+  **定位**：只保证基础功能不因版本迁移/新功能失效；复杂交互（如 /fly 后双击空格飞行）交由真人测试。
 - **入口**：`fabric.mod.json` → main `mois.buildmart.BuildMart`，client `mois.buildmart.client.BuildMartClient`；
   mixin 配置 `buildmart.mixins.json`（12 个 mixin，`defaultRequire: 1`，包 `mois.buildmart.mixin`）。
 - **启动标记**：`BuildMart Loaded!`（Economy.onInitialize 末尾打印；规则书 AGENTS.md 4.2 以此为准）。
