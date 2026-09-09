@@ -3,12 +3,14 @@ package mois.buildmart.test;
 import com.mojang.authlib.GameProfile;
 import com.mojang.brigadier.CommandDispatcher;
 import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ClientInformation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.permissions.PermissionSet;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.item.Item;
 
 import java.util.List;
 import java.util.UUID;
@@ -52,14 +54,29 @@ public final class TestPlayer {
 		this.level = helper.getLevel();
 		this.player = player;
 		this.elevated = elevated;
+		if (player != null) {
+			// 统一按生存玩家：创造/旁观自带飞行，会影响 /fly、/suicide 等判定
+			forceSurvival(player);
+		}
 	}
 
-	/** 非管理员玩家（无任何权限，等价于普通生存玩家）。 */
+	/** 把测试玩家置为生存模式并清掉创造相关能力（保持 connection 可用）。 */
+	private static void forceSurvival(ServerPlayer player) {
+		if (player instanceof TestServerPlayer testPlayer) {
+			testPlayer.setTestGameMode(net.minecraft.world.level.GameType.SURVIVAL);
+		}
+		player.getAbilities().instabuild = false;
+		player.getAbilities().invulnerable = false;
+		player.getAbilities().flying = false;
+		player.onUpdateAbilities();
+	}
+
+	/** 非管理员玩家（测试自建 ServerPlayer，生存模式、无任何权限）。 */
 	public static TestPlayer player(GameTestHelper helper) {
 		return new TestPlayer(helper, createPlayer(helper), false);
 	}
 
-	/** 管理员玩家（玩家身份 + 全权限集，等价于 op 4 玩家）。 */
+	/** 管理员玩家（玩家身份 + 全权限集，等价 op 4 玩家）。 */
 	public static TestPlayer admin(GameTestHelper helper) {
 		return new TestPlayer(helper, createPlayer(helper), true);
 	}
@@ -69,10 +86,29 @@ public final class TestPlayer {
 		return new TestPlayer(helper, null, true);
 	}
 
+	/**
+	 * 创建并接入一个测试玩家：复刻原版 mock 玩家的装配（Connection + EmbeddedChannel +
+	 * PlayerList.placeNewPlayer），因此 {@code connection.send} 可用（/bm、/fly 会触发能力同步），
+	 * 但使用 {@link TestServerPlayer} 以便按用例切换游戏模式（默认生存）。
+	 */
 	private static ServerPlayer createPlayer(GameTestHelper helper) {
 		MinecraftServer server = helper.getLevel().getServer();
-		GameProfile profile = new GameProfile(UUID.randomUUID(), "buildmart_test");
-		return new ServerPlayer(server, helper.getLevel(), profile, ClientInformation.createDefault());
+		GameProfile profile = new GameProfile(UUID.randomUUID(), "bm_test_player");
+		net.minecraft.server.network.CommonListenerCookie cookie =
+				net.minecraft.server.network.CommonListenerCookie.createInitial(profile, false);
+		TestServerPlayer player = new TestServerPlayer(server, helper.getLevel(), profile,
+				cookie.clientInformation());
+		net.minecraft.network.Connection connection =
+				new net.minecraft.network.Connection(net.minecraft.network.protocol.PacketFlow.SERVERBOUND);
+		new io.netty.channel.embedded.EmbeddedChannel(connection);
+		server.getPlayerList().placeNewPlayer(connection, player, cookie);
+		// 原版对“客户端尚未加载完成”的玩家免疫一切伤害（ServerPlayer.isInvulnerableTo 检查
+		// connection.hasClientLoaded），假连接不会自然 tick 掉加载超时，这里手动推进，
+		// 否则 /suicide 等伤害类指令在测试环境里永远无效。
+		for (int i = 0; i < 200 && !player.connection.hasClientLoaded(); i++) {
+			player.connection.tickClientLoadTimeout();
+		}
+		return player;
 	}
 
 	/** 该执行者的命令源（管理员为全权限，控制台为服务端控制台源）。 */
@@ -105,8 +141,7 @@ public final class TestPlayer {
 
 	/** 断言执行期间该执行者收到过包含指定文本的消息（客户端将显示的内容）。 */
 	public TestPlayer expectMessage(String text) {
-		boolean found = messages.stream().anyMatch(message -> message.contains(text));
-		if (!found) {
+		if (messages.stream().noneMatch(message -> message.contains(text))) {
 			helper.fail("执行 /" + lastCommand + " 后应收到包含「" + text + "」的消息，实际收到：" + messages);
 		}
 		return this;
@@ -114,8 +149,7 @@ public final class TestPlayer {
 
 	/** 断言执行期间该执行者没有收到包含指定文本的消息。 */
 	public TestPlayer expectNoMessage(String text) {
-		boolean found = messages.stream().anyMatch(message -> message.contains(text));
-		if (found) {
+		if (messages.stream().anyMatch(message -> message.contains(text))) {
 			helper.fail("执行 /" + lastCommand + " 后不应收到包含「" + text + "」的消息，实际收到：" + messages);
 		}
 		return this;
@@ -134,6 +168,38 @@ public final class TestPlayer {
 		return this;
 	}
 
+	/**
+	 * 只做可见性判定（不执行指令，无副作用）：用于权限矩阵这类批量检查。
+	 */
+	public TestPlayer checkVisible(String command, boolean expected) {
+		String normalized = command.startsWith("/") ? command.substring(1) : command;
+		CommandDispatcher<CommandSourceStack> dispatcher = server.getCommands().getDispatcher();
+		boolean visible = TestApi.canParse(dispatcher, normalized, source());
+		if (visible != expected) {
+			helper.fail("指令 /" + normalized + " 对该执行者的可见性应为 " + expected + "，实际为 " + visible);
+		}
+		return this;
+	}
+
+	/**
+	 * 执行并断言抛出包含指定文本的命令异常（用于控制台等"消息不可捕获"的执行者，
+	 * 或需要确认失败原因的场景）。
+	 */
+	public TestPlayer executeExpectFailure(String command, String expectedText) {
+		String normalized = command.startsWith("/") ? command.substring(1) : command;
+		CommandDispatcher<CommandSourceStack> dispatcher = server.getCommands().getDispatcher();
+		try {
+			dispatcher.execute(dispatcher.parse(normalized, source()));
+		} catch (com.mojang.brigadier.exceptions.CommandSyntaxException e) {
+			if (e.getMessage() == null || !e.getMessage().contains(expectedText)) {
+				helper.fail("执行 /" + normalized + " 的失败信息应包含「" + expectedText + "」，实际：" + e.getMessage());
+			}
+			return this;
+		}
+		helper.fail("执行 /" + normalized + " 本应失败（期望失败信息包含「" + expectedText + "」），但成功了");
+		return this;
+	}
+
 	/** 断言服务端状态满足条件（配置项/游戏规则/库存/数据库等任意可读状态）。 */
 	public TestPlayer expectState(BooleanSupplier condition, String description) {
 		if (!condition.getAsBoolean()) {
@@ -147,6 +213,57 @@ public final class TestPlayer {
 		return supplier.get();
 	}
 
+	// ---------- 玩家上下文辅助 ----------
+
+	/**
+	 * 让玩家站到指定**绝对**方块位置（结构内的安全位置，通常由
+	 * {@code TestWorld.absolute(helper, 相对坐标)} 得到）。
+	 */
+	public TestPlayer standAt(BlockPos absoluteFeet) {
+		player.setPos(absoluteFeet.getX() + 0.5D, absoluteFeet.getY(), absoluteFeet.getZ() + 0.5D);
+		player.setDeltaMovement(Vec3.ZERO);
+		return this;
+	}
+
+	/** 让玩家看向指定**绝对**位置的方块中心（用原版 lookAt 计算朝向）。 */
+	public TestPlayer aimAt(BlockPos absoluteTarget) {
+		player.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES,
+				Vec3.atCenterOf(absoluteTarget));
+		return this;
+	}
+
+	/** 玩家正前方 distance 格处的绝对坐标（用于放置被瞄准的方块）。 */
+	public BlockPos blockAhead(int distance) {
+		return player.blockPosition().relative(player.getDirection(), distance);
+	}
+
+	/** 背包里是否有该物品（按物品比较，忽略价格 lore 等组件差异）。 */
+	public boolean hasItem(Item item) {
+		return hasItem(item, 1);
+	}
+
+	/** 背包里该物品的总数量是否不少于 amount（按物品比较，忽略组件差异）。 */
+	public boolean hasItem(Item item, int amount) {
+		if (player == null) {
+			return false;
+		}
+		var inventory = player.getInventory();
+		int total = 0;
+		for (int i = 0; i < inventory.getContainerSize(); i++) {
+			var stack = inventory.getItem(i);
+			if (stack.is(item)) {
+				total += stack.getCount();
+			}
+		}
+		return total >= amount;
+	}
+
+	/** 给该玩家入账（测试前置准备，直接走数据库，不依赖指令）。 */
+	public TestPlayer withBalance(long cents) {
+		EconomyDbAccess.credit(player, cents);
+		return this;
+	}
+
 	/** 该执行者的玩家对象（控制台返回 null），用于库存等玩家级断言。 */
 	public ServerPlayer player() {
 		return player;
@@ -155,6 +272,11 @@ public final class TestPlayer {
 	/** 该执行者所属的服务端测试关卡。 */
 	public ServerLevel level() {
 		return level;
+	}
+
+	/** 该执行者的服务端。 */
+	public MinecraftServer server() {
+		return server;
 	}
 
 	/** 该执行者收到的消息快照。 */
