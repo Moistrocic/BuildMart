@@ -8,7 +8,8 @@
 	"environment": "*",
 	"entrypoints": {
 		"fabric-gametest": [
-			"mois.buildmart.test.BuildMartGameTest"
+			"mois.buildmart.test.HelpAndConfigTest",
+			"mois.buildmart.test.EconomyCommandTest"
 		]
 	},
 	"mixins": [
