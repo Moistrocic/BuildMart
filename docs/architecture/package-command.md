@@ -80,17 +80,21 @@
 - `toggleWarn`：切换 `FlyManager.toggleWarn`，提示“飞行余额不足提醒已开启/关闭”。
 - 扣费本体不在命令里，在 `FlyManager.onServerTick`（命令只切换状态与提示）。
 
-## `ConfigCommands.java` — 局内配置修改（/config 与别名 /bmconfig）
+## `ConfigCommands.java` — 局内配置修改（/config、/bmconfig、/buildmart config）
 
-- 注册：`/config 配置项 [参数]` 与别名 `/bmconfig 配置项 [参数]`（同一棵树，管理员
-  `LEVEL_ADMINS`，不在 /bmhelp 帮助列表）。
-- **别名的用途（纯净客户端兼容）**：客户端必须能**本地解析**指令才会发包——纯净客户端只有
+- 注册三条**等价入口**（同一棵树，管理员 `LEVEL_ADMINS`，不在 /bmhelp 帮助列表）：
+  `/config 配置项 [参数]`、`/bmconfig 配置项 [参数]`、`/buildmart config 配置项 [参数]`。
+  `/buildmart` 根节点同样限管理员，非管理员客户端不会多出补全项；结构一致性由
+  `HelpAndConfigTest.configEntryPointsAreEquivalent` 守住（子节点集合比对）。
+- **多入口的用途（纯净客户端兼容）**：客户端必须能**本地解析**指令才会发包——纯净客户端只有
   服务端下发的、按权限过滤过的指令树（`Commands.sendCommands` 用 `fillUsableCommands` 按
   `canUse(playerSource)` 逐层过滤，故权限 < 3 的玩家根本拿不到 /config 节点）。
   若客户端还装了其他 mod 注册的**客户端侧** /config 指令，Fabric 会先用客户端 dispatcher
-  解析，抛出的 `dispatcherUnknownArgument`（"错误的命令参数，位于第 N 个字符"）**不在其忽略
-  列表**（只忽略 `dispatcherUnknownCommand`/`dispatcherParseException`），于是**取消发送**并
-  本地报错——表现为「客户端报错、服务端无日志」。`/bmconfig` 不与客户端指令撞名，可正常下发。
+  执行（`ClientCommandInternals.executeCommand`，命中即本地处理并取消发包）；未命中且抛出的
+  `dispatcherUnknownArgument`（"错误的命令参数，位于第 N 个字符"）**不在其忽略列表**（只忽略
+  `dispatcherUnknownCommand`/`dispatcherParseException`），于是**取消发送**并本地报错——表现为
+  「客户端报错、服务端无日志」。此时被挡的是**我们服务端的 /config**，那个 mod 的 /config 仍正常
+  （客户端指令优先）；`/bmconfig` 撞名概率很低、`/buildmart config` 带命名空间撞名概率≈0，均可下发。
   回归用例：`HelpAndConfigTest.configVisibleInVanillaClientTree`（复刻发包→收包→客户端重建→解析）。
 - 配置项 key 按 Tab 自动补全（`EconomyConfig.configKeys()`，30 项：itemPricesInLore / rule.partialAdjust /
   flyFeePerSecond / home.* / tpa.* / back.*）；布尔项参数值补全 true/false，数值项补全当前值。
