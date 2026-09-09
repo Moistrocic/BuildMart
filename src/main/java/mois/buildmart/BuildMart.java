@@ -137,7 +137,7 @@ public class BuildMart implements ModInitializer {
 
 		CommandRegistrationCallback.EVENT.register((dispatcher, buildContext, selection) -> {
 			EconomyCommands.register(dispatcher, buildContext);
-			LOGGER.info("命令注册完成（bal/pay/baltop/bmhelp/announcement/eco/shop/price/buy/bm/fastbuy/fly/home/sethome/delhome/listhome/tpa/tpahere/tpaccept/back/suicide/hongbao/config/spawner/weather/time 权限放宽/fixweather/fixtime/naturalmonsterspawn）");
+			LOGGER.info("命令注册完成（bal/pay/baltop/bmhelp/announcement/eco/shop/price/buy/bm（含 bm config）/fastbuy/fly/home/sethome/delhome/listhome/tpa/tpahere/tpaccept/back/suicide/hongbao/spawner/weather/time 权限放宽/fixweather/fixtime/naturalmonsterspawn）");
 		});
 
 		LOGGER.info("BuildMart Loaded!");

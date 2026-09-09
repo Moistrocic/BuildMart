@@ -17,12 +17,12 @@ public final class RuleCommandTest {
 		TestPlayer admin = TestPlayer.admin(helper);
 		TestPlayer player = TestPlayer.player(helper);
 
-		admin.execute("/config rule.partialAdjust false");
+		admin.execute("/bm config rule.partialAdjust false");
 		assertRuleCommandVisibility(player, false);
 
-		admin.execute("/config rule.partialAdjust true");
+		admin.execute("/bm config rule.partialAdjust true");
 		assertRuleCommandVisibility(player, true);
-		admin.execute("/config rule.partialAdjust false");
+		admin.execute("/bm config rule.partialAdjust false");
 		helper.succeed();
 	}
 
@@ -97,11 +97,11 @@ public final class RuleCommandTest {
 		TestPlayer player = TestPlayer.player(helper);
 
 		// 关闭时非管理员不可见（只解析不执行）
-		admin.execute("/config rule.partialAdjust false");
+		admin.execute("/bm config rule.partialAdjust false");
 		player.checkVisible("/weather rain", false);
 
 		// 开启时非管理员可用，且真的改变天气
-		admin.execute("/config rule.partialAdjust true");
+		admin.execute("/bm config rule.partialAdjust true");
 		player.execute("/weather rain")
 				.expectVisible(true)
 				.expectState(() -> helper.getLevel().getWeatherData().isRaining(), "rain 后应下雨");
@@ -109,7 +109,7 @@ public final class RuleCommandTest {
 				.expectVisible(true)
 				.expectState(() -> !helper.getLevel().getWeatherData().isRaining(), "clear 后应放晴");
 
-		admin.execute("/config rule.partialAdjust false");
+		admin.execute("/bm config rule.partialAdjust false");
 		helper.succeed();
 	}
 
@@ -118,17 +118,17 @@ public final class RuleCommandTest {
 		TestPlayer admin = TestPlayer.admin(helper);
 		TestPlayer player = TestPlayer.player(helper);
 
-		admin.execute("/config rule.partialAdjust false");
+		admin.execute("/bm config rule.partialAdjust false");
 		player.checkVisible("/time set day", false);
 
-		admin.execute("/config rule.partialAdjust true");
+		admin.execute("/bm config rule.partialAdjust true");
 		player.execute("/time set day").expectVisible(true);
 		long day = player.get(() -> helper.getLevel().getDefaultClockTime());
 		player.execute("/time set night").expectVisible(true);
 		long night = player.get(() -> helper.getLevel().getDefaultClockTime());
 		player.expectState(() -> day != night, "/time set 应真正改变世界时间");
 
-		admin.execute("/config rule.partialAdjust false");
+		admin.execute("/bm config rule.partialAdjust false");
 		helper.succeed();
 	}
 }

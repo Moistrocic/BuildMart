@@ -53,7 +53,7 @@ import java.util.UUID;
  *     刷怪笼定价 -1（不可交易）防倒卖；</li>
  * <li>绑定：放置后手持刷怪蛋右键绑定实体类型（消耗一个蛋）；之后 /spawner set entity 随时改刷的怪；</li>
  * <li>升级：/spawner upgrade（纯金钱，费用/效果来自 spawner.json 分级配置；
- *     /config spawner.upgrade 总开关，关闭时禁止升级且已升级效果按 Lv 1 生成，
+ *     /bm config spawner.upgrade 总开关，关闭时禁止升级且已升级效果按 Lv 1 生成，
  *     升级数据保留，再次开启自动恢复）；</li>
  * <li>参数微调：/spawner set 各参数，值受当前等级允许范围约束；</li>
  * <li>直接转化：/spawner set autoconvert true——不生成生物，原本生成的生物按击杀
@@ -174,7 +174,7 @@ public final class SpawnerManager {
 			return ownerError;
 		}
 		if (!EconomyConfig.spawnerUpgrade()) {
-			return "升级功能已关闭（/config spawner.upgrade 可重新开启；已升级效果暂按原版生成，数据保留）";
+			return "升级功能已关闭（/bm config spawner.upgrade 可重新开启；已升级效果暂按原版生成，数据保留）";
 		}
 		SpawnerAccess access = (SpawnerAccess) spawner.getSpawner();
 		if (!access.economyHasPotentials()) {
@@ -649,7 +649,7 @@ public final class SpawnerManager {
 	/**
 	 * 批量出售存储的转化掉落物（自动出售周期到点调用）：
 	 * 可交易物品按系统价格卖给收款人（默认创建人），不可交易物品留下继续存储；
-	 * 结算日志输出受 /config shop.sellLog 控制。倒计时结束后**所有**存储的掉落物
+	 * 结算日志输出受 /bm config shop.sellLog 控制。倒计时结束后**所有**存储的掉落物
 	 * 都会被出售（含开启自动出售前积累的）。
 	 */
 	public static void sellStoredDrops(ServerLevel level, SpawnerBlockEntity spawner, SpawnerStateAccess state) {

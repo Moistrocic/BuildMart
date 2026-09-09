@@ -24,7 +24,7 @@
     `domain`（默认 ""）为 **/balop start 链接的展示域名**（纯文本替换，不用于监听）：
     非空时链接显示 `http://domain/?token=...`（**域名整段替换 host:port，不附加端口**；
 域名确需端口请直接写进 domain，如 `a.mois.top:8443`），为空时直接用 `balop.host:port`。
-    **同时是 /config 动态项**：`balop.host`（string）、`balop.port`（int）、
+    **同时是 /bm config 动态项**：`balop.host`（string）、`balop.port`（int）、
     `balop.domain`（string），修改后需 `/balop stop` + `/balop start` 生效（domain 下次
     start 即生效）。
   - `home` / `tpa` / `back`（传送配置段，见下）。
@@ -39,7 +39,7 @@
 - API：`load(Path configDir)`、`itemPricesInLore()`、`flyFeeCents()`、`funFishing()`、
   `flyDigSpeedRestore()`、`shopSellLog()`、`balopHost()`、`balopPort()`、`balopDomain()`、
   `partialAdjust()`、`homeSettings()`、
-  `tpaSettings()`、`backSettings()`；`/config` 热重载支持
+  `tpaSettings()`、`backSettings()`；`/bm config` 热重载支持
   （`configKeys()` / `configType(key)` / `getValue(key)` / `apply(key, value)` / `save(configDir)`）。
 - 行为：文件缺失时 `writeDefault` 写入含全部段的默认 JSON（`fly`/`shop` 为嵌套段）；
   已有文件缺段时该段用默认值；**旧版顶层 key（flyFeePerSecond/flyDigSpeedRestore/shopSellLog/fastbuy/partialRuleAdjust）

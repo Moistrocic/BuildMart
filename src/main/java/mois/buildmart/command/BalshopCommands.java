@@ -84,8 +84,11 @@ public final class BalshopCommands {
 				.then(Commands.argument("item", ItemArgument.item(buildContext))
 						.then(Commands.argument("count", IntegerArgumentType.integer(1, MAX_BUY_PACK_BOXES))
 								.executes(BalshopCommands::buyPack))));
+		// /bm 既是便捷购买开关，也是本模组的缩写根：/bm config ... 为管理员配置修改
+		// （不做顶层 /config——客户端若存在同名客户端指令，Fabric 会取消发送，指令到不了服务端）
 		dispatcher.register(Commands.literal("bm")
-				.executes(BalshopCommands::buyMode));
+				.executes(BalshopCommands::buyMode)
+				.then(ConfigCommands.node()));
 	}
 
 	private static void registerShop(CommandDispatcher<CommandSourceStack> dispatcher,

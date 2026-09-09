@@ -109,7 +109,7 @@
 - 本仓库的架构文档位于 `docs/architecture/`：**`README.md` 是代码地图总览**——按包组织，包含构建信息、全局约定（金额单位、纯净端兼容、价格标签生命周期、26.3 同步协议等）与“已知坑位速查”表。新会话接续开发前**必须先读 `docs/architecture/README.md`**，再按需查阅对应 `package-*.md`。
 - 包文档清单：
   - `package-root.md` — 根包：Economy 入口、Money 金额工具、PriceLore 价格标签
-  - `package-command.md` — 全部指令（bal/pay/baltop/eco/shop/price/buy/bm/fly/传送/suicide/hongbao/config）
+  - `package-command.md` — 全部指令（bal/pay/baltop/eco/shop/price/buy/bm（含 bm config）/fly/传送/suicide/hongbao）
   - `package-config.md` — 配置与定价（config.json / items.json / enchantments.json + 初始定价表）
   - `package-data.md` — SQLite 资金数据库
   - `package-shop.md` — 箱子商店

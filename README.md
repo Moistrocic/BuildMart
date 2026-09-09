@@ -18,9 +18,9 @@
 - **便捷购买**：`/bm` 用原版创造界面购买——购买方向严格比对原版创造物品栏（改造物品一律不可购买）；拿起暂存、放回中性、丢弃/关界面卖出；数字键 1-9 槽间交换正确识别（不误扣款/不复制物品）。
 - **数据库管理前端**：`/balop start|stop`（仅管理员）启动本机 HTTP 管理面板（默认 `localhost:8899`，地址/端口可配置）——玩家资金增删改查（**允许负余额**，管理回滚场景）、交易流水查询（类型/渠道多选、金额区间、玩家排序）、删除与批量删除（同步回滚资金）；服务器关闭时面板自动关闭。
 - **红包**：`/hongbao 总金额 数量 口令` 发红包，聊天说出口令即自动领取（金额随机波动、全服广播、未领取/被覆盖自动返还）。
-- **趣味钓鱼**：`/config funFishing true` 开启后替换为自定义钓鱼战利品（按概率抽取、补全项、每件物品自带 lore 小故事）。
+- **趣味钓鱼**：`/bm config funFishing true` 开启后替换为自定义钓鱼战利品（按概率抽取、补全项、每件物品自带 lore 小故事）。
 - **快速投影购买**：`/fastbuy` 开启后，装了本模组客户端的玩家在 **litematica 投影**中键拾取无对应物品时自动购买一组（复用 `/buy` 定价与扣款）；关闭时不处理任何请求。
-- **局内配置**：`/config 配置项 参数`（Tab 补全、热重载写回 `config.json`，无需重启），含 `/config balop.host`、`/config balop.port`、`/config fastbuy`。
+- **局内配置**：`/bm config 配置项 参数`（Tab 补全、热重载写回 `config.json`，无需重启），含 `/bm config balop.host`、`/bm config balop.port`、`/bm config shop.fastbuy`。
 - **其他**：`/suicide`、进服公告、管理员红名等。
 
 ## 安装说明
@@ -37,7 +37,7 @@
 
 ## 配置与数据
 
-- 配置目录沿用旧名 `config/economy/`（兼容既有配置）：`config.json`（主配置，`/config` 热重载；含 `balop` 段：管理前端 host/port）、`items.json`（物品价）、`enchantments.json`（附魔价）、`fishing.json`（钓鱼战利品）、`spawner.json`（刷怪笼分级）。
+- 配置目录沿用旧名 `config/economy/`（兼容既有配置）：`config.json`（主配置，`/bm config` 热重载；含 `balop` 段：管理前端 host/port）、`items.json`（物品价）、`enchantments.json`（附魔价）、`fishing.json`（钓鱼战利品）、`spawner.json`（刷怪笼分级）。
 - 数据：`world/economy.db`（沿用旧文件名，兼容既有资金存档；SQLite：账户/交易流水/家/死亡点；旧库自动迁移）、`world/economy-shops.json`（商店）。
 - **客户端无需安装本模组**即可进入服务器（所有基础功能均由服务端下发，纯净端兼容）；
   客户端安装本模组为**可选增强**（快速投影购买等，见「安装说明」）。

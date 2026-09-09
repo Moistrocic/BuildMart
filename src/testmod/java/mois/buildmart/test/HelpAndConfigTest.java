@@ -7,12 +7,12 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import java.util.List;
 
 /**
- * /bmhelp 全部分页 + /config 全部配置项的查询/设置测试。
+ * /bmhelp 全部分页 + /bm config 全部配置项的查询/设置测试。
  * <p>
  * 覆盖要求：
  * <ul>
  * <li>/bmhelp 与 /bmhelp 1..N 输出正确页眉；超出页码给出「页码超出范围，共 N 页」；</li>
- * <li>/config 每个配置项：查询（/config key）与设置（/config key value）都能工作；</li>
+ * <li>/bm config 每个配置项：查询（/bm config key）与设置（/bm config key value）都能工作；</li>
  * <li>错误路径：未知配置项、非法布尔值、必填字符串不能为空、非管理员不可见。</li>
  * </ul>
  */
@@ -49,10 +49,11 @@ public final class HelpAndConfigTest {
 	}
 
 	/**
-	 * 纯净客户端（未装本模组）视角的指令可见性：/config 只对权限等级 ≥3（ADMIN）出现在下发的
-	 * 指令树里，且整条「发包→收包→客户端重建→解析」链路可用；普通玩家拿不到该节点。
-	 * 三条入口（/config、/bmconfig、/buildmart config）在管理员视角都应可解析
-	 * （客户端侧 /config 撞名时用后两条绕开 Fabric 的本地拦截）。
+	 * 纯净客户端（未装本模组）视角的指令可见性：`/bm config ...` 只对权限等级 ≥3（ADMIN）
+	 * 出现在下发的指令树里，且整条「发包→收包→客户端重建→解析」链路可用；
+	 * 普通玩家拿不到 config 子节点（`/bm` 本身仍可见——便捷购买对所有人开放）。
+	 * <p>
+	 * 之所以不做顶层 /config：客户端若存在同名**客户端侧**指令，Fabric 会取消发送（见 package-command.md）。
 	 */
 	@GameTest(structure = EMPTY_STRUCTURE)
 	public void configVisibleInVanillaClientTree(GameTestHelper helper) {
@@ -62,71 +63,62 @@ public final class HelpAndConfigTest {
 		String key = EconomyConfig.configKeys().iterator().next();
 
 		admin.expectState(() -> TestApi.canParseAsVanillaClientOverNetwork(admin.server(), dispatcher,
-				"config " + key, admin.source()), "管理员在纯净客户端视角应能解析 /config <key>");
-		admin.expectState(() -> TestApi.canParseAsVanillaClientOverNetwork(admin.server(), dispatcher,
-				"bmconfig " + key, admin.source()), "管理员在纯净客户端视角应能解析 /bmconfig <key>");
-		admin.expectState(() -> TestApi.canParseAsVanillaClientOverNetwork(admin.server(), dispatcher,
-				"buildmart config " + key, admin.source()),
-				"管理员在纯净客户端视角应能解析 /buildmart config <key>");
+				"bm config " + key, admin.source()), "管理员在纯净客户端视角应能解析 /bm config <key>");
+		player.expectState(() -> TestApi.canParseAsVanillaClientOverNetwork(admin.server(), dispatcher,
+				"bm", player.source()), "普通玩家应能解析 /bm（便捷购买）");
 		player.expectState(() -> !TestApi.canParseAsVanillaClientOverNetwork(admin.server(), dispatcher,
-				"config " + key, player.source()), "普通玩家不应拿到 /config 节点");
-		player.expectState(() -> !TestApi.canParseAsVanillaClientOverNetwork(admin.server(), dispatcher,
-				"buildmart config " + key, player.source()), "普通玩家不应拿到 /buildmart 节点");
+				"bm config " + key, player.source()), "普通玩家不应拿到 /bm config 子节点");
 		helper.succeed();
 	}
 
-	/** 三条入口（/config、/bmconfig、/buildmart config）结构与行为一致：查询与设置都生效。 */
+	/**
+	 * `/bm` 与 `/bm config` 共存：`/bm` 仍是便捷购买开关，`/bm config key [value]` 为管理员配置修改；
+	 * 同时守住「不再有顶层 /config、/bmconfig、/buildmart 等旧入口」与子节点结构（config → key → value）。
+	 */
 	@GameTest(structure = EMPTY_STRUCTURE)
-	public void configEntryPointsAreEquivalent(GameTestHelper helper) {
+	public void buyModeAndConfigCoexist(GameTestHelper helper) {
 		TestPlayer admin = TestPlayer.admin(helper);
 		var root = admin.server().getCommands().getDispatcher().getRoot();
-		var buildmart = root.getChild("buildmart");
-		admin.expectState(() -> root.getChild("config") != null && root.getChild("bmconfig") != null
-						&& buildmart != null && buildmart.getChild("config") != null,
-				"三条入口都应注册");
-		admin.expectState(() -> childNames(root.getChild("config"))
-						.equals(childNames(root.getChild("bmconfig")))
-						&& childNames(root.getChild("config")).equals(childNames(buildmart.getChild("config"))),
-				"三条入口的子节点结构应完全一致");
+		var bm = root.getChild("bm");
+		admin.expectState(() -> bm != null && bm.getChild("config") != null
+						&& bm.getChild("config").getChild("key") != null
+						&& bm.getChild("config").getChild("key").getChild("value") != null,
+				"/bm config 的子节点结构应为 config → key → value");
+		admin.expectState(() -> root.getChild("config") == null && root.getChild("bmconfig") == null
+						&& root.getChild("buildmart") == null,
+				"不应再存在顶层 /config、/bmconfig、/buildmart 入口");
 
+		// /bm 仍是便捷购买开关
+		admin.execute("/bm").expectMessage("便捷购买已开启");
+		admin.execute("/bm").expectMessage("已退出便捷购买");
+
+		// /bm config 查询与设置都生效
 		String boolKey = EconomyConfig.configKeys().stream()
 				.filter(key -> "bool".equals(EconomyConfig.configType(key)))
 				.findFirst()
 				.orElse(null);
 		if (boolKey == null) {
-			helper.fail("没有可用于入口用例的布尔配置项");
+			helper.fail("没有可用于该用例的布尔配置项");
 			return;
 		}
 		String original = EconomyConfig.getValue(boolKey);
-		for (String entry : List.of("/config ", "/bmconfig ", "/buildmart config ")) {
-			admin.execute(entry + boolKey)
-					.expectVisible(true)
-					.expectMessage(boolKey + " = ");
-			admin.execute(entry + boolKey + " false")
-					.expectMessage(boolKey + " 已设置为 ")
-					.expectState(() -> "false".equals(EconomyConfig.getValue(boolKey)),
-							entry.trim() + " 应能写入配置");
-			admin.execute(entry + boolKey + " " + original)
-					.expectMessage(boolKey + " 已设置为 ")
-					.expectState(() -> original.equals(EconomyConfig.getValue(boolKey)),
-							entry.trim() + " 应能恢复配置");
-		}
+		admin.execute("/bm config " + boolKey)
+				.expectVisible(true)
+				.expectMessage(boolKey + " = ");
+		admin.execute("/bm config " + boolKey + " false")
+				.expectMessage(boolKey + " 已设置为 ")
+				.expectState(() -> "false".equals(EconomyConfig.getValue(boolKey)), "/bm config 应能写入配置");
+		admin.execute("/bm config " + boolKey + " " + original)
+				.expectMessage(boolKey + " 已设置为 ")
+				.expectState(() -> original.equals(EconomyConfig.getValue(boolKey)), "/bm config 应能恢复配置");
 		helper.succeed();
-	}
-
-	private static java.util.Set<String> childNames(com.mojang.brigadier.tree.CommandNode<?> node) {
-		java.util.Set<String> names = new java.util.TreeSet<>();
-		for (var child : node.getChildren()) {
-			names.add(child.getName() + ":" + child.getChildren().size());
-		}
-		return names;
 	}
 
 	@GameTest(structure = EMPTY_STRUCTURE)
 	public void configQueryAllKeys(GameTestHelper helper) {
 		TestPlayer admin = TestPlayer.admin(helper);
 		for (String key : EconomyConfig.configKeys()) {
-			admin.execute("/config " + key)
+			admin.execute("/bm config " + key)
 					.expectVisible(true)
 					.expectMessage(key + " = ");
 		}
@@ -139,7 +131,7 @@ public final class HelpAndConfigTest {
 		for (String key : EconomyConfig.configKeys()) {
 			String original = EconomyConfig.getValue(key);
 			String probe = probeValue(key, original);
-			admin.execute("/config " + key + " " + probe)
+			admin.execute("/bm config " + key + " " + probe)
 					.expectMessage("已设置为");
 			// 复位：直接改内存，避免命令转义差异影响其它用例
 			EconomyConfig.apply(key, original);
@@ -152,15 +144,15 @@ public final class HelpAndConfigTest {
 		TestPlayer admin = TestPlayer.admin(helper);
 		String original = EconomyConfig.balopDomain();
 
-		admin.execute("/config balop.domain a.b.c")
+		admin.execute("/bm config balop.domain a.b.c")
 				.expectMessage("已设置为")
 				.expectState(() -> "a.b.c".equals(EconomyConfig.balopDomain()), "未加引号写法应生效");
 
-		admin.execute("/config balop.domain \"a.b.c\"")
+		admin.execute("/bm config balop.domain \"a.b.c\"")
 				.expectMessage("已设置为")
 				.expectState(() -> "a.b.c".equals(EconomyConfig.balopDomain()), "带引号写法应剥离引号");
 
-		admin.execute("/config balop.domain \"\"")
+		admin.execute("/bm config balop.domain \"\"")
 				.expectMessage("已设置为")
 				.expectState(() -> EconomyConfig.balopDomain().isEmpty(), "空引号应清空域名");
 
@@ -172,16 +164,16 @@ public final class HelpAndConfigTest {
 	public void configErrorPaths(GameTestHelper helper) {
 		TestPlayer admin = TestPlayer.admin(helper);
 
-		admin.execute("/config no.such.key").expectMessage("未知配置项");
-		admin.execute("/config itemPricesInLore maybe").expectMessage("需要 true 或 false");
-		admin.execute("/config balop.host \"\"").expectMessage("不能为空");
+		admin.execute("/bm config no.such.key").expectMessage("未知配置项");
+		admin.execute("/bm config itemPricesInLore maybe").expectMessage("需要 true 或 false");
+		admin.execute("/bm config balop.host \"\"").expectMessage("不能为空");
 
 		// 非管理员：不可见且不生效
 		boolean before = EconomyConfig.itemPricesInLore();
 		TestPlayer.player(helper)
-				.execute("/config itemPricesInLore " + (!before))
+				.execute("/bm config itemPricesInLore " + (!before))
 				.expectVisible(false)
-				.expectState(() -> EconomyConfig.itemPricesInLore() == before, "非管理员执行 /config 不应生效");
+				.expectState(() -> EconomyConfig.itemPricesInLore() == before, "非管理员执行 /bm config 不应生效");
 		helper.succeed();
 	}
 

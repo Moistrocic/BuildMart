@@ -25,7 +25,7 @@ import java.util.List;
  * 可含至多一个补全项（"chance": "remaining"），其概率 = 1 - 普通项之和，
  * 用于把剩余概率补全给某个物品。无补全项且概率和 < 1 时，剩余概率 = 钓不到东西。
  * <p>
- * 开关见 {@link mois.buildmart.config.EconomyConfig#funFishing()}（/config 可热重载）：
+ * 开关见 {@link mois.buildmart.config.EconomyConfig#funFishing()}（/bm config 可热重载）：
  * 关闭时钓鱼走原版战利品表，开启时由 FishingHookMixin 替换为按概率随机选取的配置战利品。
  * 配置非法（概率和 > 1、概率 ≤ 0、多个补全项等）或加载失败时视为未配置，回退原版。
  */

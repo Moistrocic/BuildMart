@@ -21,7 +21,7 @@
   - `ServerPlayConnectionEvents.DISCONNECT`：`PriceLore.untagPlayerAndMenu`、`FlyManager.onDisconnect`
     （收回能力但不退出模式）、`BuyModeManager.exit`。
   - `CommandRegistrationCallback`：`EconomyCommands.register`，日志“命令注册完成
-    （bal/pay/baltop/bmhelp/announcement/eco/shop/price/buy/bm/fly/home/sethome/delhome/listhome/tpa/tpahere/tpaccept/back/suicide/hongbao/config）”。
+    （bal/pay/baltop/bmhelp/announcement/eco/shop/price/buy/bm/fly/home/sethome/delhome/listhome/tpa/tpahere/tpaccept/back/suicide/hongbao/bm config）”。
 - 末尾打印启动标记 `BuildMart Loaded!`。
 - `id(String path)` → `Identifier.fromNamespaceAndPath("economy", path)`（当前未被使用，预留）。
 

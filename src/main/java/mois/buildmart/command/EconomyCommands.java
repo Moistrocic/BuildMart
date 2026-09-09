@@ -90,11 +90,10 @@ public final class EconomyCommands {
 	}
 
 	public static void register(CommandDispatcher<CommandSourceStack> dispatcher, CommandBuildContext buildContext) {
-		BalshopCommands.register(dispatcher, buildContext);
+		BalshopCommands.register(dispatcher, buildContext); // 含 /bm config（ConfigCommands.node）
 		FlyCommands.register(dispatcher, buildContext);
 		TeleportCommands.register(dispatcher, buildContext);
 		HongbaoCommands.register(dispatcher, buildContext);
-		ConfigCommands.register(dispatcher, buildContext);
 		SpawnerCommands.register(dispatcher, buildContext);
 		FastbuyCommands.register(dispatcher, buildContext);
 		RuleCommands.register(dispatcher, buildContext);

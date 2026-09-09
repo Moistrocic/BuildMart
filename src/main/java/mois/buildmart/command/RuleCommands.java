@@ -21,7 +21,7 @@ import java.lang.reflect.Field;
 import java.util.function.Predicate;
 
 /**
- * 部分规则调整指令（受 /config rule.partialAdjust 控制，配置为 true 时**普通玩家**也可用；
+ * 部分规则调整指令（受 /bm config rule.partialAdjust 控制，配置为 true 时**普通玩家**也可用；
  * 权限等级 2（LEVEL_GAMEMASTERS）及以上的管理员始终可用）：
  * <ul>
  * <li>原版 /weather、/time —— 原版指令本身（保持 26.3 原版语义/参数），注册后把根节点
@@ -51,8 +51,8 @@ public final class RuleCommands {
 	}
 
 	/**
-	 * 部分规则调整权限：配置开启（/config rule.partialAdjust true）或等级 2 及以上管理员。
-	 * 动态读取配置，因此 /config 热改即时生效（含收回权限）。
+	 * 部分规则调整权限：配置开启（/bm config rule.partialAdjust true）或等级 2 及以上管理员。
+	 * 动态读取配置，因此 /bm config 热改即时生效（含收回权限）。
 	 */
 	private static boolean allowed(CommandSourceStack source) {
 		return EconomyConfig.partialAdjust() || GAMEMASTER.test(source);
@@ -99,7 +99,7 @@ public final class RuleCommands {
 			Field requirement = CommandNode.class.getDeclaredField("requirement");
 			requirement.setAccessible(true);
 			requirement.set(node, (Predicate<CommandSourceStack>) RuleCommands::allowed);
-			BuildMart.LOGGER.info("/{} 指令权限已挂载部分规则调整开关（/config rule.partialAdjust）", name);
+			BuildMart.LOGGER.info("/{} 指令权限已挂载部分规则调整开关（/bm config rule.partialAdjust）", name);
 		} catch (ReflectiveOperationException e) {
 			BuildMart.LOGGER.warn("/{} 指令权限放宽失败，保持原版权限（等级 2）", name, e);
 		}

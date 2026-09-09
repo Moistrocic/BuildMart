@@ -19,7 +19,7 @@ import net.minecraft.world.level.block.entity.SpawnerBlockEntity;
  * <ul>
  * <li>{@code /spawner info} — 查看准星对准的刷怪笼（类型/等级/生成参数/可调范围/升级费用）；</li>
  * <li>{@code /spawner upgrade} — 升级（纯金钱，等级效果与费用来自 spawner.json；
- *     Lv 0 为原版生成机制；/config spawner.upgrade 总开关）；</li>
+ *     Lv 0 为原版生成机制；/bm config spawner.upgrade 总开关）；</li>
  * <li>{@code /spawner set <参数> <值>} — 微调生成参数（minDelay/maxDelay/count/nearby/
  *     playerRange/spawnRange），值受当前等级允许范围约束（Lv 0 不可微调）；</li>
  * <li>{@code /spawner give} — 管理员获得带标签的刷怪笼物品。</li>

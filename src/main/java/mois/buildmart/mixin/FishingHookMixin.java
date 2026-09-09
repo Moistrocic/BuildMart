@@ -25,7 +25,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import java.util.List;
 
 /**
- * 趣味钓鱼：/config funFishing 开启时，鱼钩收回（retrieve 的战利品路径，
+ * 趣味钓鱼：/bm config funFishing 开启时，鱼钩收回（retrieve 的战利品路径，
  * 即未钩住实体且已上钩）直接用 FishingManager 按概率选取的配置战利品替换原版战利品表，
  * 并沿用原版的生成方式（鱼钩位置抛向玩家 + 经验球）与 FISHING_ROD_HOOKED 成就触发。
  * 关闭时放行原版处理。配置未加载（概率和非法等）时同样回退原版。
