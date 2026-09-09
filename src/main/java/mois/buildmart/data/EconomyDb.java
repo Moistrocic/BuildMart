@@ -232,6 +232,21 @@ public final class EconomyDb {
 		}
 	}
 
+	/**
+	 * 按 UUID 直查账户名（自检专用）。
+	 * 不能用 {@code topAccounts} 校验：那按余额倒序取前 N 名，账户数超过 N 且余额更高时
+	 * 会把被校验的账户挤出榜单，导致自检误判、数据库初始化失败。
+	 */
+	private static String queryName(UUID uuid) throws SQLException {
+		try (PreparedStatement ps = connection.prepareStatement(
+				"SELECT name FROM economy_accounts WHERE uuid = ?")) {
+			ps.setString(1, uuid.toString());
+			try (ResultSet rs = ps.executeQuery()) {
+				return rs.next() ? rs.getString(1) : null;
+			}
+		}
+	}
+
 	/** 数据库自检：写入、读取、转账、余额不足拦截各验证一次，随后清理测试数据。 */
 	private static void runSelfTest() throws SQLException {
 		UUID a = UUID.randomUUID();
@@ -250,7 +265,7 @@ public final class EconomyDb {
 			if (getBalance(c) != 500L) {
 				throw new IllegalStateException("新账户入账失败");
 			}
-			if (!topAccounts(100, 0).stream().anyMatch(e -> e.uuid().equals(c) && e.name().equals("自检C"))) {
+			if (!"自检C".equals(queryName(c))) {
 				throw new IllegalStateException("新账户名字未正确存储");
 			}
 			deleteAccount(c);
@@ -260,7 +275,7 @@ public final class EconomyDb {
 			if (getBalance(a) != amount - 99999L || getBalance(b) != 99999L) {
 				throw new IllegalStateException("转账后余额不一致");
 			}
-			if (!topAccounts(100, 0).stream().anyMatch(e -> e.uuid().equals(b) && e.name().equals("自检B"))) {
+			if (!"自检B".equals(queryName(b))) {
 				throw new IllegalStateException("转账目标名字被覆盖");
 			}
 			if (transfer(b, a, "自检A", 99999L + 1)) {
