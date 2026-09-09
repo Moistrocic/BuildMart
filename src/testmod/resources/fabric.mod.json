@@ -9,7 +9,8 @@
 	"entrypoints": {
 		"fabric-gametest": [
 			"mois.buildmart.test.HelpAndConfigTest",
-			"mois.buildmart.test.EconomyCommandTest"
+			"mois.buildmart.test.EconomyCommandTest",
+			"mois.buildmart.test.RuleCommandTest"
 		]
 	},
 	"mixins": [
