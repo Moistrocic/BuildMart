@@ -46,14 +46,18 @@ public final class TestApi {
 	}
 
 	/**
-	 * 该指令对给定命令源是否可解析（requirement 通过且匹配到可执行节点）。
+	 * 该指令对给定命令源是否可解析（requirement 通过、匹配到可执行节点，且**整条输入被消费**）。
 	 * brigadier 在 parseNodes 阶段用 {@code canUse(source)} 过滤节点，因此本方法
 	 * 能真实反映"玩家输入该指令时服务端会不会走到执行层"。
+	 * <p>
+	 * 必须校验输入被完整消费：父节点可执行时（如 {@code /bm}），无权限的子节点会被跳过、
+	 * 解析停在父节点并留下未消费的输入——那种情况等同于解析失败（客户端也会报
+	 * dispatcherUnknownArgument），只检查 getCommand() 会误判为可用。
 	 */
 	public static boolean canParse(CommandDispatcher<CommandSourceStack> dispatcher,
 			String command, CommandSourceStack source) {
 		ParseResults<CommandSourceStack> result = dispatcher.parse(command, source);
-		return result.getContext().getCommand() != null;
+		return result.getContext().getCommand() != null && !result.getReader().canRead();
 	}
 
 	/**
